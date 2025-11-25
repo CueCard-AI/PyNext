@@ -1,508 +1,843 @@
 # PyNext 🐍⚡
 
-A Python web framework that brings **Next.js-style routing** and **SolidJS-inspired fine-grained reactivity** to the Python ecosystem.
+**Build modern, reactive web apps in pure Python.**
 
-## Features
-
-- 📁 **File-based Routing** - Create pages in `pages/` and routes are automatically generated
-- ⚡ **Fine-grained Reactivity** - Signals, Effects, Memos, and Stores for precise DOM updates
-- 🐍 **Server Actions** - Call Python functions from the client with full package access
-- 📦 **NPM Integration** - Use npm packages with automatic bundling via esbuild
-- 🔥 **Hot Reloading** - Instant updates during development
-- 🎨 **Pythonic API** - Clean, decorator-based component syntax
-- ⏳ **Suspense & Streaming** - Progressive rendering with loading states (5,000x faster TTFB)
-- 🛡️ **Error Boundaries** - Graceful error handling with fallbacks
-- 🏝️ **Islands Architecture** - Selective hydration for 95%+ smaller JS bundles
-- 📦 **Code Splitting** - Lazy loading with per-route bundles and smart prefetching
-- 🎬 **View Transitions** - Smooth page transitions with the View Transitions API
-- 🖼️ **Image Optimization** - Build-time processing, AVIF/WebP, zero JS for static images
-- 📄 **Static Site Generation** - Zero JS for static pages, incremental builds
-- ♻️ **Incremental Static Regeneration** - Component-level cache invalidation
-- 🔀 **Edge Middleware** - O(1) route matching, streaming, lazy loading
-- 🌍 **Internationalization** - Signal-based i18n with direct DOM updates (no re-renders)
-
-## Documentation
-
-### Core Guides
-| Guide | Description |
-|-------|-------------|
-| **[Getting Started](docs/GETTING_STARTED.md)** | Installation, first project, tutorial walkthrough |
-| **[Routing](docs/ROUTING.md)** | File-based routing, dynamic routes, navigation |
-| **[Layouts](docs/LAYOUTS.md)** | Nested layouts, loading states, error boundaries |
-| **[HTML API](docs/HTML_API.md)** | All elements, attributes, event handlers |
-| **[State Management](docs/STATE_MANAGEMENT.md)** | Signals, Stores, Computed, Effects |
-| **[Server Actions](docs/SERVER_ACTIONS.md)** | RPC, Python packages, security |
-| **[API Routes](docs/API_ROUTES.md)** | REST endpoints, HTTP methods, responses |
-| **[Configuration](docs/CONFIGURATION.md)** | All config options, environments |
-
-### Advanced Guides
-| Guide | Description |
-|-------|-------------|
-| **[Hydration](docs/HYDRATION.md)** | Server→Client state transfer, Resource hydration |
-| **[Streaming & Suspense](docs/STREAMING_SUSPENSE.md)** | Progressive rendering, out-of-order streaming, benchmarks |
-| **[Islands Architecture](docs/ISLANDS.md)** | Selective hydration, @island decorator, 95%+ smaller bundles |
-| **[Code Splitting](docs/CODE_SPLITTING.md)** | Lazy loading, per-route bundles, prefetching |
-| **[Transitions](docs/TRANSITIONS.md)** | View Transitions API, SPA navigation, animations |
-| **[Image Optimization](docs/IMAGE_OPTIMIZATION.md)** | Build-time processing, zero JS, AVIF-first |
-| **[Font Optimization](docs/FONT_OPTIMIZATION.md)** | Zero layout shift, zero JS, build-time size-adjust |
-| **[Script Optimization](docs/SCRIPT_OPTIMIZATION.md)** | Zero wrapper JS, native loading, build-time analysis |
-| **[Static Generation](docs/STATIC_GENERATION.md)** | SSG with zero JS detection, incremental builds |
-| **[ISR](docs/ISR.md)** | Component-level cache invalidation, on-demand revalidation |
-| **[Middleware](docs/MIDDLEWARE.md)** | Edge middleware, O(1) matching, streaming |
-| **[Internationalization](docs/I18N.md)** | Signal-based i18n, direct DOM updates, lazy loading |
-| **[Partial Prerendering](docs/PARTIAL_PRERENDERING.md)** | Component-level PPR, static shells, dynamic holes |
-| **[Parallel Routes](docs/PARALLEL_ROUTES.md)** | Independent streaming, slot-level caching, selective hydration |
-| **[Intercepting Routes](docs/INTERCEPTING_ROUTES.md)** | Modal patterns, static background, URL-driven state |
-| **[State + Data Integration](docs/STATE_DATA_INTEGRATION.md)** | Signals with Server Actions & API Routes |
-| **[State Patterns](docs/STATE_PATTERNS.md)** | Forms, async, state machines, advanced patterns |
-| **[React Integration](docs/REACT_INTEGRATION.md)** | Using React/npm components |
-| **[NPM Packages](docs/NPM_PACKAGES.md)** | Chart.js, D3, lodash, bundle optimization |
-| **[CLI Reference](docs/CLI.md)** | Commands, options, environment variables |
-| **[Testing](docs/TESTING.md)** | Unit tests, integration, E2E with Playwright |
-| **[Deployment](docs/DEPLOYMENT.md)** | Docker, cloud platforms, production setup |
-
-## Quick Start
-
-```bash
-# Create a new project
-pynext init my-app
-
-# Navigate and start dev server
-cd my-app
-pip install pynext
-pynext dev
-
-# Open http://localhost:3000
-```
-
-## Component Syntax
-
-PyNext uses a Pythonic, decorator-based syntax for components:
+PyNext combines the best ideas from modern JavaScript frameworks—but lets you write everything in Python. Get Next.js-style file routing, SolidJS-inspired reactivity, and the entire Python ecosystem on your server.
 
 ```python
-from pynext import component, page, Signal, div, h1, button, span
+from pynext import page, Signal, div, h1, button, span
 
-@component
-def Counter():
+@page
+def home():
     count = Signal(0)
     
-    return div(class_="counter")[
-        h1()["Count: ", span()[count]],
-        button(onclick=lambda: count.update(lambda x: x + 1))["Increment"]
-    ]
-
-@page(title="Home")
-def index():
     return div()[
         h1()["Welcome to PyNext!"],
-        Counter()
+        button(onclick=lambda: count.set(count() + 1))[
+            "Clicked ", span()[count], " times"
+        ]
     ]
 ```
 
-## Reactive Primitives
+That's it. No JavaScript. No build step for basic apps. Just Python.
 
-### Signal
-A reactive value that triggers updates when changed:
+---
+
+## Why PyNext?
+
+### The Problem
+
+Building modern web apps typically means:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                     THE TRADITIONAL STACK                                    │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│   Your Python Backend                Your JavaScript Frontend               │
+│   ──────────────────                 ────────────────────────               │
+│   • FastAPI/Django/Flask             • React/Vue/Svelte                     │
+│   • Business logic                   • UI components                        │
+│   • Database access                  • State management                     │
+│   • ML/Data processing               • API calls back to Python             │
+│                                                                              │
+│                          ┌─────────────┐                                    │
+│                          │   REST API  │                                    │
+│                          │   GraphQL   │                                    │
+│                          │   JSON      │                                    │
+│                          └─────────────┘                                    │
+│                                                                              │
+│   You end up maintaining TWO codebases, TWO languages, TWO mental models.  │
+│   Data serialization overhead. Type mismatches. Double the complexity.      │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### The PyNext Solution
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         THE PYNEXT STACK                                     │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│                         JUST PYTHON                                          │
+│                         ───────────                                          │
+│                                                                              │
+│   ┌─────────────────────────────────────────────────────────────────────┐   │
+│   │                                                                      │   │
+│   │     @page                                                            │   │
+│   │     def dashboard():                                                 │   │
+│   │         users = Resource(fetch_users)         # Async data           │   │
+│   │         theme = Signal("dark")                # Reactive state       │   │
+│   │                                                                      │   │
+│   │         return div()[                                                │   │
+│   │             UserTable(users=users),           # Component            │   │
+│   │             ThemeToggle(theme=theme)          # Interactive          │   │
+│   │         ]                                                            │   │
+│   │                                                                      │   │
+│   └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                              │
+│   • One language, one codebase, one mental model                            │
+│   • Full Python ecosystem (pandas, numpy, scikit-learn, etc.)               │
+│   • Reactive UI with surgical DOM updates                                   │
+│   • Server Actions: call Python from button clicks                          │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Vision
+
+**PyNext exists because Python developers deserve a first-class web framework.**
+
+Not a Python-to-JavaScript transpiler. Not a wrapper around React. A framework that:
+
+1. **Embraces Python's strengths** — Dynamic typing, decorators, the massive package ecosystem
+2. **Learns from JavaScript's best ideas** — Fine-grained reactivity, file-based routing, islands architecture
+3. **Ships minimal JavaScript** — Only what's needed for interactivity
+4. **Keeps complexity low** — No virtual DOM, no hydration mismatches, no "use client" directives
+
+---
+
+## Design Inspirations
+
+PyNext stands on the shoulders of giants:
+
+| Framework | What We Learned |
+|-----------|-----------------|
+| **Next.js** | File-based routing, layouts, server components, ISR, middleware |
+| **SolidJS** | Fine-grained reactivity (Signals), no virtual DOM, surgical updates |
+| **Astro** | Islands architecture, ship minimal JavaScript, content-first |
+| **HTMX** | Server-driven UI, HTML as the hypermedia |
+| **FastAPI** | Pythonic API design, automatic docs, modern async |
+
+### The Key Insight: Fine-Grained Reactivity
+
+Most frameworks (React, Vue) use a **virtual DOM**: when state changes, they re-render components and diff against the previous output.
+
+PyNext uses **fine-grained reactivity** (like SolidJS): when state changes, we update **only the exact DOM nodes** that depend on that state.
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│              VIRTUAL DOM (React)              FINE-GRAINED (PyNext)         │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│   count.set(5)                               count.set(5)                   │
+│        │                                          │                         │
+│        ▼                                          ▼                         │
+│   Re-render component                        Signal notifies                │
+│        │                                          │                         │
+│        ▼                                          ▼                         │
+│   Create virtual DOM                         Update <span>                  │
+│        │                                     (direct mutation)              │
+│        ▼                                                                    │
+│   Diff with previous                         Done! (~0.1ms)                 │
+│        │                                                                    │
+│        ▼                                                                    │
+│   Apply patches                                                             │
+│        │                                                                    │
+│        ▼                                                                    │
+│   Done! (~2-5ms)                                                            │
+│                                                                              │
+│   More work, but enables                     Less work, faster updates,     │
+│   time-slicing, suspense                     simpler mental model           │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Core Concepts
+
+### 1. Signals: Reactive Values
+
+A Signal is a container for a value that can notify subscribers when it changes.
 
 ```python
 from pynext import Signal
 
-count = Signal(0)
-name = Signal("World")
+count = Signal(0)       # Create with initial value
 
-# Read
-print(count())  # 0
-
-# Write
-count.set(5)
-count.update(lambda x: x + 1)
+count()                 # Read: returns 0
+count.set(5)            # Write: sets to 5
+count.update(lambda x: x + 1)  # Update: applies function
 ```
 
-### Computed / Memo
-Derived values that auto-update:
+**Why Signals?** They're the foundation of reactivity. When you put a Signal in your UI, PyNext automatically tracks the dependency and updates just that part when the Signal changes.
 
 ```python
-from pynext import Signal, Computed
-
-count = Signal(5)
-doubled = Computed(lambda: count() * 2)
-
-print(doubled())  # 10
-count.set(10)
-print(doubled())  # 20
-```
-
-### Store
-Nested reactive state:
-
-```python
-from pynext import Store
-
-user = Store({
-    "name": "Alice",
-    "settings": {"theme": "dark"}
-})
-
-# Access
-print(user.name)  # "Alice"
-print(user.settings.theme)  # "dark"
-
-# Update
-user.name = "Bob"
-user.settings.theme = "light"
-```
-
-### Effect
-Side effects that run when dependencies change:
-
-```python
-from pynext import Signal, Effect
-
-count = Signal(0)
-
-@Effect
-def log_changes():
-    print(f"Count changed to: {count()}")
-```
-
-### Resource
-Async data fetching with automatic loading/error states:
-
-```python
-from pynext import Resource, Signal
-
-# Simple resource
-users = Resource(fetch_users)
-await users.fetch()
-
-# Resource with reactive source (refetches when source changes)
-user_id = Signal(1)
-user = Resource(fetch_user, source=user_id)
-
-# Access states
-user.loading()   # True while fetching
-user.error()     # Exception if failed
-user()           # The data
-user.latest      # Last successful value (stale during refresh)
-
-# Operations
-await user.refetch()     # Force refetch
-await user.mutate(data)  # Optimistic update
-user.invalidate()        # Mark stale
-```
-
-> 📖 **Full Documentation:** [Hydration Guide](docs/HYDRATION.md) - Resource hydration, payload optimization
-
-### Suspense
-Show loading states while async data loads:
-
-```python
-from pynext import Suspense, Show, Switch, Match, ErrorBoundary
-
-# Suspense with fallback while loading
-Suspense(fallback=Skeleton())[
-    UserProfile()  # Shows Skeleton until data ready
-]
-
-# Conditional rendering
-Show(when=user.loading, fallback=Spinner())[
-    UserCard(user=user())
-]
-
-# Multi-way conditional
-Switch()[
-    Match(when=lambda: status() == "loading")[Spinner()],
-    Match(when=lambda: status() == "error")[ErrorMessage()],
-    Match()[Content()]  # Default
-]
-
-# Error boundary for graceful degradation
-ErrorBoundary(fallback=lambda e: ErrorDisplay(e))[
-    RiskyComponent()
+# Only the <span> updates when count changes, not the whole component
+button()[
+    "Clicked ", span()[count], " times"  
 ]
 ```
 
-> 📖 **Full Documentation:** [Streaming & Suspense](docs/STREAMING_SUSPENSE.md) - Progressive rendering, benchmarks
+### 2. Pages: File-Based Routing
 
-### Islands (Selective Hydration)
-Only hydrate interactive components - static content stays as pure HTML:
-
-```python
-from pynext import island, static, Signal, HydrationStrategy
-
-@island  # 🏝️ Only this component gets JavaScript
-def Counter():
-    count = Signal(0)
-    return button(onclick=lambda: count.set(count() + 1))[
-        "Count: ", count
-    ]
-
-@island(strategy=HydrationStrategy.VISIBLE)  # Hydrate when scrolled into view
-def LazyChart():
-    return ChartComponent(data=chart_data)
-
-@static  # Explicitly no JavaScript
-def Footer():
-    return footer()["© 2024 Company"]
-
-@page
-def HomePage():
-    return div()[
-        h1()["Welcome"],     # Static - 0 bytes JS
-        Counter(),            # 🏝️ Island - ~500 bytes JS
-        LazyChart(),          # 🏝️ Island - loads on scroll
-        Footer(),             # Static - 0 bytes JS
-    ]
-```
-
-**Result:** 95%+ smaller JavaScript bundles vs full hydration!
-
-> 📖 **Full Documentation:** [Islands Architecture](docs/ISLANDS.md) - Strategies, bundle analysis, best practices
-
-## State Management
-
-PyNext uses **fine-grained reactivity** - state changes update only the specific DOM nodes that depend on them, not entire components.
-
-> 📖 **Full Documentation:**
-> - [State Management Guide](docs/STATE_MANAGEMENT.md) - Core concepts and API
-> - [Advanced State Patterns](docs/STATE_PATTERNS.md) - Forms, async, state machines
-
-### How It Works
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                     Signal Update Flow                           │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│   count.set(5)                                                  │
-│        │                                                         │
-│        ▼                                                         │
-│   ┌─────────────────────────────────────────────────────────┐   │
-│   │              Signal notifies subscribers                 │   │
-│   └─────────────────────────────────────────────────────────┘   │
-│        │                    │                    │               │
-│        ▼                    ▼                    ▼               │
-│   ┌──────────┐       ┌──────────┐        ┌──────────┐          │
-│   │  DOM     │       │ Computed │        │  Effect  │          │
-│   │ span     │       │ doubled  │        │ logger   │          │
-│   │ updates  │       │ recalcs  │        │ runs     │          │
-│   └──────────┘       └──────────┘        └──────────┘          │
-│                                                                  │
-│   No virtual DOM diffing - direct, surgical updates!            │
-│                                                                  │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### State Primitives Summary
-
-| Primitive | Purpose | Example |
-|-----------|---------|---------|
-| `Signal` | Single reactive value | `count = Signal(0)` |
-| `Store` | Nested reactive object | `user = Store({"name": "Alice"})` |
-| `Computed` | Derived value (auto-deps) | `doubled = Computed(lambda: count() * 2)` |
-| `Effect` | Side effects (auto-deps) | `@Effect def log(): print(count())` |
-| `Resource` | Async data with states | `users = Resource(fetch_users)` |
-| `Suspense` | Loading boundaries | `Suspense(fallback=Spinner())[Content()]` |
-| `Show` | Conditional rendering | `Show(when=visible)[Content()]` |
-| `ErrorBoundary` | Error handling | `ErrorBoundary(fallback=...)[Risky()]` |
-| `@island` | Selective hydration | `@island def Widget(): ...` |
-| `@static` | No hydration | `@static def Footer(): ...` |
-| `batch` | Group updates | `batch(lambda: (a.set(1), b.set(2)))` |
-
-### Server-to-Client Flow
-
-```python
-# Python (Server)
-count = Signal(0)
-
-@page
-def my_page():
-    return span()[count]  # Renders with hydration markers
-
-# HTML Output
-# <span data-signal="sig_123">0</span>
-# <script>window.__PYNEXT_HYDRATION__ = {...}</script>
-
-# JavaScript (Client) 
-# Hydrates signals, attaches event handlers
-# count.set(5) → Updates only this span element
-```
-
-## File-based Routing
-
-Create files in the `pages/` directory:
+Create a file, get a route. No configuration needed.
 
 ```
 pages/
 ├── index.py        → /
 ├── about.py        → /about
-├── users/
-│   ├── index.py    → /users
-│   └── [id].py     → /users/:id
+├── blog/
+│   ├── index.py    → /blog
+│   └── [slug].py   → /blog/:slug (dynamic)
 └── docs/
-    └── [...slug].py → /docs/* (catch-all)
+    └── [...path].py → /docs/* (catch-all)
 ```
 
-### Dynamic Routes
-
 ```python
-# pages/users/[id].py
+# pages/blog/[slug].py
 from pynext import page, get_params
 
-@page(title="User Profile")
-def user_profile():
+@page(title="Blog Post")
+def blog_post():
     params = get_params()
-    user_id = params.get("id")
+    slug = params["slug"]  # From URL
     
-    return div()[f"User ID: {user_id}"]
+    return article()[
+        h1()[f"Post: {slug}"]
+    ]
 ```
 
-## Server Actions
+### 3. Server Actions: RPC to Python
 
-Call Python functions from the client with full access to the Python ecosystem.
-
-> 📖 **Full Documentation:**
-> - [Server Actions Guide](docs/SERVER_ACTIONS.md) - Complete RPC system, security, and patterns
+Call Python functions directly from UI events. No REST API needed.
 
 ```python
-from pynext import server_action, button
-import pandas as pd  # Use any Python package!
+from pynext import server_action, Signal, button, div
+import pandas as pd  # Use ANY Python package!
 
 @server_action
-async def analyze_data(file_path: str) -> dict:
-    df = pd.read_csv(file_path)
+async def analyze_csv(file_path: str) -> dict:
+    df = pd.read_csv(file_path)  # Full Python power
     return {
         "rows": len(df),
-        "columns": list(df.columns),
-        "summary": df.describe().to_dict()
+        "mean": df["sales"].mean(),
+        "top_product": df.groupby("product")["sales"].sum().idxmax()
     }
 
-# In your component
-button(onclick=lambda: analyze_data("/data/sales.csv"))["Analyze"]
+@page
+def analytics():
+    result = Signal(None)
+    
+    async def run_analysis():
+        result.set(await analyze_csv("/data/sales.csv"))
+    
+    return div()[
+        button(onclick=run_analysis)["Analyze Sales Data"],
+        Show(when=result)[
+            div()[f"Found {result()['rows']} rows"]
+        ]
+    ]
 ```
 
-### How It Works
+**How it works:**
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                  Server Action Flow                              │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│   BROWSER                          SERVER                        │
-│   ────────                         ──────                        │
-│                                                                  │
-│   button click                                                   │
-│        │                                                         │
-│        ▼                                                         │
-│   callAction()  ──── POST /_pynext/action ────▶  FastAPI        │
-│                      {actionId, args}            Endpoint        │
-│                                                     │            │
-│                                                     ▼            │
-│                                              Action Registry     │
-│                                                     │            │
-│                                                     ▼            │
-│                                              @server_action      │
-│                                              async def analyze() │
-│                                                 import pandas    │
-│                                                 ...full Python!  │
-│                                                     │            │
-│   Update UI     ◀──── {data: {...}} ────────────────┘           │
-│   (Signals)                                                      │
-│                                                                  │
-└─────────────────────────────────────────────────────────────────┘
+Browser                                Server
+───────                                ──────
+button click
+    │
+    ▼
+POST /_pynext/action ─────────────────▶ FastAPI receives
+    {action: "analyze_csv",              │
+     args: ["/data/sales.csv"]}          ▼
+                                      @server_action runs
+                                      (full Python access)
+                                         │
+Update Signal ◀─────────────────────── Return JSON
+Update DOM (just the result div)
 ```
 
-### Key Features
-
-| Feature | Description |
-|---------|-------------|
-| **Full Python** | Use pandas, numpy, scikit-learn, any pip package |
-| **Type Hints** | Automatic validation with Pydantic |
-| **Async/Sync** | Both supported (sync runs in thread pool) |
-| **JSON-RPC** | Simple `{actionId, args}` → `{data, error}` protocol |
-| **File Access** | Read/write files, database connections |
-| **Security** | Built-in patterns for auth, rate limiting, validation |
-
-## NPM Integration
-
-Use npm packages in your PyNext apps:
+### 4. Components: Reusable UI
 
 ```python
-# pynext.config.py
-npm_packages = [
-    "chart.js",
-    "lodash",
-    {"d3": "^7.0.0"}
-]
+from pynext import component, Signal, div, button, span
+
+@component
+def Counter(initial: int = 0):
+    count = Signal(initial)
+    
+    return div(class_="counter")[
+        span()[count],
+        button(onclick=lambda: count.update(lambda x: x + 1))["+"],
+        button(onclick=lambda: count.update(lambda x: x - 1))["-"],
+    ]
+
+# Use it
+@page
+def home():
+    return div()[
+        Counter(initial=10),
+        Counter(initial=0),
+    ]
 ```
+
+### 5. Layouts: Shared UI
+
+Wrap pages in consistent layouts. Layouts nest automatically.
 
 ```python
-from pynext.bundler import npm_import
+# pages/layout.py - wraps ALL pages
+@layout
+def root_layout(children):
+    return html()[
+        head()[title()["My App"]],
+        body()[
+            nav()[a(href="/")["Home"], a(href="/about")["About"]],
+            main()[children],  # Page content goes here
+            footer()["© 2024"]
+        ]
+    ]
 
-chart_url = npm_import("chart.js")
-# Use in your component...
+# pages/dashboard/layout.py - wraps /dashboard/* pages
+@layout
+def dashboard_layout(children):
+    return div(class_="dashboard")[
+        Sidebar(),
+        div(class_="content")[children]
+    ]
 ```
 
-## HTML Elements
+---
 
-PyNext provides all standard HTML elements:
+## Getting Started
+
+### Install
+
+```bash
+pip install pynext
+```
+
+### Create a Project
+
+```bash
+pynext init my-app
+cd my-app
+pynext dev
+```
+
+Open http://localhost:3000
+
+### Project Structure
+
+```
+my-app/
+├── pages/              # Routes (file-based)
+│   ├── index.py        # → /
+│   ├── about.py        # → /about
+│   └── layout.py       # Wraps all pages
+├── components/         # Reusable components
+├── public/             # Static files (images, etc.)
+├── pynext.config.py    # Configuration
+└── pyproject.toml
+```
+
+### Your First Page
 
 ```python
-from pynext import (
-    # Layout
-    div, span, section, article, header, footer, nav, main,
-    
-    # Text
-    h1, h2, h3, p, a, strong, em, code, pre,
-    
-    # Forms
-    form, input_, textarea, button, select, option, label,
-    
-    # Lists
-    ul, ol, li,
-    
-    # Tables
-    table, thead, tbody, tr, th, td,
-    
-    # Media
-    img, video, audio, canvas, svg,
-)
+# pages/index.py
+from pynext import page, Signal, div, h1, p, button
 
-# Fluent API
-div(class_="container", id="main")[
-    h1()["Title"],
-    p()["Paragraph with ", strong()["bold"], " text"]
-]
+@page(title="Home", description="Welcome to my app")
+def home():
+    count = Signal(0)
+    
+    return div(class_="container")[
+        h1()["Hello, PyNext!"],
+        p()["A reactive Python web framework."],
+        
+        button(onclick=lambda: count.set(count() + 1))[
+        "Count: ", count
+    ]
+    ]
 ```
+
+---
+
+## When to Use PyNext
+
+### ✅ Great For
+
+| Use Case | Why PyNext Shines |
+|----------|-------------------|
+| **Data dashboards** | Python has pandas, numpy, plotly. No need to serialize to JS. |
+| **Internal tools** | Fast development, full backend access, simple deployment |
+| **ML/AI interfaces** | Call scikit-learn, transformers, etc. directly from UI |
+| **Content sites** | Static generation, ISR, zero JS for static pages |
+| **Prototypes** | Ship fast, iterate faster, one language to maintain |
+
+### ⚠️ Consider Alternatives For
+
+| Use Case | Better Alternative |
+|----------|--------------------|
+| Heavy client-side apps (games, editors) | React, Vue, or vanilla JS |
+| Existing large React codebase | Keep React, add Python API |
+| Team with no Python experience | Stick with JS frameworks |
+
+---
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           PYNEXT ARCHITECTURE                                │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│                              REQUEST                                         │
+│                                 │                                            │
+│                                 ▼                                            │
+│                         ┌───────────────┐                                   │
+│                         │   FastAPI     │                                   │
+│                         │   (ASGI)      │                                   │
+│                         └───────┬───────┘                                   │
+│                                 │                                            │
+│               ┌─────────────────┼─────────────────┐                         │
+│               ▼                 ▼                 ▼                         │
+│      ┌─────────────┐   ┌─────────────┐   ┌─────────────┐                   │
+│      │ Middleware  │   │   Router    │   │ API Routes  │                   │
+│      │ (auth, i18n)│   │(file-based) │   │ (REST)      │                   │
+│      └─────────────┘   └──────┬──────┘   └─────────────┘                   │
+│                               │                                             │
+│                               ▼                                             │
+│                      ┌─────────────────┐                                    │
+│                      │  Page Component │                                    │
+│                      │  + Layout       │                                    │
+│                      └────────┬────────┘                                    │
+│                               │                                             │
+│               ┌───────────────┼───────────────┐                             │
+│               ▼               ▼               ▼                             │
+│      ┌─────────────┐  ┌─────────────┐  ┌─────────────┐                     │
+│      │  Signals    │  │  Resources  │  │  Suspense   │                     │
+│      │  (state)    │  │  (async)    │  │  (loading)  │                     │
+│      └─────────────┘  └─────────────┘  └─────────────┘                     │
+│                               │                                             │
+│                               ▼                                             │
+│                      ┌─────────────────┐                                    │
+│                      │  HTML Render    │                                    │
+│                      │  + Hydration    │                                    │
+│                      │  Markers        │                                    │
+│                      └────────┬────────┘                                    │
+│                               │                                             │
+│                               ▼                                             │
+│                          RESPONSE                                           │
+│                      (HTML + ~5KB JS)                                       │
+│                                                                              │
+│                               │                                             │
+│                               ▼                                             │
+│                      ┌─────────────────┐                                    │
+│                      │  Browser        │                                    │
+│                      │  Hydration      │                                    │
+│                      │  (Signals live) │                                    │
+│                      └─────────────────┘                                    │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### The Hydration Process
+
+1. **Server renders** Python components to HTML with reactive markers
+2. **Browser receives** HTML (immediately visible) + small JS runtime (~5KB)
+3. **JS runtime hydrates** by connecting to marked DOM elements
+4. **Signals become live** — user interactions trigger updates
+
+```python
+# Python (Server)
+count = Signal(0)
+span()[count]
+
+# Rendered HTML
+<span data-pynext-signal="sig_123">0</span>
+
+# After Hydration (Browser)
+# sig_123 is now a live Signal
+# count.set(5) → <span> shows "5" instantly
+```
+
+---
+
+## Feature Overview
+
+### Rendering Strategies
+
+| Strategy | Use Case | JS Shipped |
+|----------|----------|------------|
+| **Full Hydration** | Interactive pages | ~5KB + components |
+| **Islands** | Mostly static with some interactive parts | ~500B per island |
+| **Static (SSG)** | Blogs, docs, marketing | **0 KB** |
+| **ISR** | Dynamic content that changes periodically | ~5KB |
+| **Streaming** | Large pages, slow data | ~5KB (progressive) |
+
+### State Primitives
+
+| Primitive | Purpose | Example |
+|-----------|---------|---------|
+| `Signal` | Single reactive value | `count = Signal(0)` |
+| `Store` | Nested reactive object | `user = Store({"name": "Alice"})` |
+| `Computed` | Derived value | `doubled = Computed(lambda: count() * 2)` |
+| `Effect` | Side effects | `@Effect def log(): print(count())` |
+| `Resource` | Async data with loading/error | `users = Resource(fetch_users)` |
+
+### Rendering Helpers
+
+| Helper | Purpose | Example |
+|--------|---------|---------|
+| `Show` | Conditional | `Show(when=visible)[Content()]` |
+| `For` | Lists | `For(each=items, render=Item)` |
+| `Switch/Match` | Multi-way conditional | `Switch()[Match(when=...)...]` |
+| `Suspense` | Loading boundaries | `Suspense(fallback=Spinner())[...]` |
+| `ErrorBoundary` | Error handling | `ErrorBoundary(fallback=...)[...]` |
+
+### Performance Features
+
+| Feature | What It Does | Benefit |
+|---------|--------------|---------|
+| **Islands** | Only hydrate interactive parts | 95%+ smaller JS |
+| **Code Splitting** | Per-route bundles, lazy loading | Faster initial load |
+| **Image Optimization** | Build-time AVIF/WebP, lazy load | Faster LCP |
+| **Font Optimization** | Precomputed fallback metrics | Zero CLS |
+| **Streaming** | Progressive HTML delivery | 5,000x faster TTFB |
+
+---
+
+## Comparison
+
+### PyNext vs Next.js
+
+| Aspect | Next.js | PyNext |
+|--------|---------|--------|
+| **Language** | JavaScript/TypeScript | Python |
+| **Reactivity** | Virtual DOM (React) | Fine-grained (Signals) |
+| **Server Access** | Server Components, API Routes | Server Actions (direct RPC) |
+| **Data Libraries** | Need to serialize to JSON | Use pandas, numpy directly |
+| **JS Bundle** | 50-200KB+ | 5KB base, 0 for static |
+| **Learning Curve** | React + Next.js concepts | Just Python |
+
+### PyNext vs HTMX
+
+| Aspect | HTMX | PyNext |
+|--------|------|--------|
+| **Interactivity** | Server-driven HTML swaps | Client-side reactivity |
+| **State** | Server-only | Client Signals + Server Actions |
+| **Granularity** | Element replacement | Surgical DOM updates |
+| **Complex UIs** | Many round-trips | Local updates, fewer requests |
+
+### PyNext vs Streamlit
+
+| Aspect | Streamlit | PyNext |
+|--------|-----------|--------|
+| **Target** | Data apps, notebooks | Production web apps |
+| **Routing** | Single page | File-based, multi-page |
+| **Customization** | Limited widgets | Full HTML/CSS control |
+| **Deployment** | Streamlit Cloud | Any ASGI server |
+| **Performance** | Re-runs entire script | Fine-grained updates |
+
+---
+
+## 📚 Documentation
+
+**[📖 Full Documentation Index →](docs/README.md)**
+
+### Quick Links
+
+| Getting Started | Building Apps | Going to Production |
+|-----------------|---------------|---------------------|
+| [Getting Started](docs/getting-started/GETTING_STARTED.md) | [Server Actions](docs/data-server/SERVER_ACTIONS.md) | [Deployment](docs/production/DEPLOYMENT.md) |
+| [Routing](docs/routing/ROUTING.md) | [State Management](docs/core-concepts/STATE_MANAGEMENT.md) | [Testing](docs/production/TESTING.md) |
+| [HTML API](docs/core-concepts/HTML_API.md) | [State Patterns](docs/data-server/STATE_PATTERNS.md) | [Configuration](docs/getting-started/CONFIGURATION.md) |
+| [Layouts](docs/routing/LAYOUTS.md) | [API Routes](docs/data-server/API_ROUTES.md) | [CLI Reference](docs/getting-started/CLI.md) |
+
+### Learning Paths
+
+| Goal | Path |
+|------|------|
+| **🟢 New to PyNext** | [Getting Started](docs/getting-started/GETTING_STARTED.md) → [HTML API](docs/core-concepts/HTML_API.md) → [Routing](docs/routing/ROUTING.md) → [State](docs/core-concepts/STATE_MANAGEMENT.md) |
+| **🟡 Building Apps** | [Server Actions](docs/data-server/SERVER_ACTIONS.md) → [State Patterns](docs/data-server/STATE_PATTERNS.md) → [Streaming](docs/rendering/STREAMING_SUSPENSE.md) |
+| **🔴 Performance** | [Islands](docs/rendering/ISLANDS.md) → [ISR](docs/rendering/ISR.md) → [Image Optimization](docs/optimization/IMAGE_OPTIMIZATION.md) |
+| **📝 Content Sites** | [Static Generation](docs/rendering/STATIC_GENERATION.md) → [ISR](docs/rendering/ISR.md) → [Draft Mode](docs/advanced/DRAFT_MODE.md) |
+
+### All 32 Guides
+
+<details>
+<summary><strong>🚀 Getting Started</strong> (3 guides)</summary>
+
+| Guide | Description |
+|-------|-------------|
+| [Getting Started](docs/getting-started/GETTING_STARTED.md) | Installation, project setup, first app |
+| [CLI Reference](docs/getting-started/CLI.md) | `pynext dev`, `build`, `init` commands |
+| [Configuration](docs/getting-started/CONFIGURATION.md) | `pynext.config.py` options |
+
+</details>
+
+<details>
+<summary><strong>🧱 Core Concepts</strong> (3 guides)</summary>
+
+| Guide | Description |
+|-------|-------------|
+| [HTML API](docs/core-concepts/HTML_API.md) | Building UI with `div`, `span`, `button`, etc. |
+| [State Management](docs/core-concepts/STATE_MANAGEMENT.md) | Signals, Stores, Computed, Effects |
+| [Hydration](docs/core-concepts/HYDRATION.md) | How server HTML becomes interactive |
+
+</details>
+
+<details>
+<summary><strong>🛤️ Routing & Navigation</strong> (5 guides)</summary>
+
+| Guide | Description |
+|-------|-------------|
+| [Routing](docs/routing/ROUTING.md) | File-based routing, dynamic routes, catch-all |
+| [Layouts](docs/routing/LAYOUTS.md) | Shared UI wrappers, nesting |
+| [Transitions](docs/routing/TRANSITIONS.md) | Page transitions, View Transitions API |
+| [Parallel Routes](docs/routing/PARALLEL_ROUTES.md) | Multiple pages in one layout (slots) |
+| [Intercepting Routes](docs/routing/INTERCEPTING_ROUTES.md) | Modal patterns, route interception |
+
+</details>
+
+<details>
+<summary><strong>📊 Data & Server</strong> (4 guides)</summary>
+
+| Guide | Description |
+|-------|-------------|
+| [Server Actions](docs/data-server/SERVER_ACTIONS.md) | Call Python from browser events |
+| [API Routes](docs/data-server/API_ROUTES.md) | REST endpoints alongside pages |
+| [State Patterns](docs/data-server/STATE_PATTERNS.md) | Forms, async state, optimistic updates |
+| [State & Data Integration](docs/data-server/STATE_DATA_INTEGRATION.md) | Full data flow patterns |
+
+</details>
+
+<details>
+<summary><strong>⚡ Rendering Strategies</strong> (5 guides)</summary>
+
+| Guide | Description |
+|-------|-------------|
+| [Streaming & Suspense](docs/rendering/STREAMING_SUSPENSE.md) | Progressive rendering, loading states |
+| [Islands Architecture](docs/rendering/ISLANDS.md) | Selective hydration, minimal JS |
+| [Static Generation](docs/rendering/STATIC_GENERATION.md) | Build-time rendering, zero JS |
+| [ISR](docs/rendering/ISR.md) | Incremental Static Regeneration |
+| [Partial Prerendering](docs/rendering/PARTIAL_PRERENDERING.md) | Static shell + dynamic content |
+
+</details>
+
+<details>
+<summary><strong>🔧 Advanced Features</strong> (3 guides)</summary>
+
+| Guide | Description |
+|-------|-------------|
+| [Middleware](docs/advanced/MIDDLEWARE.md) | Request interception, auth, redirects |
+| [Draft Mode](docs/advanced/DRAFT_MODE.md) | CMS preview, unpublished content |
+| [Internationalization](docs/advanced/I18N.md) | Multi-language support |
+
+</details>
+
+<details>
+<summary><strong>📦 Optimization</strong> (4 guides)</summary>
+
+| Guide | Description |
+|-------|-------------|
+| [Image Optimization](docs/optimization/IMAGE_OPTIMIZATION.md) | AVIF/WebP, lazy loading, BlurHash |
+| [Font Optimization](docs/optimization/FONT_OPTIMIZATION.md) | Zero layout shift, subsetting |
+| [Script Optimization](docs/optimization/SCRIPT_OPTIMIZATION.md) | Third-party scripts, loading strategies |
+| [Code Splitting](docs/optimization/CODE_SPLITTING.md) | Bundle optimization, lazy loading |
+
+</details>
+
+<details>
+<summary><strong>🔌 Integrations</strong> (2 guides)</summary>
+
+| Guide | Description |
+|-------|-------------|
+| [NPM Packages](docs/integrations/NPM_PACKAGES.md) | Using npm packages in PyNext |
+| [React Integration](docs/integrations/REACT_INTEGRATION.md) | Using React components via Preact |
+
+</details>
+
+<details>
+<summary><strong>🚢 Production</strong> (2 guides)</summary>
+
+| Guide | Description |
+|-------|-------------|
+| [Deployment](docs/production/DEPLOYMENT.md) | Docker, cloud platforms, production setup |
+| [Testing](docs/production/TESTING.md) | Unit tests, integration, E2E with Playwright |
+
+</details>
+
+<details>
+<summary><strong>📋 Reference</strong> (1 guide)</summary>
+
+| Guide | Description |
+|-------|-------------|
+| [Phase 2 Features](docs/reference/PHASE2_FEATURES.md) | Roadmap and upcoming features |
+
+</details>
+
+### Documentation Structure
+
+```
+docs/
+├── README.md                    ← Full index with search
+│
+├── getting-started/             🚀 Start here
+│   ├── GETTING_STARTED.md
+│   ├── CLI.md
+│   └── CONFIGURATION.md
+│
+├── core-concepts/               🧱 Fundamentals
+│   ├── HTML_API.md
+│   ├── STATE_MANAGEMENT.md
+│   └── HYDRATION.md
+│
+├── routing/                     🛤️ Navigation
+│   ├── ROUTING.md
+│   ├── LAYOUTS.md
+│   ├── TRANSITIONS.md
+│   ├── PARALLEL_ROUTES.md
+│   └── INTERCEPTING_ROUTES.md
+│
+├── data-server/                 📊 Data & Forms
+│   ├── SERVER_ACTIONS.md
+│   ├── API_ROUTES.md
+│   ├── STATE_PATTERNS.md
+│   └── STATE_DATA_INTEGRATION.md
+│
+├── rendering/                   ⚡ Rendering
+│   ├── STREAMING_SUSPENSE.md
+│   ├── ISLANDS.md
+│   ├── STATIC_GENERATION.md
+│   ├── ISR.md
+│   └── PARTIAL_PRERENDERING.md
+│
+├── advanced/                    🔧 Power Features
+│   ├── MIDDLEWARE.md
+│   ├── DRAFT_MODE.md
+│   └── I18N.md
+│
+├── optimization/                📦 Performance
+│   ├── IMAGE_OPTIMIZATION.md
+│   ├── FONT_OPTIMIZATION.md
+│   ├── SCRIPT_OPTIMIZATION.md
+│   └── CODE_SPLITTING.md
+│
+├── integrations/                🔌 External Tools
+│   ├── NPM_PACKAGES.md
+│   └── REACT_INTEGRATION.md
+│
+├── production/                  🚢 Deployment
+│   ├── DEPLOYMENT.md
+│   └── TESTING.md
+│
+└── reference/                   📋 Reference
+    └── PHASE2_FEATURES.md
+```
+
+---
+
+## Quick Examples
+
+### Counter
+
+```python
+from pynext import page, Signal, div, button
+
+@page
+def counter():
+    count = Signal(0)
+    
+    return div()[
+        button(onclick=lambda: count.set(count() - 1))["-"],
+        span()[count],
+        button(onclick=lambda: count.set(count() + 1))["+"],
+    ]
+```
+
+### Todo List
+
+```python
+from pynext import page, Signal, Store, div, input_, button, ul, li, For
+
+@page
+def todos():
+    todos = Store([])
+    new_todo = Signal("")
+    
+    def add_todo():
+        if new_todo():
+            todos.append({"text": new_todo(), "done": False})
+            new_todo.set("")
+    
+    return div()[
+        input_(value=new_todo, oninput=lambda e: new_todo.set(e.target.value)),
+        button(onclick=add_todo)["Add"],
+        ul()[
+            For(each=todos, render=lambda todo, i: 
+                li()[
+                    input_(type="checkbox", checked=todo["done"]),
+                    span()[todo["text"]]
+                ]
+            )
+        ]
+    ]
+```
+
+### Data Dashboard
+
+```python
+from pynext import page, server_action, Resource, Suspense, div, table
+import pandas as pd
+
+@server_action
+async def get_sales_data():
+    df = pd.read_csv("sales.csv")
+    return df.to_dict(orient="records")
+
+@page
+def dashboard():
+    sales = Resource(get_sales_data)
+    
+    return div()[
+        h1()["Sales Dashboard"],
+        Suspense(fallback=div()["Loading..."])[
+            table()[
+                For(each=sales, render=lambda row:
+                    tr()[
+                        td()[row["product"]],
+                        td()[f"${row['amount']:,.2f}"]
+                    ]
+                )
+            ]
+        ]
+    ]
+```
+
+---
+
+## Requirements
+
+- **Python 3.10+**
+- **Node.js** (optional, for npm packages)
+
+### Dependencies
+
+- `fastapi` — ASGI framework
+- `uvicorn` — ASGI server
+- `orjson` — Fast JSON
+- `pydantic` — Validation
+
+---
 
 ## CLI Commands
 
 ```bash
-# Start development server
-pynext dev
-
-# Build for production
-pynext build
-
-# Initialize new project
-pynext init my-app
-
-# List all routes
-pynext routes
+pynext init my-app   # Create new project
+pynext dev           # Start dev server (hot reload)
+pynext build         # Build for production
+pynext start         # Start production server
+pynext routes        # List all routes
 ```
 
-## Project Structure
-
-```
-my-app/
-├── pages/              # Page components (file-based routing)
-│   ├── index.py
-│   └── about.py
-├── components/         # Reusable components
-├── public/             # Static files
-├── pynext.config.py    # Configuration
-└── pyproject.toml
-```
+---
 
 ## Configuration
 
@@ -512,265 +847,31 @@ my-app/
 # NPM packages to bundle
 npm_packages = [
     "chart.js",
+    "lodash",
 ]
 
-# Build options
+# Build settings
 build = {
     "output": ".pynext/build",
     "minify": True,
 }
+
+# React compatibility (use npm React components)
+react_compat = True
 ```
 
-## How It Works
-
-PyNext uses a **hybrid rendering model**:
-
-1. **Server-side**: Python components render to HTML with reactive markers
-2. **Client-side**: A minimal (~5KB) JavaScript runtime hydrates the page
-3. **Reactivity**: Changes to Signals update only affected DOM nodes
-
-```
-┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
-│  Python         │     │  Server Actions  │     │  JS Runtime     │
-│  Components     │────▶│  (RPC Bridge)    │────▶│  (Signals)      │
-│  @component     │     │  @server_action  │     │  Hydration      │
-└─────────────────┘     └──────────────────┘     └─────────────────┘
-```
-
-## Requirements
-
-- Python 3.10+
-- Node.js (for npm integration, optional)
-
-## React Component Support
-
-PyNext supports React npm packages via **Preact aliasing** (~4KB vs ~40KB).
-
-> 📖 **[Full Documentation: React Integration Guide](docs/REACT_INTEGRATION.md)**
-
-### Quick Example
-
-```python
-from pynext import page, Signal, div, span, ReactComponent
-
-@page
-def dashboard():
-    value = Signal(50)
-    
-    return div()[
-        # Native PyNext - instant DOM updates
-        span()["Value: ", value],
-        
-        # React component with shared signal
-        ReactComponent(
-            package="@mui/material",
-            component="Slider",
-            props={
-                "value": value,           # Signal passed as prop
-                "onChange": value.set,     # Signal setter as callback
-                "min": 0,
-                "max": 100
-            }
-        )
-    ]
-```
-
-### Key Features
-
-| Feature | Description |
-|---------|-------------|
-| **Preact Aliasing** | React → Preact (~4KB vs ~40KB) |
-| **Signal Integration** | PyNext signals work as React props |
-| **Bi-directional Updates** | React events update PyNext signals |
-| **Auto-detection** | Common React packages detected automatically |
-| **~99% Compatibility** | Works with MUI, Chakra, Radix, etc. |
-
-### Configuration
-
-```python
-# pynext.config.py
-react_compat = True  # Enable react → preact aliasing
-
-npm_packages = [
-    "@mui/material",
-    "@emotion/react",
-    "@emotion/styled",
-]
-```
-
-### Architecture
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                     PyNext Signal                                │
-│                     value = Signal(50)                           │
-└───────────────────────────┬─────────────────────────────────────┘
-                            │
-          ┌─────────────────┼─────────────────┐
-          ▼                                   ▼
-┌─────────────────────┐              ┌─────────────────────┐
-│  Native PyNext      │              │  React Component    │
-│  span()[value]      │◄────────────►│  (via Preact)       │
-│  Direct DOM update  │    Shared    │  Virtual DOM        │
-│  ~0.1ms             │    State     │  ~1-2ms             │
-└─────────────────────┘              └─────────────────────┘
-```
-
-See the [full React integration guide](docs/REACT_INTEGRATION.md) for advanced usage, troubleshooting, and API reference
-
-## Image Optimization
-
-Build-time image processing with **zero JavaScript** for static images:
-
-```python
-from pynext import Image, PriorityImage
-
-# Zero JS - native lazy loading, AVIF-first
-Image(
-    src="/images/hero.jpg",
-    alt="Hero image",
-    width=1920,
-    height=1080,
-)
-
-# Priority image with preload
-PriorityImage(src="/images/lcp.jpg", alt="Above fold")
-```
-
-> 📖 **[Full Documentation: Image Optimization](docs/IMAGE_OPTIMIZATION.md)**
-
-## Static Site Generation
-
-**Zero JavaScript** for static pages:
-
-```python
-from pynext import static_page, static_props
-
-@static_page()
-def about():
-    """This ships ZERO JavaScript!"""
-    return div(h1("About"), p("Static content"))
-
-@static_props
-async def get_props(params):
-    """Runs at build time."""
-    return {"data": await fetch_data()}
-```
-
-> 📖 **[Full Documentation: Static Generation](docs/STATIC_GENERATION.md)**
-
-## Incremental Static Regeneration
-
-**Component-level** cache invalidation:
-
-```python
-from pynext import revalidate, revalidate_tag
-
-@revalidate(seconds=60, tags=["products"])
-def product_list():
-    return div([product_card(p) for p in fetch_products()])
-
-# On-demand revalidation
-await revalidate_tag("products")
-```
-
-> 📖 **[Full Documentation: ISR](docs/ISR.md)**
-
-## Edge Middleware
-
-**O(1) route matching** with streaming:
-
-```python
-from pynext import middleware, NextResponse
-
-@middleware(matcher="/admin/*")
-async def auth(ctx):
-    if not ctx.get_cookie("token"):
-        return NextResponse.redirect("/login")
-    return NextResponse.next()
-```
-
-> 📖 **[Full Documentation: Middleware](docs/MIDDLEWARE.md)**
-
-## Internationalization
-
-**Signal-based i18n** with direct DOM updates (no re-renders):
-
-```python
-from pynext import t, set_locale
-
-# Translate
-h1(t("welcome"))  # "Welcome" or "Bienvenue"
-
-# Switch locale - only text nodes update!
-set_locale("fr")
-```
-
-> 📖 **[Full Documentation: Internationalization](docs/I18N.md)**
-
-## Font Optimization
-
-Zero layout shift typography with zero JavaScript:
-
-```python
-from pynext import Font, GoogleFont
-
-# Google Fonts - downloaded and optimized at build time
-heading = GoogleFont("Playfair Display", weight=700)
-body = GoogleFont("Inter", weight=[400, 500, 700])
-
-def Page():
-    return div()[
-        h1(class_=heading)["Beautiful Typography"],
-        p(class_=body)["With precomputed size-adjust for zero CLS."],
-    ]
-```
-
-**What happens at build time:**
-- Downloads fonts locally (no CDN dependency)
-- Extracts font metrics (ascender, x-height, etc.)
-- Computes `size-adjust` values for fallback fonts
-- Subsets to used characters (300KB → 20KB)
-- Converts to WOFF2 for optimal compression
-
-**Result:** `font-display: swap` with zero layout shift, zero JavaScript.
-
-> 📖 **[Full Documentation: Font Optimization](docs/FONT_OPTIMIZATION.md)**
-
-## PyNext vs Next.js Performance
-
-| Feature | Next.js | PyNext |
-|---------|---------|--------|
-| Image JS | ~15KB | **0 KB** |
-| Font JS | ~3KB | **0 KB** |
-| Font CLS | Runtime adjust | **Build-time adjust** |
-| SSG Hydration | Full tree | **Islands only** |
-| ISR Granularity | Page | **Component** |
-| Middleware Cold Start | ~50ms | **<5ms** |
-| i18n Locale Switch | Re-render | **Text-only update** |
-
-## Dependencies
-
-- `fastapi` - Modern ASGI framework with automatic OpenAPI docs
-- `uvicorn` - ASGI server
-- `watchfiles` - File watching for hot reload
-- `orjson` - Fast JSON serialization
-- `pydantic` - Data validation and settings
-- `jinja2` - Template engine
-
-## API Documentation
-
-In debug mode, FastAPI provides automatic API documentation:
-
-- **Swagger UI**: `http://localhost:3000/_pynext/docs`
-- **ReDoc**: `http://localhost:3000/_pynext/redoc`
-- **OpenAPI JSON**: `http://localhost:3000/_pynext/openapi.json`
-
-## License
-
-MIT License - see LICENSE file for details.
+---
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions are welcome! See our [Contributing Guide](CONTRIBUTING.md) for details.
 
+## License
+
+MIT License — see [LICENSE](LICENSE) for details.
+
+---
+
+<p align="center">
+  <strong>Built with ❤️ for Python developers who want modern web UIs.</strong>
+</p>
