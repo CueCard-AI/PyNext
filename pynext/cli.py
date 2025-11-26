@@ -518,6 +518,191 @@ def cmd_routes(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_ui(args: argparse.Namespace) -> int:
+    """Manage UI components (Tier 2: Official components)."""
+    from pynext.registry import (
+        list_available_components,
+        copy_component_to_project,
+        AVAILABLE_COMPONENTS,
+    )
+    from pynext.registry.components import copy_all_components
+    
+    project_dir = Path(args.dir).resolve()
+    
+    if args.ui_command == "add":
+        components = args.components
+        
+        # Handle --all flag
+        if args.all:
+            print("[PyNext] Copying all UI components...")
+            copied = copy_all_components(project_dir)
+            print(f"[PyNext] Copied {len(copied)} components to components/ui/")
+            for path in copied:
+                print(f"  ✓ {path.name}")
+            return 0
+        
+        if not components:
+            print("Error: Specify component names or use --all")
+            print("Example: pynext ui add button card dialog")
+            return 1
+        
+        # Copy specified components
+        copied = []
+        failed = []
+        for name in components:
+            if name not in AVAILABLE_COMPONENTS:
+                failed.append(name)
+                continue
+            
+            result = copy_component_to_project(name, project_dir)
+            if result:
+                copied.append(result)
+                print(f"  ✓ {name} → {result.relative_to(project_dir)}")
+            else:
+                failed.append(name)
+        
+        if copied:
+            print(f"\n[PyNext] Copied {len(copied)} component(s)")
+        
+        if failed:
+            print(f"\n[PyNext] Failed to copy: {', '.join(failed)}")
+            print("  Available components: " + ", ".join(AVAILABLE_COMPONENTS.keys()))
+            return 1
+        
+        return 0
+    
+    elif args.ui_command == "list":
+        print("\n[PyNext] Available UI Components\n")
+        
+        # Group by category
+        categories = {}
+        for comp in list_available_components():
+            if comp.category not in categories:
+                categories[comp.category] = []
+            categories[comp.category].append(comp)
+        
+        for category, components in sorted(categories.items()):
+            print(f"  {category.upper()}")
+            for comp in components:
+                exports = ", ".join(comp.exports[:3])
+                if len(comp.exports) > 3:
+                    exports += f" (+{len(comp.exports) - 3} more)"
+                print(f"    {comp.name:<20} {exports}")
+            print()
+        
+        print(f"  Total: {len(AVAILABLE_COMPONENTS)} components")
+        print("\n  Usage: pynext ui add <component> [component...]")
+        print("         pynext ui add --all")
+        return 0
+    
+    else:
+        # No subcommand, show help
+        print("\n[PyNext] UI Component Management")
+        print("\n  Commands:")
+        print("    pynext ui list              List available components")
+        print("    pynext ui add <names...>    Copy components for customization")
+        print("    pynext ui add --all         Copy all components")
+        print("\n  Components are copied to components/ui/ for editing")
+        print("  Or import directly: from pynext.shadcn import Button")
+        return 0
+
+
+def cmd_registry(args: argparse.Namespace) -> int:
+    """Manage custom component registries (Tier 3)."""
+    from pynext.registry import RegistryManager
+    
+    manager = RegistryManager(args.dir)
+    
+    if args.registry_command == "add":
+        if not args.url:
+            print("Error: --url is required")
+            print("Example: pynext registry add acme-ui --url=https://ui.acme.com")
+            print("         pynext registry add my-lib --url=github:user/repo")
+            return 1
+        
+        print(f"[PyNext] Adding registry: {args.name}")
+        registry = manager.add_registry(args.name, args.url)
+        print(f"  ✓ Added {registry.name}")
+        print(f"  URL: {registry.url}")
+        
+        if registry.components:
+            print(f"  Components: {len(registry.components)}")
+        else:
+            print("  Note: Registry metadata will be fetched on first install")
+        
+        return 0
+    
+    elif args.registry_command == "remove":
+        if manager.remove_registry(args.name):
+            print(f"[PyNext] Removed registry: {args.name}")
+            return 0
+        else:
+            print(f"Error: Registry not found: {args.name}")
+            return 1
+    
+    elif args.registry_command == "list":
+        registries = manager.list_registries()
+        
+        if not registries:
+            print("\n[PyNext] No custom registries configured")
+            print("\n  Add one with: pynext registry add <name> --url=<url>")
+            return 0
+        
+        print("\n[PyNext] Custom Registries\n")
+        for reg in registries:
+            print(f"  {reg.name}")
+            print(f"    URL: {reg.url}")
+            print(f"    Version: {reg.version}")
+            if reg.components:
+                print(f"    Components: {', '.join(reg.components.keys())}")
+            print()
+        
+        return 0
+    
+    elif args.registry_command == "install":
+        # Parse registry:component format
+        if ":" not in args.component:
+            print("Error: Use format registry:component")
+            print("Example: pynext registry install acme-ui:data-table")
+            return 1
+        
+        registry_name, component_name = args.component.split(":", 1)
+        
+        try:
+            print(f"[PyNext] Installing {component_name} from {registry_name}...")
+            installed = manager.install_component(registry_name, component_name)
+            print(f"  ✓ Installed {len(installed)} file(s)")
+            for path in installed:
+                print(f"    {path.relative_to(manager.project_dir)}")
+            return 0
+        except ValueError as e:
+            print(f"Error: {e}")
+            return 1
+    
+    elif args.registry_command == "init":
+        from pynext.registry.manager import create_registry_template
+        
+        output_path = Path(args.dir) / "pynext-registry.json"
+        create_registry_template(output_path)
+        print(f"[PyNext] Created {output_path}")
+        print("  Edit this file to define your component library")
+        return 0
+    
+    else:
+        # No subcommand, show help
+        print("\n[PyNext] Custom Registry Management")
+        print("\n  Commands:")
+        print("    pynext registry list                      List registered sources")
+        print("    pynext registry add <name> --url=<url>    Add a custom registry")
+        print("    pynext registry remove <name>             Remove a registry")
+        print("    pynext registry install <reg>:<comp>      Install from registry")
+        print("    pynext registry init                      Create registry template")
+        print("\n  URL formats:")
+        print("    https://ui.example.com                    HTTP URL")
+        print("    github:owner/repo                         GitHub repository")
+        return 0
+
+
 def cmd_deps(args: argparse.Namespace) -> int:
     """Manage project dependencies."""
     from pynext.deps import DependencyManager
@@ -645,6 +830,43 @@ def main() -> int:
     # deps init
     deps_subparsers.add_parser("init", help="Create dependency files")
     
+    # ui command (Tier 2: Official components)
+    ui_parser = subparsers.add_parser("ui", help="Manage UI components")
+    ui_parser.add_argument("--dir", default=".", help="Project directory")
+    ui_subparsers = ui_parser.add_subparsers(dest="ui_command", help="UI commands")
+    
+    # ui add
+    ui_add = ui_subparsers.add_parser("add", help="Add UI components to project")
+    ui_add.add_argument("components", nargs="*", help="Component names to add")
+    ui_add.add_argument("--all", action="store_true", help="Add all components")
+    
+    # ui list
+    ui_subparsers.add_parser("list", help="List available components")
+    
+    # registry command (Tier 3: Custom registries)
+    reg_parser = subparsers.add_parser("registry", help="Manage custom component registries")
+    reg_parser.add_argument("--dir", default=".", help="Project directory")
+    reg_subparsers = reg_parser.add_subparsers(dest="registry_command", help="Registry commands")
+    
+    # registry add
+    reg_add = reg_subparsers.add_parser("add", help="Add a custom registry")
+    reg_add.add_argument("name", help="Registry name")
+    reg_add.add_argument("--url", help="Registry URL (https:// or github:owner/repo)")
+    
+    # registry remove
+    reg_remove = reg_subparsers.add_parser("remove", help="Remove a registry")
+    reg_remove.add_argument("name", help="Registry name to remove")
+    
+    # registry list
+    reg_subparsers.add_parser("list", help="List registered sources")
+    
+    # registry install
+    reg_install = reg_subparsers.add_parser("install", help="Install from registry")
+    reg_install.add_argument("component", help="Component to install (registry:component)")
+    
+    # registry init
+    reg_subparsers.add_parser("init", help="Create registry template for publishing")
+    
     args = parser.parse_args()
     
     if args.version:
@@ -662,6 +884,10 @@ def main() -> int:
         return cmd_routes(args)
     elif args.command == "deps":
         return cmd_deps(args)
+    elif args.command == "ui":
+        return cmd_ui(args)
+    elif args.command == "registry":
+        return cmd_registry(args)
     else:
         parser.print_help()
         return 0
