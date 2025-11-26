@@ -402,28 +402,32 @@ class TestJavaScriptRuntime:
         assert os.path.exists(sse_path)
     
     def test_sse_js_has_connections_object(self):
-        sse_path = "/Users/karthikravi/CueGrowth-OpenSource/PyNext/pynext/runtime/sse.js"
+        import os
+        sse_path = os.path.join(os.path.dirname(__file__), "../../pynext/runtime/sse.js")
         with open(sse_path) as f:
             content = f.read()
         
         assert "connections:" in content
     
     def test_sse_js_has_connect_function(self):
-        sse_path = "/Users/karthikravi/CueGrowth-OpenSource/PyNext/pynext/runtime/sse.js"
+        import os
+        sse_path = os.path.join(os.path.dirname(__file__), "../../pynext/runtime/sse.js")
         with open(sse_path) as f:
             content = f.read()
         
         assert "connect:" in content or "connect: function" in content
     
     def test_sse_js_has_close_function(self):
-        sse_path = "/Users/karthikravi/CueGrowth-OpenSource/PyNext/pynext/runtime/sse.js"
+        import os
+        sse_path = os.path.join(os.path.dirname(__file__), "../../pynext/runtime/sse.js")
         with open(sse_path) as f:
             content = f.read()
         
         assert "close:" in content or "close: function" in content
     
     def test_sse_js_error_handler(self):
-        sse_path = "/Users/karthikravi/CueGrowth-OpenSource/PyNext/pynext/runtime/sse.js"
+        import os
+        sse_path = os.path.join(os.path.dirname(__file__), "../../pynext/runtime/sse.js")
         with open(sse_path) as f:
             content = f.read()
         
@@ -438,28 +442,32 @@ class TestJavaScriptRuntime:
         assert os.path.exists(browser_path)
     
     def test_browser_js_has_init_visibility(self):
-        browser_path = "/Users/karthikravi/CueGrowth-OpenSource/PyNext/pynext/runtime/browser.js"
+        import os
+        browser_path = os.path.join(os.path.dirname(__file__), "../../pynext/runtime/browser.js")
         with open(browser_path) as f:
             content = f.read()
         
         assert "initVisibility" in content
     
     def test_browser_js_has_init_online(self):
-        browser_path = "/Users/karthikravi/CueGrowth-OpenSource/PyNext/pynext/runtime/browser.js"
+        import os
+        browser_path = os.path.join(os.path.dirname(__file__), "../../pynext/runtime/browser.js")
         with open(browser_path) as f:
             content = f.read()
         
         assert "initOnline" in content
     
     def test_browser_js_visibility_uses_hidden(self):
-        browser_path = "/Users/karthikravi/CueGrowth-OpenSource/PyNext/pynext/runtime/browser.js"
+        import os
+        browser_path = os.path.join(os.path.dirname(__file__), "../../pynext/runtime/browser.js")
         with open(browser_path) as f:
             content = f.read()
         
         assert "document.hidden" in content
     
     def test_browser_js_online_uses_navigator(self):
-        browser_path = "/Users/karthikravi/CueGrowth-OpenSource/PyNext/pynext/runtime/browser.js"
+        import os
+        browser_path = os.path.join(os.path.dirname(__file__), "../../pynext/runtime/browser.js")
         with open(browser_path) as f:
             content = f.read()
         
