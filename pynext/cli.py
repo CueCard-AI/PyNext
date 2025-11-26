@@ -816,19 +816,21 @@ def main() -> int:
     
     # deps command
     deps_parser = subparsers.add_parser("deps", help="Manage dependencies")
-    deps_parser.add_argument("--dir", default=".", help="Project directory")
     deps_subparsers = deps_parser.add_subparsers(dest="deps_command", help="Dependency commands")
     
     # deps install
     deps_install = deps_subparsers.add_parser("install", help="Install dependencies")
+    deps_install.add_argument("--dir", default=".", help="Project directory")
     deps_install.add_argument("--python", dest="python_only", action="store_true", help="Install only Python deps")
     deps_install.add_argument("--npm", dest="npm_only", action="store_true", help="Install only NPM deps")
     
     # deps check
-    deps_subparsers.add_parser("check", help="Check for missing dependencies")
+    deps_check = deps_subparsers.add_parser("check", help="Check for missing dependencies")
+    deps_check.add_argument("--dir", default=".", help="Project directory")
     
     # deps init
-    deps_subparsers.add_parser("init", help="Create dependency files")
+    deps_init = deps_subparsers.add_parser("init", help="Create dependency files")
+    deps_init.add_argument("--dir", default=".", help="Project directory")
     
     # ui command (Tier 2: Official components)
     ui_parser = subparsers.add_parser("ui", help="Manage UI components")

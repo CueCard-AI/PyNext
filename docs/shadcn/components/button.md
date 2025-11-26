@@ -1,31 +1,76 @@
 # Button
 
-Displays a button or a component that looks like a button.
+> **The fundamental unit of user interaction — "click here to make something happen"**
 
-## When to Use
+A versatile button component with multiple variants, sizes, and states.
 
-Buttons are the primary way users take action in your app. Use them for:
+---
 
-- **Form submissions** — "Submit", "Save", "Create"
-- **Confirmations** — "Confirm", "Accept", "Agree"
-- **Navigation actions** — "Next", "Continue", "Go Back"
-- **Destructive actions** — "Delete", "Remove", "Cancel"
+## First Principles: What IS a Button?
 
-**Don't use buttons for navigation links.** Use `<a>` tags or the Link component instead. Buttons are for actions, links are for navigation.
+### The Core Concept
+
+A button is a **promise of action**:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        THE BUTTON CONTRACT                                   │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│   User sees:              User clicks:           Something happens:          │
+│   ──────────              ────────────           ──────────────────          │
+│                                                                              │
+│   ┌─────────┐                 👆                 Form submits                │
+│   │  Save   │     ───────────────────────▶       Dialog opens                │
+│   └─────────┘                                    Data updates                │
+│                                                  Navigation occurs           │
+│                                                                              │
+│   The button SHOWS what will happen                                          │
+│   The button DOES what it promised                                           │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Why Button Variants Exist
+
+Different actions need different visual weights:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        VISUAL HIERARCHY                                      │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│   PRIMARY (default)     "This is THE action to take"                        │
+│   █████████████████     Save, Submit, Confirm, Create                        │
+│                                                                              │
+│   SECONDARY             "Alternative action, less important"                 │
+│   ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓     Cancel, Close, Back                                 │
+│                                                                              │
+│   OUTLINE               "Neutral, doesn't push you either way"              │
+│   ┌───────────────┐     Edit, View, Open                                    │
+│   └───────────────┘                                                         │
+│                                                                              │
+│   GHOST                 "Minimal, let content shine"                        │
+│   (barely visible)      Icon buttons, inline actions                        │
+│                                                                              │
+│   DESTRUCTIVE           "DANGER! This can't be undone"                      │
+│   🔴🔴🔴🔴🔴🔴🔴🔴🔴       Delete, Remove, Disconnect                          │
+│                                                                              │
+│   LINK                  "This goes somewhere else"                          │
+│   text underlined       Navigation, external links                          │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
 
 ---
 
 ## Installation
 
-To add the Button component to your project (so you can customize it):
-
 ```bash
 pynext ui add button
 ```
 
-This copies the button code into `components/ui/button.py`. You can then edit the styles, add variants, or modify the behavior to match your design system.
-
-**Or use it directly** without copying (if you don't need to customize):
+Or import directly:
 
 ```python
 from pynext.shadcn import Button
@@ -33,209 +78,239 @@ from pynext.shadcn import Button
 
 ---
 
-## Basic Usage
+## Step-by-Step Usage
 
-The simplest button just wraps your text:
+### Step 1: Basic Button
 
 ```python
-from pynext.shadcn import Button
-
 Button()["Click me"]
 ```
 
-**How it works:** The `[]` syntax passes children to the component — in this case, the text "Click me" becomes the button's label.
+This renders a primary button with default styling.
 
----
-
-## Variants
-
-Variants change the visual style of the button to communicate different intents to users.
-
-### Default
-
-The primary action button. Use for the main action on a page.
+### Step 2: Choose a Variant
 
 ```python
-Button(variant="default")["Save Changes"]
-```
+# Primary action (default)
+Button()["Save"]
 
-### Destructive
+# Secondary action
+Button(variant="secondary")["Cancel"]
 
-For dangerous or irreversible actions. The red color signals caution.
+# Outline style
+Button(variant="outline")["Edit"]
 
-```python
-Button(variant="destructive")["Delete Account"]
-```
+# Minimal/ghost
+Button(variant="ghost")["···"]
 
-**When to use:** Delete, remove, cancel subscription, revoke access — any action that can't be easily undone.
+# Dangerous action
+Button(variant="destructive")["Delete"]
 
-### Outline
-
-A lighter visual weight. Good for secondary actions that shouldn't compete with the primary button.
-
-```python
-Button(variant="outline")["Cancel"]
-```
-
-**When to use:** Cancel buttons, "Learn more" links, secondary options.
-
-### Secondary
-
-Similar to outline but with a subtle background. Use when you need something between primary and outline.
-
-```python
-Button(variant="secondary")["Save Draft"]
-```
-
-### Ghost
-
-Nearly invisible until hovered. Perfect for icon buttons or actions in tight spaces.
-
-```python
-Button(variant="ghost")["Edit"]
-```
-
-**When to use:** Toolbars, table row actions, icon-only buttons.
-
-### Link
-
-Looks like a text link but behaves like a button. Use sparingly — if it navigates somewhere, use an actual link instead.
-
-```python
+# Link style
 Button(variant="link")["Learn more"]
 ```
 
----
-
-## Sizes
-
-Size affects both the padding and font size. Choose based on context:
-
-| Size | When to use |
-|------|-------------|
-| `sm` | Tight spaces, tables, inline actions |
-| `default` | Most cases — forms, cards, modals |
-| `lg` | Hero sections, prominent CTAs |
-| `icon` | Square button for icons only |
-
-```python
-Button(size="sm")["Small"]
-Button(size="default")["Default"]
-Button(size="lg")["Large"]
-Button(size="icon")[SearchIcon()]
-```
-
----
-
-## Handling Clicks
-
-Use `on_click` to respond when the user clicks the button:
-
-```python
-def handle_save():
-    print("Saving...")
-
-Button(on_click=handle_save)["Save"]
-```
-
-### With Server Actions
-
-Call Python functions on your server:
+### Step 3: Add an Action
 
 ```python
 from pynext import server_action
 
 @server_action
-async def save_to_database(data):
-    # This runs on the server!
+async def save_data(data: dict):
     await db.save(data)
     return {"success": True}
 
-Button(on_click=lambda: save_to_database(form_data))["Save to Database"]
+# Submit a form
+form(action=save_data)[
+    Input(name="title"),
+    Button(type="submit")["Save"]
+]
+
+# Or use onclick for client-side actions
+Button(on_click=lambda: modal.set(True))["Open Modal"]
 ```
 
-**What's happening here?**
-
-1. User clicks the button
-2. PyNext sends a request to your server
-3. `save_to_database` runs with full Python access (database, files, etc.)
-4. Result is sent back to the browser
-
----
-
-## Disabled State
-
-Disable buttons to prevent interaction when an action isn't available:
+### Step 4: Add Icons
 
 ```python
-Button(disabled=True)["Submit"]
-```
+from pynext.shadcn import Icons
 
-The button will be visually muted and won't respond to clicks.
+# Icon before text
+Button()[
+    Icons.plus(class_="mr-2 h-4 w-4"),
+    "Add Item"
+]
 
-**Important:** Always explain WHY a button is disabled. Add a tooltip or helper text so users know what they need to do to enable it.
+# Icon after text
+Button(variant="outline")[
+    "Next",
+    Icons.arrow_right(class_="ml-2 h-4 w-4")
+]
 
-```python
-div()[
-    Button(disabled=not form_valid)["Submit"],
-    not form_valid and span(class_="text-sm text-muted")["Please fill all required fields"]
+# Icon only
+Button(variant="ghost", size="icon")[
+    Icons.settings(class_="h-4 w-4")
 ]
 ```
 
 ---
 
-## As a Link (Polymorphism)
-
-Sometimes you want a button that's actually a link. Use `as_child`:
+## All Variants
 
 ```python
+from pynext.shadcn import Button
+
+def AllButtons():
+    return div(class_="flex flex-wrap gap-4")[
+        Button()["Default"],
+        Button(variant="secondary")["Secondary"],
+        Button(variant="outline")["Outline"],
+        Button(variant="ghost")["Ghost"],
+        Button(variant="link")["Link"],
+        Button(variant="destructive")["Destructive"],
+    ]
+```
+
+---
+
+## All Sizes
+
+```python
+Button(size="sm")["Small"]
+Button(size="default")["Default"]
+Button(size="lg")["Large"]
+Button(size="icon")["🔔"]  # Square, for icons only
+```
+
+| Size | Height | Padding | Use Case |
+|------|--------|---------|----------|
+| `sm` | 32px | Compact | Toolbars, dense UIs |
+| `default` | 40px | Normal | Most buttons |
+| `lg` | 44px | Spacious | CTAs, hero sections |
+| `icon` | 40×40px | Square | Icon-only buttons |
+
+---
+
+## Common Patterns
+
+### Pattern 1: Loading State
+
+```python
+from pynext import Signal
+
+is_loading = Signal(False)
+
+Button(disabled=is_loading.value)[
+    is_loading.value and Icons.loader(class_="mr-2 h-4 w-4 animate-spin"),
+    "Save" if not is_loading.value else "Saving..."
+]
+```
+
+### Pattern 2: Button as Link
+
+```python
+from pynext.html import a
+
+# Navigate to another page
 Button(as_child=True)[
     a(href="/dashboard")["Go to Dashboard"]
 ]
 ```
 
-This renders an `<a>` tag with button styling instead of a `<button>`. Useful for:
+### Pattern 3: Button Group
 
-- Navigation that should look like a button
-- External links with button styling
-- Download buttons
+```python
+div(class_="flex rounded-md shadow-sm")[
+    Button(class_="rounded-r-none")["Left"],
+    Button(class_="rounded-none border-x-0")["Center"],
+    Button(class_="rounded-l-none")["Right"],
+]
+```
+
+### Pattern 4: Full Width
+
+```python
+Button(class_="w-full")["Sign Up"]
+```
 
 ---
 
-## Props Reference
+## API Reference
 
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
-| `variant` | str | `"default"` | Visual style: `"default"`, `"destructive"`, `"outline"`, `"secondary"`, `"ghost"`, `"link"` |
-| `size` | str | `"default"` | Size: `"default"`, `"sm"`, `"lg"`, `"icon"` |
-| `disabled` | bool | `False` | Whether the button is disabled |
-| `on_click` | callable | `None` | Function to call when clicked |
-| `type` | str | `"button"` | HTML button type: `"button"`, `"submit"`, `"reset"` |
-| `class_` | str | `None` | Additional CSS classes (merged with defaults) |
-| `as_child` | bool | `False` | Merge props onto child element instead of wrapping |
+| `variant` | str | `"default"` | Visual style |
+| `size` | str | `"default"` | Button size |
+| `disabled` | bool | `False` | Disable interaction |
+| `type` | str | `"button"` | HTML button type |
+| `as_child` | bool | `False` | Render as child element |
+| `class_` | str | `""` | Additional CSS classes |
+
+### Variants
+
+| Value | Description |
+|-------|-------------|
+| `default` | Primary action, solid background |
+| `secondary` | Secondary action, muted background |
+| `outline` | Border only, transparent background |
+| `ghost` | Minimal, transparent until hover |
+| `link` | Text-only, underlined on hover |
+| `destructive` | Dangerous action, red styling |
 
 ---
 
 ## Accessibility
 
-The Button component follows accessibility best practices:
+PyNext buttons are accessible by default:
 
-- **Keyboard navigation** — Focusable with Tab, activated with Enter/Space
-- **Focus indicator** — Visible focus ring for keyboard users
-- **Disabled state** — Properly announced to screen readers
-- **Native element** — Uses `<button>` for built-in accessibility
+| Feature | Behavior |
+|---------|----------|
+| **Focus Ring** | Visible focus state for keyboard users |
+| **Disabled State** | `disabled` attribute + `aria-disabled` |
+| **Loading State** | Add `aria-busy="true"` when loading |
+| **Icon Buttons** | Include `aria-label` for screen readers |
 
-### Tips for Accessible Buttons
+```python
+# Icon button with screen reader text
+Button(variant="ghost", size="icon", aria_label="Open settings")[
+    Icons.settings(class_="h-4 w-4")
+]
+```
 
-1. **Use descriptive labels** — "Save changes" not just "Save"
-2. **Don't disable without explanation** — Tell users why
-3. **Ensure color contrast** — Especially for destructive variant
-4. **Keep text concise** — But meaningful
+---
+
+## Styling Tips
+
+### Custom Colors
+
+```python
+# Override with Tailwind classes
+Button(class_="bg-purple-600 hover:bg-purple-700")["Custom"]
+```
+
+### With Tailwind Utilities
+
+```python
+Button(class_="shadow-lg hover:shadow-xl transition-shadow")[
+    "Elevated"
+]
+```
+
+---
+
+## Troubleshooting
+
+| Issue | Cause | Solution |
+|-------|-------|----------|
+| Button not clickable | `disabled=True` | Check condition |
+| Form not submitting | Missing `type="submit"` | Add type attribute |
+| No hover effect | CSS not loading | Check Tailwind setup |
+| Icon misaligned | Missing margin | Add `mr-2` or `ml-2` |
 
 ---
 
 ## Related Components
 
-- [Toggle](./toggle.md) — For on/off states
-- [Link](./link.md) — For navigation (not actions)
-
+- **[Input](./input.md)** — Text inputs for forms
+- **[Dialog](./dialog.md)** — Modals triggered by buttons
+- **[DropdownMenu](./dropdown-menu.md)** — Menu triggered by button

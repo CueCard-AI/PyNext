@@ -1,153 +1,333 @@
 # Combobox
 
-A searchable dropdown for selecting from a list of options. Supports filtering, multi-select, async search, and creating new items.
+> **Like a searchable dropdown — type to filter, click to select**
+
+A searchable dropdown that combines text input with a list of options.
+
+---
+
+## First Principles: What IS a Combobox?
+
+### The Core Concept
+
+A combobox is a **dropdown you can type into**:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         THE COMBOBOX CONCEPT                                 │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  Regular Dropdown:                 Combobox:                                 │
+│  ─────────────────                 ─────────                                 │
+│                                                                              │
+│  ┌──────────────┐                  ┌──────────────┐                         │
+│  │ Select... ▼  │                  │ Type to search│                        │
+│  └──────────────┘                  └──────────────┘                         │
+│  ┌──────────────┐                  ┌──────────────┐                         │
+│  │ Apple        │                  │ 🔍 ap        │  ← User types "ap"     │
+│  │ Banana       │                  └──────────────┘                         │
+│  │ Cherry       │                  ┌──────────────┐                         │
+│  │ Dragonfruit  │                  │ ✓ Apple      │  ← Filtered!            │
+│  │ Elderberry   │                  └──────────────┘                         │
+│  │ ... scroll   │                                                            │
+│  └──────────────┘                  Much faster to find!                      │
+│                                                                              │
+│  Must scroll through all          Type → Filter → Select                     │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### When to Use Combobox vs Dropdown
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         CHOOSING THE RIGHT COMPONENT                         │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  USE DROPDOWN WHEN:                USE COMBOBOX WHEN:                        │
+│  ──────────────────                ─────────────────                         │
+│                                                                              │
+│  • Few options (< 7)               • Many options (> 7)                      │
+│  • Options are familiar            • Options need searching                  │
+│  • No typing needed                • User might know partial name            │
+│  • Simple selection                • Dynamic/API data                        │
+│                                    • User can create new options             │
+│                                                                              │
+│  Examples:                         Examples:                                 │
+│  • Status (Active/Inactive)        • Country selector (195 countries)        │
+│  • Priority (Low/Medium/High)      • User search                             │
+│  • Theme (Light/Dark)              • Tags/labels                             │
+│                                    • Framework selector                      │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## How It Works
+
+### Component Hierarchy
+
+```
+Combobox                           ← Root: manages state
+├── ComboboxTrigger                ← Button showing selection
+│   └── "Select framework..."
+└── ComboboxContent                ← Dropdown panel
+    ├── ComboboxInput              ← Search input
+    ├── ComboboxEmpty              ← "No results" message
+    ├── ComboboxGroup              ← Optional grouping
+    │   ├── ComboboxLabel          ← Group heading
+    │   └── ComboboxItem           ← Selectable option
+    └── ComboboxCreate             ← "Create new" option
+```
+
+### The Interaction Flow
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         COMBOBOX INTERACTION                                 │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  1. CLICK TRIGGER                                                            │
+│     └── Dropdown opens                                                       │
+│     └── Input is focused                                                     │
+│                                                                              │
+│  2. TYPE QUERY                                                               │
+│     └── Items filtered in real-time                                          │
+│     └── Matching text highlighted                                            │
+│     └── No matches → Show ComboboxEmpty                                      │
+│                                                                              │
+│  3. SELECT ITEM                                                              │
+│     └── Click or press Enter                                                 │
+│     └── Trigger updates to show selection                                    │
+│     └── Dropdown closes                                                      │
+│                                                                              │
+│  4. CREATE NEW (if allowed)                                                  │
+│     └── No matches + allowCreate                                             │
+│     └── Show "Create [query]" option                                         │
+│     └── Click creates new item                                               │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
 
 ## Installation
+
+```bash
+pynext ui add combobox
+```
+
+Or import directly:
 
 ```python
 from pynext.shadcn import (
     Combobox, ComboboxTrigger, ComboboxContent,
-    ComboboxInput, ComboboxItem, ComboboxEmpty,
-    ComboboxGroup, ComboboxSeparator, ComboboxCreate
+    ComboboxInput, ComboboxEmpty, ComboboxGroup,
+    ComboboxItem, ComboboxCreate
 )
 ```
 
-## Basic Usage
+---
+
+## Step-by-Step Usage
+
+### Step 1: Basic Combobox
 
 ```python
 frameworks = [
-    {"value": "react", "label": "React"},
-    {"value": "vue", "label": "Vue"},
-    {"value": "svelte", "label": "Svelte"},
+    {"value": "next", "label": "Next.js"},
+    {"value": "svelte", "label": "SvelteKit"},
+    {"value": "nuxt", "label": "Nuxt.js"},
+    {"value": "remix", "label": "Remix"},
+    {"value": "astro", "label": "Astro"},
 ]
 
-Combobox(value=selected, on_value_change=set_selected)[
-    ComboboxTrigger()[
-        Button(variant="outline", class_="w-[200px] justify-between")[
-            selected or "Select framework...",
-            "▼"
-        ]
+Combobox()[
+    ComboboxTrigger(class_="w-[200px]")[
+        "Select framework..."
     ],
     ComboboxContent()[
         ComboboxInput(placeholder="Search framework..."),
         ComboboxEmpty()["No framework found."],
         [
-            ComboboxItem(value=fw["value"])[fw["label"]]
-            for fw in frameworks
+            ComboboxItem(value=f["value"])[f["label"]]
+            for f in frameworks
         ]
     ]
 ]
 ```
 
-## Examples
-
-### Grouped Items
+### Step 2: Controlled with Signal
 
 ```python
-Combobox()[
-    ComboboxTrigger()[...],
+from pynext import Signal
+
+selected = Signal("")
+
+Combobox(
+    value=selected.value,
+    on_value_change=selected.set
+)[
+    ComboboxTrigger(class_="w-[200px]")[
+        selected.value and next(
+            f["label"] for f in frameworks if f["value"] == selected.value
+        ) or "Select framework..."
+    ],
     ComboboxContent()[
         ComboboxInput(placeholder="Search..."),
         ComboboxEmpty()["No results."],
-        
-        ComboboxGroup(heading="Frontend")[
-            ComboboxItem(value="react")["React"],
-            ComboboxItem(value="vue")["Vue"],
-        ],
-        ComboboxSeparator(),
-        ComboboxGroup(heading="Backend")[
-            ComboboxItem(value="node")["Node.js"],
-            ComboboxItem(value="python")["Python"],
-        ],
+        [ComboboxItem(value=f["value"])[f["label"]] for f in frameworks]
     ]
 ]
 ```
 
-### With Icons
+### Step 3: With Groups
 
 ```python
-ComboboxItem(value="settings")[
-    span(class_="flex items-center gap-2")[
-        "⚙️",
-        "Settings"
-    ]
-]
-```
-
-### Multi-Select
-
-```python
-Combobox(multiple=True, value=selected_list)[
-    ComboboxTrigger()[
-        Button()[f"{len(selected_list)} selected"]
-    ],
+Combobox()[
+    ComboboxTrigger()["Select a fruit..."],
     ComboboxContent()[
-        # Items toggle selection instead of replacing
+        ComboboxInput(placeholder="Search fruits..."),
+        ComboboxEmpty()["No fruit found."],
+        
+        ComboboxGroup()[
+            ComboboxLabel()["Citrus"],
+            ComboboxItem(value="orange")["Orange"],
+            ComboboxItem(value="lemon")["Lemon"],
+            ComboboxItem(value="lime")["Lime"],
+        ],
+        
+        ComboboxGroup()[
+            ComboboxLabel()["Berries"],
+            ComboboxItem(value="strawberry")["Strawberry"],
+            ComboboxItem(value="blueberry")["Blueberry"],
+        ],
     ]
 ]
 ```
 
-### Disabled Items
+### Step 4: Allow Creating New Items
 
 ```python
-ComboboxItem(value="premium", disabled=True)[
-    "Premium Feature (upgrade required)"
-]
-```
+from pynext import Signal, server_action
 
-### Create New Item
+tags = Signal(["bug", "feature", "docs"])
 
-Allow users to create new items when no matches are found:
-
-```python
 @server_action
-async def create_tag(query: str):
-    """Create a new tag in the database."""
-    tag = await db.tags.create(name=query)
-    return tag
+async def create_tag(name: str):
+    # Save to database
+    return {"id": ..., "name": name}
 
 Combobox(
-    value=selected,
-    on_value_change=set_selected,
     allow_create=True,
-    on_create=create_tag
+    on_create=lambda text: create_tag(text)
 )[
-    ComboboxTrigger()[
-        Button(variant="outline")["Select or create tag..."]
+    ComboboxTrigger()["Add tag..."],
+    ComboboxContent()[
+        ComboboxInput(placeholder="Search or create..."),
+        ComboboxEmpty()["No tags found."],
+        [ComboboxItem(value=tag)[tag] for tag in tags.value],
+        ComboboxCreate()  # Shows "Create [query]" when no matches
+    ]
+]
+```
+
+---
+
+## Common Patterns
+
+### Pattern 1: Country Selector
+
+```python
+Combobox()[
+    ComboboxTrigger(class_="w-[280px]")[
+        span(class_="flex items-center gap-2")[
+            selected_country.flag,
+            selected_country.name or "Select country..."
+        ]
     ],
     ComboboxContent()[
-        ComboboxInput(placeholder="Search or type to create..."),
-        ComboboxEmpty()["No tags found."],
-        ComboboxCreate()["Create tag"],  # Shows: "Create tag "newvalue""
+        ComboboxInput(placeholder="Search countries..."),
+        ComboboxEmpty()["No country found."],
         [
-            ComboboxItem(value=tag["id"])[tag["name"]]
-            for tag in tags
+            ComboboxItem(value=c["code"])[
+                span(class_="flex items-center gap-2")[
+                    c["flag"],
+                    c["name"]
+                ]
+            ]
+            for c in countries
         ]
     ]
 ]
 ```
 
-How it works:
+### Pattern 2: User Selector with Avatars
 
-```
-┌──────────────────────────────────────┐
-│ Search or type to create...          │
-├──────────────────────────────────────┤
-│ (no matches for "newvalue")          │
-├──────────────────────────────────────┤
-│ ➕ Create tag "newvalue"             │  ← Click or Enter
-└──────────────────────────────────────┘
-          │
-          ▼
-    Dispatches 'pynext:combobox:create' event
-    with { query: "newvalue" }
+```python
+Combobox()[
+    ComboboxTrigger()[
+        Avatar(class_="h-6 w-6 mr-2")[...],
+        "Select user..."
+    ],
+    ComboboxContent()[
+        ComboboxInput(placeholder="Search by name or email..."),
+        [
+            ComboboxItem(value=user["id"])[
+                div(class_="flex items-center gap-2")[
+                    Avatar()[AvatarImage(src=user["avatar"])],
+                    div()[
+                        div(class_="font-medium")[user["name"]],
+                        div(class_="text-xs text-muted-foreground")[user["email"]]
+                    ]
+                ]
+            ]
+            for user in users
+        ]
+    ]
+]
 ```
 
-The `ComboboxCreate` component:
-- Only appears when `allow_create=True` is set on the root `Combobox`
-- Only shows when there are no matching items AND the search input has text
-- Displays the current query so users know what will be created
-- Triggers on click or Enter key
+### Pattern 3: Multi-Select Tags
+
+```python
+from pynext import Signal
+
+selected_tags = Signal([])
+
+div(class_="flex flex-wrap gap-2")[
+    [
+        Badge(key=tag)[
+            tag,
+            Button(
+                variant="ghost",
+                size="icon",
+                class_="h-4 w-4 ml-1",
+                on_click=lambda t=tag: selected_tags.set([
+                    s for s in selected_tags.value if s != t
+                ])
+            )["×"]
+        ]
+        for tag in selected_tags.value
+    ],
+    Combobox(
+        on_value_change=lambda v: selected_tags.set([*selected_tags.value, v])
+    )[
+        ComboboxTrigger(class_="h-8")["+ Add tag"],
+        ComboboxContent()[
+            ComboboxInput(placeholder="Search tags..."),
+            [
+                ComboboxItem(value=tag)[tag]
+                for tag in available_tags
+                if tag not in selected_tags.value
+            ]
+        ]
+    ]
+]
+```
+
+---
 
 ## API Reference
 
@@ -155,80 +335,51 @@ The `ComboboxCreate` component:
 
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
-| `value` | `str` | `None` | Selected value |
-| `on_value_change` | `Callable` | `None` | Selection callback |
-| `on_search` | `Callable` | `None` | Async search callback |
-| `on_create` | `Callable` | `None` | Create new item callback |
-| `multiple` | `bool` | `False` | Allow multiple selection |
-| `allow_create` | `bool` | `False` | Show create option when no matches |
-| `open` | `bool` | `None` | Controlled open state |
-| `on_open_change` | `Callable` | `None` | Callback when open state changes |
-
-### ComboboxContent
-
-| Prop | Type | Default | Description |
-|------|------|---------|-------------|
-| `side` | `string` | `"bottom"` | Dropdown position |
-| `align` | `string` | `"start"` | Alignment |
-
-### ComboboxInput
-
-| Prop | Type | Default | Description |
-|------|------|---------|-------------|
-| `placeholder` | `str` | `"Search..."` | Placeholder text |
+| `value` | str | `""` | Selected value |
+| `on_value_change` | callable | `None` | Called when selection changes |
+| `allow_create` | bool | `False` | Allow creating new items |
+| `on_create` | callable | `None` | Called when creating new item |
 
 ### ComboboxItem
 
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
-| `value` | `str` | required | Item value |
-| `disabled` | `bool` | `False` | Disable selection |
+| `value` | str | Required | Item's value |
+| `disabled` | bool | `False` | Disable this item |
 
-### ComboboxCreate
-
-Shows a "create new" option when no items match the search query.
+### ComboboxInput
 
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
-| `class_` | `str` | `None` | Additional CSS classes |
+| `placeholder` | str | `""` | Placeholder text |
 
-### ComboboxEmpty
+---
 
-Shown when no items match the search.
+## Accessibility
 
-### ComboboxGroup
+| Feature | Implementation |
+|---------|----------------|
+| **ARIA Roles** | `role="combobox"`, `role="listbox"`, `role="option"` |
+| **Arrow Keys** | Up/Down to navigate options |
+| **Enter** | Select focused option |
+| **Escape** | Close dropdown |
+| **Type-ahead** | Typing filters results |
 
-Groups items with an optional heading.
+---
 
-| Prop | Type | Default | Description |
-|------|------|---------|-------------|
-| `heading` | `str` | `None` | Group heading text |
+## Troubleshooting
 
-### ComboboxSeparator
+| Issue | Cause | Solution |
+|-------|-------|----------|
+| Search not filtering | Missing ComboboxInput | Add ComboboxInput to content |
+| Items not showing | Empty data array | Check data source |
+| Selection not persisting | Missing controlled state | Use Signal for value |
+| Create not working | Missing allow_create | Add `allow_create=True` |
 
-Visual separator between groups or items.
+---
 
-## Keyboard Navigation
+## Related Components
 
-- `↓/↑` - Navigate items
-- `Enter` - Select highlighted item (or create new if `allow_create` and no matches)
-- `Escape` - Close dropdown
-- Type to filter items
-
-## Async Search
-
-```python
-@server_action
-async def search_users(query: str):
-    return await db.search_users(query)
-
-Combobox(on_search=search_users)[
-    ComboboxTrigger()[...],
-    ComboboxContent()[
-        ComboboxInput(placeholder="Search users..."),
-        ComboboxEmpty()["No users found."],
-        # Items populated from search results
-    ]
-]
-```
-
+- **[Command](./command.md)** — Full command palette
+- **[DropdownMenu](./dropdown-menu.md)** — Simple selection without search
+- **[Input](./input.md)** — For free-form text input

@@ -1,14 +1,54 @@
 # Toggle
 
-A button that can be pressed on or off.
+> **Like a pressed/unpressed button — click to activate, click again to deactivate**
 
-## When to Use
+A button that can be toggled between on and off states.
 
-Toggles are for:
-- **Formatting tools** - Bold, italic, underline
-- **View options** - Grid/list, show/hide
-- **Editor actions** - Preview mode, fullscreen
-- **Feature toggles** - Enable specific features
+---
+
+## First Principles: What IS a Toggle?
+
+### The Core Concept
+
+A toggle is a **button with memory** — it stays pressed until you click it again:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         THE TOGGLE CONCEPT                                   │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  REGULAR BUTTON:                   TOGGLE:                                   │
+│  ───────────────                   ───────                                   │
+│                                                                              │
+│  Click → Action happens            Click → Turns ON (pressed)                │
+│  Release → Button returns          Click again → Turns OFF                   │
+│                                                                              │
+│  [  Bold  ]  →  Makes text bold    [  Bold  ]  →  Bold mode ON              │
+│                 immediately                       ↓                          │
+│                                    [ ▣Bold▣ ]  ←  Stays pressed              │
+│                                                   ↓                          │
+│                                    [  Bold  ]  ←  Click to turn OFF          │
+│                                                                              │
+│  Use for:                                                                    │
+│  • Text formatting (Bold, Italic, Underline)                                │
+│  • View modes (Grid/List)                                                    │
+│  • Filters (Show completed)                                                  │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Toggle vs Switch vs Checkbox
+
+```
+TOGGLE:                  SWITCH:                 CHECKBOX:
+───────                  ───────                 ─────────
+• Button appearance      • Slider appearance     • Box with checkmark
+• In toolbars           • In settings           • In forms
+• Multiple allowed      • Binary on/off         • Multiple allowed
+• Visual pressed state  • Visual on/off state   • Checked state
+```
+
+---
 
 ## Installation
 
@@ -16,72 +56,34 @@ Toggles are for:
 pynext ui add toggle
 ```
 
-Or use directly:
+Or import directly:
 
 ```python
-from pynext.shadcn import Toggle, ToggleGroup
+from pynext.shadcn import Toggle, ToggleGroup, ToggleGroupItem
 ```
 
-## Basic Usage
+---
+
+## Step-by-Step Usage
+
+### Step 1: Basic Toggle
 
 ```python
-Toggle()["B"]  # Bold toggle
-```
-
-With pressed state:
-
-```python
-Toggle(pressed=True)["B"]
-```
-
-## Variants
-
-```python
-Toggle(variant="default")["Default"]
-Toggle(variant="outline")["Outline"]
-```
-
-## Examples
-
-### Text Formatting
-
-```python
-div(class_="flex gap-1")[
-    Toggle(aria_label="Bold")["𝐁"],
-    Toggle(aria_label="Italic")["𝐼"],
-    Toggle(aria_label="Underline")["U̲"],
+Toggle()[
+    Icons.bold(class_="h-4 w-4")
 ]
 ```
 
-### With Icons
+### Step 2: With Text
 
 ```python
-Toggle(aria_label="Toggle grid view")[
-    "⊞"  # Grid icon
+Toggle()[
+    Icons.italic(class_="h-4 w-4 mr-2"),
+    "Italic"
 ]
 ```
 
-### Toggle Group (Single Selection)
-
-```python
-ToggleGroup(type="single", default_value="left")[
-    Toggle(value="left", aria_label="Left align")["⬅"],
-    Toggle(value="center", aria_label="Center align")["⬛"],
-    Toggle(value="right", aria_label="Right align")["➡"],
-]
-```
-
-### Toggle Group (Multiple Selection)
-
-```python
-ToggleGroup(type="multiple", default_value=["bold"])[
-    Toggle(value="bold", aria_label="Bold")["B"],
-    Toggle(value="italic", aria_label="Italic")["I"],
-    Toggle(value="underline", aria_label="Underline")["U"],
-]
-```
-
-### With Signal State
+### Step 3: Controlled State
 
 ```python
 from pynext import Signal
@@ -91,48 +93,191 @@ is_bold = Signal(False)
 Toggle(
     pressed=is_bold.value,
     on_pressed_change=is_bold.set
-)["B"]
+)[
+    Icons.bold(class_="h-4 w-4")
+]
 ```
 
-### Disabled
+### Step 4: Toggle Group
 
 ```python
-Toggle(disabled=True)["Disabled"]
+from pynext import Signal
+
+alignment = Signal("left")
+
+ToggleGroup(
+    type="single",
+    value=alignment.value,
+    on_value_change=alignment.set
+)[
+    ToggleGroupItem(value="left")[Icons.align_left()],
+    ToggleGroupItem(value="center")[Icons.align_center()],
+    ToggleGroupItem(value="right")[Icons.align_right()],
+]
 ```
 
-## Props Reference
+---
+
+## Common Patterns
+
+### Pattern 1: Text Formatting Toolbar
+
+```python
+from pynext import Signal
+
+formatting = Signal({"bold": False, "italic": False, "underline": False})
+
+div(class_="flex border rounded-lg p-1 gap-1")[
+    Toggle(
+        pressed=formatting.value["bold"],
+        on_pressed_change=lambda v: formatting.set({**formatting.value, "bold": v})
+    )[Icons.bold(class_="h-4 w-4")],
+    
+    Toggle(
+        pressed=formatting.value["italic"],
+        on_pressed_change=lambda v: formatting.set({**formatting.value, "italic": v})
+    )[Icons.italic(class_="h-4 w-4")],
+    
+    Toggle(
+        pressed=formatting.value["underline"],
+        on_pressed_change=lambda v: formatting.set({**formatting.value, "underline": v})
+    )[Icons.underline(class_="h-4 w-4")],
+]
+```
+
+### Pattern 2: View Mode Toggle
+
+```python
+view_mode = Signal("grid")
+
+ToggleGroup(type="single", value=view_mode.value, on_value_change=view_mode.set)[
+    ToggleGroupItem(value="grid", aria_label="Grid view")[
+        Icons.grid(class_="h-4 w-4")
+    ],
+    ToggleGroupItem(value="list", aria_label="List view")[
+        Icons.list(class_="h-4 w-4")
+    ],
+]
+```
+
+### Pattern 3: Filter Toggle
+
+```python
+show_completed = Signal(False)
+
+Toggle(
+    variant="outline",
+    pressed=show_completed.value,
+    on_pressed_change=show_completed.set
+)[
+    Icons.check(class_="h-4 w-4 mr-2"),
+    "Show Completed"
+]
+```
+
+### Pattern 4: Multi-Select Toggle Group
+
+```python
+selected_tags = Signal([])
+
+ToggleGroup(
+    type="multiple",
+    value=selected_tags.value,
+    on_value_change=selected_tags.set
+)[
+    ToggleGroupItem(value="bug")["Bug"],
+    ToggleGroupItem(value="feature")["Feature"],
+    ToggleGroupItem(value="docs")["Docs"],
+]
+```
+
+---
+
+## Variants
+
+### Default
+
+```python
+Toggle()[Icons.bold()]  # Subtle background when pressed
+```
+
+### Outline
+
+```python
+Toggle(variant="outline")[Icons.bold()]  # Border, no background
+```
+
+### Sizes
+
+```python
+Toggle(size="sm")[Icons.bold(class_="h-3 w-3")]
+Toggle(size="default")[Icons.bold(class_="h-4 w-4")]
+Toggle(size="lg")[Icons.bold(class_="h-5 w-5")]
+```
+
+---
+
+## API Reference
 
 ### Toggle
 
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
-| `pressed` | bool | `None` | Controlled pressed state |
-| `default_pressed` | bool | `False` | Initial state |
-| `on_pressed_change` | callable | `None` | Called on toggle |
-| `variant` | str | `"default"` | Visual style |
-| `size` | str | `"default"` | Button size |
+| `pressed` | bool | `False` | Controlled pressed state |
+| `default_pressed` | bool | `False` | Initial pressed state |
+| `on_pressed_change` | callable | `None` | Called when state changes |
 | `disabled` | bool | `False` | Disable toggle |
-| `aria_label` | str | `None` | Accessibility label |
+| `variant` | str | `"default"` | Visual style |
+| `size` | str | `"default"` | Size variant |
 
 ### ToggleGroup
 
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
-| `type` | str | `"single"` | "single" or "multiple" |
-| `value` | str/list | `None` | Controlled value(s) |
-| `default_value` | str/list | `None` | Initial value(s) |
-| `on_value_change` | callable | `None` | Called on change |
+| `type` | str | `"single"` | `"single"` or `"multiple"` |
+| `value` | str/list | `None` | Selected value(s) |
+| `on_value_change` | callable | `None` | Called when selection changes |
+| `disabled` | bool | `False` | Disable all items |
+
+### ToggleGroupItem
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `value` | str | Required | Item's value |
+| `disabled` | bool | `False` | Disable this item |
+
+---
 
 ## Accessibility
 
-- Uses `aria-pressed` attribute
-- Keyboard focusable
-- Space/Enter toggles state
-- Always provide `aria_label` for icon-only toggles
+| Feature | Implementation |
+|---------|----------------|
+| **Role** | `role="button"` with `aria-pressed` |
+| **Keyboard** | Space/Enter to toggle |
+| **Group** | `role="group"` with `aria-label` |
+| **Label** | Use `aria-label` for icon-only toggles |
+
+```python
+# Accessible icon toggle
+Toggle(aria_label="Bold")[
+    Icons.bold(class_="h-4 w-4")
+]
+```
+
+---
+
+## Troubleshooting
+
+| Issue | Cause | Solution |
+|-------|-------|----------|
+| State not updating | Missing controlled props | Add `pressed` and `on_pressed_change` |
+| Multiple items in single group | Wrong type | Use `type="single"` |
+| Can't deselect in group | Expected for single | Use toggle (not group) if deselect needed |
+
+---
 
 ## Related Components
 
-- [Button](./button.md) - For one-time actions
-- [Switch](./switch.md) - For on/off settings
-- [Tabs](./tabs.md) - For content switching
-
+- **[Button](./button.md)** — For one-time actions
+- **[Switch](./switch.md)** — For settings on/off
+- **[Checkbox](./checkbox.md)** — For form selections

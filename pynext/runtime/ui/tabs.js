@@ -1,0 +1,62 @@
+/**
+ * PyNext Tabs Runtime
+ * Size target: ~0.5 KB minified
+ */
+(function(g) {
+    'use strict';
+    
+    var ui = g.__pynext__.ui;
+    
+    function initTabs() {
+        ui.on('click', '[data-pynext-tab-trigger]', function(e, trigger) {
+            var tabs = trigger.closest('[data-pynext-tabs]');
+            var value = trigger.dataset.pynextTabTrigger;
+            
+            // Deactivate all triggers
+            tabs.querySelectorAll('[data-pynext-tab-trigger]').forEach(function(t) {
+                t.setAttribute('data-state', 'inactive');
+                t.setAttribute('aria-selected', 'false');
+            });
+            
+            // Activate clicked trigger
+            trigger.setAttribute('data-state', 'active');
+            trigger.setAttribute('aria-selected', 'true');
+            
+            // Hide all content
+            tabs.querySelectorAll('[data-pynext-tab-content]').forEach(function(c) {
+                c.setAttribute('hidden', '');
+                c.setAttribute('data-state', 'inactive');
+            });
+            
+            // Show selected content
+            var content = tabs.querySelector('[data-pynext-tab-content="' + value + '"]');
+            if (content) {
+                content.removeAttribute('hidden');
+                content.setAttribute('data-state', 'active');
+            }
+        });
+        
+        // Keyboard navigation
+        ui.on('keydown', '[data-pynext-tab-trigger]', function(e, trigger) {
+            var list = trigger.closest('[data-pynext-tabs-list]');
+            var triggers = Array.from(list.querySelectorAll('[data-pynext-tab-trigger]'));
+            var index = triggers.indexOf(trigger);
+            
+            var next = null;
+            if (e.key === 'ArrowRight') next = triggers[(index + 1) % triggers.length];
+            else if (e.key === 'ArrowLeft') next = triggers[(index - 1 + triggers.length) % triggers.length];
+            else if (e.key === 'Home') next = triggers[0];
+            else if (e.key === 'End') next = triggers[triggers.length - 1];
+            
+            if (next) {
+                e.preventDefault();
+                next.focus();
+                next.click();
+            }
+        });
+    }
+    
+    initTabs();
+    
+})(window);
+

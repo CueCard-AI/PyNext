@@ -1,0 +1,86 @@
+/**
+ * PyNext Theme Runtime (Slim)
+ * Dark mode and theme management
+ */
+(function(g) {
+    'use strict';
+    
+    var STORAGE_KEY = 'pynext-theme';
+    var MEDIA = '(prefers-color-scheme: dark)';
+    var currentTheme = null;
+    var listeners = [];
+    
+    function getSystemTheme() {
+        return g.matchMedia && g.matchMedia(MEDIA).matches ? 'dark' : 'light';
+    }
+    
+    function getStoredTheme() {
+        try { return localStorage.getItem(STORAGE_KEY); } catch(e) { return null; }
+    }
+    
+    function setStoredTheme(theme) {
+        try { localStorage.setItem(STORAGE_KEY, theme); } catch(e) {}
+    }
+    
+    function applyTheme(theme) {
+        var resolved = theme === 'system' ? getSystemTheme() : theme;
+        document.documentElement.classList.toggle('dark', resolved === 'dark');
+        document.documentElement.setAttribute('data-theme', resolved);
+        currentTheme = theme;
+        listeners.forEach(function(fn) { fn(theme, resolved); });
+    }
+    
+    function get() {
+        return currentTheme || getStoredTheme() || 'system';
+    }
+    
+    function set(theme) {
+        setStoredTheme(theme);
+        applyTheme(theme);
+        if (g.__pynext__ && g.__pynext__.setSignal) {
+            g.__pynext__.setSignal('theme', theme);
+        }
+    }
+    
+    function toggle() {
+        var current = get();
+        var resolved = current === 'system' ? getSystemTheme() : current;
+        set(resolved === 'dark' ? 'light' : 'dark');
+    }
+    
+    function init() {
+        var stored = getStoredTheme();
+        applyTheme(stored || 'system');
+        
+        if (g.matchMedia) {
+            g.matchMedia(MEDIA).addEventListener('change', function(e) {
+                if (get() === 'system') applyTheme('system');
+            });
+        }
+    }
+    
+    function subscribe(fn) {
+        listeners.push(fn);
+        return function() { listeners = listeners.filter(function(f) { return f !== fn; }); };
+    }
+    
+    // Flash prevention script (inline in <head>)
+    function getFlashPreventionScript() {
+        return '(function(){try{var t=localStorage.getItem("' + STORAGE_KEY + '")||"system";' +
+               'var d=t==="system"?window.matchMedia("(prefers-color-scheme:dark)").matches?"dark":"light":t;' +
+               'document.documentElement.classList.toggle("dark",d==="dark")}catch(e){}})()';
+    }
+    
+    init();
+    
+    g.__pynext__ = g.__pynext__ || {};
+    g.__pynext__.theme = {
+        get: get,
+        set: set,
+        toggle: toggle,
+        subscribe: subscribe,
+        getFlashPreventionScript: getFlashPreventionScript
+    };
+    
+})(window);
+

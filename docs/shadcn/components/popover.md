@@ -1,104 +1,192 @@
 # Popover
 
-A floating panel with rich content that appears on click.
+> **Like a speech bubble — click something to reveal more content**
+
+A floating panel that appears near a trigger element for additional content or actions.
+
+---
+
+## First Principles: What IS a Popover?
+
+### The Core Concept
+
+A popover is a **floating content panel** anchored to a trigger:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         THE POPOVER CONCEPT                                  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  CLOSED:                           OPEN:                                     │
+│  ───────                           ─────                                     │
+│                                                                              │
+│  ┌──────────────┐                  ┌──────────────┐                         │
+│  │ Click to     │                  │ Click to     │                         │
+│  │ open         │                  │ open         │                         │
+│  └──────────────┘                  └──────────────┘                         │
+│                                          ↓                                   │
+│                                    ┌──────────────────┐                     │
+│                                    │ Popover Content  │                     │
+│                                    │                  │                     │
+│                                    │ ┌────────────┐   │                     │
+│                                    │ │ Form Input │   │                     │
+│                                    │ └────────────┘   │                     │
+│                                    │ [Submit]         │                     │
+│                                    └──────────────────┘                     │
+│                                                                              │
+│  Click outside → Closes                                                      │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### When to Use Popover
+
+```
+USE POPOVER:                        USE DIALOG:
+────────────                        ───────────
+• Quick forms                       • Complex forms
+• Small content                     • Important decisions
+• Contextual actions                • Full-page focus needed
+• Stay near trigger                 • Center of screen
+```
+
+---
 
 ## Installation
 
-```python
-from pynext.shadcn import (
-    Popover, PopoverTrigger, PopoverContent,
-    PopoverAnchor, PopoverClose
-)
+```bash
+pynext ui add popover
 ```
 
-## Basic Usage
+Or import directly:
+
+```python
+from pynext.shadcn import Popover, PopoverTrigger, PopoverContent
+```
+
+---
+
+## Step-by-Step Usage
+
+### Step 1: Basic Popover
 
 ```python
 Popover()[
     PopoverTrigger()[
-        Button(variant="outline")["Open popover"]
+        Button(variant="outline")["Open Popover"]
     ],
     PopoverContent()[
-        div(class_="space-y-2")[
-            h4(class_="font-medium")["Dimensions"],
-            p(class_="text-sm text-muted-foreground")[
-                "Set the dimensions for the layer."
-            ],
-        ]
+        p()["This is popover content"]
     ]
 ]
 ```
 
-## Examples
-
-### With Form Content
+### Step 2: With Form
 
 ```python
 Popover()[
     PopoverTrigger()[
-        Button()["Edit settings"]
+        Button()["Set Dimensions"]
     ],
     PopoverContent(class_="w-80")[
-        div(class_="grid gap-4")[
-            div(class_="space-y-2")[
-                h4(class_="font-medium")["Settings"],
-            ],
+        div(class_="space-y-4")[
+            h4(class_="font-medium")["Dimensions"],
             div(class_="grid gap-2")[
-                Label(for_="width")["Width"],
-                Input(id="width", placeholder="100%"),
-            ],
-            div(class_="grid gap-2")[
-                Label(for_="height")["Height"],
-                Input(id="height", placeholder="auto"),
-            ],
-        ]
-    ]
-]
-```
-
-### With Placement
-
-```python
-# Bottom (default)
-Popover()[
-    PopoverTrigger()[Button()["Bottom"]],
-    PopoverContent(side="bottom")["Content below"]
-]
-
-# Right
-Popover()[
-    PopoverTrigger()[Button()["Right"]],
-    PopoverContent(side="right")["Content right"]
-]
-```
-
-### With Close Button
-
-```python
-Popover()[
-    PopoverTrigger()[Button()["Open"]],
-    PopoverContent()[
-        div(class_="flex justify-between items-center")[
-            span()["Content"],
-            PopoverClose()[
-                Button(variant="ghost", size="sm")["×"]
+                div(class_="grid grid-cols-3 items-center gap-4")[
+                    Label(html_for="width")["Width"],
+                    Input(id="width", default_value="100%", class_="col-span-2 h-8")
+                ],
+                div(class_="grid grid-cols-3 items-center gap-4")[
+                    Label(html_for="height")["Height"],
+                    Input(id="height", default_value="25px", class_="col-span-2 h-8")
+                ]
             ]
         ]
     ]
 ]
 ```
 
-### Modal Mode
+### Step 3: Positioning
 
 ```python
-# Blocks interaction with outside elements
-Popover(modal=True)[
-    PopoverTrigger()[Button()["Open modal"]],
-    PopoverContent()[
-        "Click outside is disabled"
+# Default: bottom
+Popover()[
+    PopoverTrigger()[Button()["Bottom"]],
+    PopoverContent()["Appears below"]
+]
+
+# Top
+Popover()[
+    PopoverTrigger()[Button()["Top"]],
+    PopoverContent(side="top")["Appears above"]
+]
+
+# Right aligned
+Popover()[
+    PopoverTrigger()[Button()["Right Aligned"]],
+    PopoverContent(align="end")["Aligned to right edge"]
+]
+```
+
+---
+
+## Common Patterns
+
+### Pattern 1: Color Picker
+
+```python
+Popover()[
+    PopoverTrigger()[
+        Button(variant="outline", class_="w-[220px] justify-start")[
+            div(class_="w-4 h-4 rounded mr-2", style=f"background:{color.value}"),
+            color.value or "Pick a color"
+        ]
+    ],
+    PopoverContent(class_="w-64")[
+        div(class_="grid grid-cols-5 gap-2")[
+            [
+                button(
+                    class_="w-8 h-8 rounded",
+                    style=f"background:{c}",
+                    on_click=lambda c=c: color.set(c)
+                )
+                for c in ["#ef4444", "#f97316", "#eab308", "#22c55e", "#3b82f6"]
+            ]
+        ]
     ]
 ]
 ```
+
+### Pattern 2: Share Menu
+
+```python
+Popover()[
+    PopoverTrigger()[
+        Button(variant="outline")[
+            Icons.share(class_="mr-2 h-4 w-4"),
+            "Share"
+        ]
+    ],
+    PopoverContent(class_="w-72")[
+        div(class_="space-y-4")[
+            h4(class_="font-medium")["Share this link"],
+            div(class_="flex gap-2")[
+                Input(value=share_url, read_only=True),
+                Button(size="icon", on_click=copy_to_clipboard)[
+                    Icons.copy()
+                ]
+            ],
+            div(class_="flex gap-2")[
+                Button(variant="outline", size="icon")[Icons.twitter()],
+                Button(variant="outline", size="icon")[Icons.facebook()],
+                Button(variant="outline", size="icon")[Icons.linkedin()],
+            ]
+        ]
+    ]
+]
+```
+
+---
 
 ## API Reference
 
@@ -106,30 +194,31 @@ Popover(modal=True)[
 
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
-| `open` | `bool` | `None` | Controlled open state |
-| `default_open` | `bool` | `False` | Initial open state |
-| `modal` | `bool` | `False` | Block outside interaction |
+| `open` | bool | `None` | Controlled open state |
+| `on_open_change` | callable | `None` | Called when state changes |
 
 ### PopoverContent
 
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
-| `side` | `"top" \| "bottom" \| "left" \| "right"` | `"bottom"` | Placement |
-| `side_offset` | `int` | `4` | Distance from trigger (px) |
-| `align` | `"start" \| "center" \| "end"` | `"center"` | Alignment |
-| `trap_focus` | `bool` | `True` | Trap focus inside |
-| `close_on_escape` | `bool` | `True` | Close on Escape key |
-| `close_on_outside_click` | `bool` | `True` | Close on outside click |
+| `side` | str | `"bottom"` | `"top"`, `"right"`, `"bottom"`, `"left"` |
+| `align` | str | `"center"` | `"start"`, `"center"`, `"end"` |
+| `side_offset` | int | `4` | Distance from trigger |
+
+---
 
 ## Accessibility
 
-- Focus is trapped inside the popover when open
-- Closes on Escape key
-- Supports click outside to close
-- Uses `role="dialog"` for screen readers
+| Feature | Implementation |
+|---------|----------------|
+| **Focus** | Focus moves into popover on open |
+| **Escape** | Closes popover |
+| **Click Outside** | Closes popover |
 
-## Difference from Tooltip
+---
 
-- **Tooltip**: Shows on hover, simple text content
-- **Popover**: Shows on click, rich interactive content
+## Related Components
 
+- **[Tooltip](./tooltip.md)** — For simple text hints
+- **[Dialog](./dialog.md)** — For complex interactions
+- **[DropdownMenu](./dropdown-menu.md)** — For action menus

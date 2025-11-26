@@ -1,314 +1,401 @@
 # DataTable
 
-A powerful data table with sorting, filtering, pagination, row selection, column visibility, and column resize.
+> **Like a supercharged spreadsheet — sortable, filterable, paginated**
+
+A feature-rich data table for displaying and managing large datasets with sorting, filtering, pagination, row selection, column visibility, and column resizing.
+
+---
+
+## First Principles: What IS a DataTable?
+
+### The Core Concept
+
+A DataTable transforms **raw data** into **actionable information**:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        THE DATA → TABLE TRANSFORMATION                       │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  Raw Data (Unmanageable):              DataTable (Organized):                │
+│  ─────────────────────────             ───────────────────────               │
+│                                                                              │
+│  [                                     ┌────────┬──────────┬───────┐        │
+│    {"id":1,"name":"Alice",             │ Name   │ Email    │ Role  │        │
+│     "email":"alice@..."},              ├────────┼──────────┼───────┤        │
+│    {"id":2,"name":"Bob",       ──▶     │ Alice  │ alice@.. │ Admin │        │
+│     "email":"bob@..."},                │ Bob    │ bob@..   │ User  │        │
+│    {"id":3,"name":"Carol",             │ Carol  │ carol@.. │ User  │        │
+│     "email":"carol@..."},              └────────┴──────────┴───────┘        │
+│    ... 1000 more                              Page 1 of 100                  │
+│  ]                                            Sort: Name A→Z                │
+│                                               Filter: Active only            │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Why DataTables Are Complex
+
+A DataTable must handle **many concerns simultaneously**:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        DATATABLE RESPONSIBILITIES                            │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  DATA DISPLAY                    INTERACTIVITY                               │
+│  ────────────                    ─────────────                               │
+│  • Columns and rows              • Click header to sort                      │
+│  • Cell formatting               • Type to filter                            │
+│  • Responsive layout             • Check to select                           │
+│  • Empty states                  • Drag to resize columns                    │
+│                                                                              │
+│  STATE MANAGEMENT                ACCESSIBILITY                               │
+│  ────────────────                ─────────────                               │
+│  • Current sort column           • Keyboard navigation                       │
+│  • Sort direction                • Screen reader announcements               │
+│  • Current page                  • Focus management                          │
+│  • Selected rows                 • ARIA attributes                           │
+│  • Column visibility                                                         │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
 
 ## Installation
 
+```bash
+pynext ui add data-table
+```
+
+Or import directly:
+
 ```python
 from pynext.shadcn import (
-    DataTable, DataTableColumn, DataTableToolbar,
-    DataTableFacetedFilter, DataTablePagination, DataTableColumnToggle
+    DataTable, DataTableColumn, DataTablePagination,
+    DataTableColumnToggle
 )
 ```
 
-## Basic Usage
+---
+
+## Step-by-Step Usage
+
+### Step 1: Basic Table
+
+Define columns and pass data:
 
 ```python
+from pynext.shadcn import DataTable, DataTableColumn
+
+# Your data
+users = [
+    {"id": 1, "name": "Alice", "email": "alice@example.com"},
+    {"id": 2, "name": "Bob", "email": "bob@example.com"},
+    {"id": 3, "name": "Carol", "email": "carol@example.com"},
+]
+
 # Define columns
 columns = [
-    DataTableColumn(accessor="name", header="Name", sortable=True),
-    DataTableColumn(accessor="email", header="Email"),
-    DataTableColumn(accessor="status", header="Status"),
+    DataTableColumn(key="name", header="Name"),
+    DataTableColumn(key="email", header="Email"),
 ]
 
 # Render table
-DataTable(
-    data=users,
-    columns=columns
-)
+DataTable(data=users, columns=columns)
 ```
 
-## Examples
+**What happens:**
+- `DataTable` creates a `<table>` with proper structure
+- Each column becomes a `<th>` header and maps to `<td>` cells
+- Data is rendered row by row
 
-### With Custom Cell Rendering
+### Step 2: Add Sorting
+
+Make columns clickable to sort:
 
 ```python
 columns = [
     DataTableColumn(
-        accessor="avatar",
-        header="",
-        cell=lambda row: Avatar()[
-            AvatarImage(src=row["avatar"]),
-            AvatarFallback()[row["name"][0]]
-        ],
-        width="50px"
+        key="name", 
+        header="Name", 
+        sortable=True  # ← Click header to sort
     ),
     DataTableColumn(
-        accessor="name",
+        key="created_at", 
+        header="Created", 
+        sortable=True,
+        sort_fn=lambda a, b: a.timestamp() - b.timestamp()  # Custom sort
+    ),
+]
+
+DataTable(
+    data=users, 
+    columns=columns,
+    default_sort="name",      # Initial sort column
+    default_sort_dir="asc",   # Initial direction
+)
+```
+
+### Step 3: Add Filtering
+
+Enable global search:
+
+```python
+DataTable(
+    data=users,
+    columns=columns,
+    filterable=True,           # Show filter input
+    filter_placeholder="Search users...",
+)
+```
+
+Or column-specific filters:
+
+```python
+columns = [
+    DataTableColumn(
+        key="status",
+        header="Status",
+        filter_type="select",  # Dropdown filter
+        filter_options=["Active", "Inactive", "Pending"]
+    ),
+]
+```
+
+### Step 4: Add Pagination
+
+For large datasets:
+
+```python
+DataTable(
+    data=all_users,            # Can be 10,000 items
+    columns=columns,
+    page_size=10,              # Show 10 per page
+    page_sizes=[10, 25, 50],   # Allow user to change
+)
+```
+
+### Step 5: Add Row Selection
+
+Select rows for bulk actions:
+
+```python
+from pynext import Signal
+
+selected_rows = Signal([])
+
+DataTable(
+    data=users,
+    columns=columns,
+    selectable=True,
+    selected=selected_rows.value,
+    on_select=selected_rows.set,
+)
+
+# Bulk action button
+Button(
+    disabled=len(selected_rows.value) == 0,
+    on_click=lambda: delete_users(selected_rows.value)
+)[
+    f"Delete {len(selected_rows.value)} users"
+]
+```
+
+### Step 6: Column Visibility & Resize
+
+Let users customize the view:
+
+```python
+DataTable(
+    data=users,
+    columns=columns,
+    column_visibility=True,  # Toggle button to show/hide columns
+    resizable=True,          # Drag column borders to resize
+)
+```
+
+---
+
+## Complete Example
+
+```python
+from pynext.shadcn import (
+    DataTable, DataTableColumn, Button, Input,
+    DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem
+)
+from pynext import Signal, server_action
+
+# State
+selected = Signal([])
+search = Signal("")
+
+# Columns
+columns = [
+    DataTableColumn(
+        key="name",
         header="Name",
-        cell=lambda row: div()[
-            p(class_="font-medium")[row["name"]],
-            p(class_="text-sm text-muted-foreground")[row["email"]]
+        sortable=True,
+    ),
+    DataTableColumn(
+        key="email",
+        header="Email",
+        sortable=True,
+    ),
+    DataTableColumn(
+        key="role",
+        header="Role",
+        filter_type="select",
+        filter_options=["Admin", "Editor", "Viewer"],
+    ),
+    DataTableColumn(
+        key="actions",
+        header="",
+        cell=lambda row: DropdownMenu()[
+            DropdownMenuTrigger()[Button(variant="ghost")["⋯"]],
+            DropdownMenuContent()[
+                DropdownMenuItem(on_click=lambda: edit(row["id"]))["Edit"],
+                DropdownMenuItem(on_click=lambda: delete(row["id"]))["Delete"],
+            ]
         ]
     ),
-    DataTableColumn(
-        accessor="status",
-        header="Status",
-        cell=lambda row: Badge(
-            variant="success" if row["status"] == "active" else "secondary"
-        )[row["status"]]
-    ),
-]
-```
-
-### With Sorting
-
-```python
-columns = [
-    DataTableColumn(accessor="name", header="Name", sortable=True),
-    DataTableColumn(accessor="date", header="Date", sortable=True),
-    DataTableColumn(accessor="amount", header="Amount", sortable=True),
 ]
 
-DataTable(
-    data=data,
-    columns=columns,
-    sort_column="date",
-    sort_direction="desc",
-    on_sort=handle_sort
-)
-```
-
-### With Pagination
-
-```python
-DataTable(
-    data=page_data,
-    columns=columns,
-    pagination=True,
-    page=current_page,
-    page_size=20,
-    total_rows=total_count
-)
-```
-
-### With Row Selection
-
-```python
-DataTable(
-    data=data,
-    columns=columns,
-    row_selection=True,
-    selected_rows=selected,
-    on_row_select=handle_selection
-)
-```
-
-### With Toolbar and Filters
-
-```python
-div()[
-    DataTableToolbar()[
-        Input(placeholder="Filter by name..."),
-        DataTableFacetedFilter(
-            column="status",
-            title="Status",
-            options=["Active", "Inactive", "Pending"]
+# Table
+div(class_="space-y-4")[
+    # Toolbar
+    div(class_="flex items-center justify-between")[
+        Input(
+            placeholder="Search...",
+            value=search.value,
+            on_change=lambda e: search.set(e.target.value),
+            class_="max-w-sm"
         ),
+        div(class_="flex gap-2")[
+            DataTableColumnToggle(columns=columns),
+            Button()["Export"],
+        ]
     ],
-    DataTable(
-        data=filtered_data,
-        columns=columns
-    )
-]
-```
-
-### Server-Side Data Loading
-
-```python
-@server_action
-async def load_users(page: int, sort: str, direction: str, filters: dict):
-    return await db.query_users(
-        offset=(page - 1) * 20,
-        limit=20,
-        order_by=sort,
-        order_dir=direction,
-        **filters
-    )
-
-# In component
-DataTable(
-    data=users,
-    columns=columns,
-    pagination=True,
-    page=page,
-    total_pages=total_pages,
-    sort_column=sort_col,
-    sort_direction=sort_dir,
-    on_sort=lambda col, dir: load_users(page, col, dir, filters),
-    on_page_change=lambda p: load_users(p, sort_col, sort_dir, filters)
-)
-```
-
-### Column Visibility Toggle
-
-Let users show/hide columns with the `DataTableColumnToggle` component:
-
-```python
-# Track visibility state
-column_visibility = {"email": True, "phone": False, "address": True}
-
-div()[
-    DataTableToolbar()[
-        Input(placeholder="Search..."),
-        DataTableColumnToggle(
-            columns=columns,
-            visibility=column_visibility,
-            on_visibility_change=set_visibility,
-        ),
-    ],
+    
+    # Table
     DataTable(
         data=users,
         columns=columns,
-        column_visibility=column_visibility,  # Pass visibility state
-    )
+        selectable=True,
+        selected=selected.value,
+        on_select=selected.set,
+        page_size=10,
+        resizable=True,
+    ),
+    
+    # Bulk actions
+    div(class_="flex items-center gap-2")[
+        span()[f"{len(selected.value)} selected"],
+        Button(
+            variant="destructive",
+            disabled=len(selected.value) == 0
+        )["Delete Selected"],
+    ]
 ]
 ```
 
-The toggle renders a dropdown showing all columns with checkboxes:
+---
 
-```
-┌─────────────────────┐
-│ ☐ Columns           │
-└─────────────────────┘
-        │
-        ▼
-┌─────────────────────┐
-│ ✓ Name              │
-│ ✓ Email             │
-│   Phone (hidden)    │
-│ ✓ Status            │
-└─────────────────────┘
-```
+## Column Configuration
 
-### Column Resizing
+### DataTableColumn Props
 
-Enable column resizing by dragging column borders:
+| Prop | Type | Description |
+|------|------|-------------|
+| `key` | str | Data field key |
+| `header` | str | Column header text |
+| `sortable` | bool | Enable sorting |
+| `sort_fn` | callable | Custom sort function |
+| `filter_type` | str | `"text"`, `"select"`, `"date"` |
+| `filter_options` | list | Options for select filter |
+| `cell` | callable | Custom cell renderer |
+| `min_width` | int | Minimum column width (px) |
+| `max_width` | int | Maximum column width (px) |
+| `hidden` | bool | Initially hidden |
+
+### Custom Cell Rendering
 
 ```python
-# Enable for all columns
-DataTable(
-    data=users,
-    columns=columns,
-    resizable=True,  # Enable resize for all columns
+DataTableColumn(
+    key="status",
+    header="Status",
+    cell=lambda row: Badge(
+        variant="success" if row["status"] == "Active" else "secondary"
+    )[row["status"]]
+)
+```
+
+### Formatted Values
+
+```python
+DataTableColumn(
+    key="created_at",
+    header="Created",
+    cell=lambda row: row["created_at"].strftime("%b %d, %Y")
 )
 
-# Or enable per-column with min/max constraints
-columns = [
-    DataTableColumn(
-        accessor="name",
-        header="Name",
-        resizable=True,
-        min_width="100px",
-        max_width="300px",
-    ),
-    DataTableColumn(
-        accessor="description",
-        header="Description",
-        resizable=True,
-        min_width="150px",
-        max_width="500px",
-    ),
-]
+DataTableColumn(
+    key="amount",
+    header="Amount",
+    cell=lambda row: f"${row['amount']:,.2f}"
+)
 ```
 
-**How it works:**
-
-```
-┌─────────┬───────────────────┬──────────┐
-│ Name  │▎│ Description      │▎│ Status │
-├─────────┼───────────────────┼──────────┤
-       ↑
-  Drag here to resize
-```
-
-- Drag the resize handle between columns
-- Respects `min_width` and `max_width` constraints
-- Works on both desktop (mouse) and mobile (touch)
-- Dispatches `pynext:column-resize` event with new width
+---
 
 ## API Reference
-
-### DataTableColumn
-
-| Prop | Type | Default | Description |
-|------|------|---------|-------------|
-| `accessor` | `str` | required | Data key |
-| `header` | `str \| Callable` | `""` | Header content |
-| `cell` | `Callable` | `None` | Cell render function |
-| `footer` | `Callable` | `None` | Footer render function |
-| `sortable` | `bool` | `False` | Enable sorting |
-| `filterable` | `bool` | `False` | Enable filtering |
-| `filter_options` | `list[str]` | `None` | Options for faceted filter |
-| `hidden` | `bool` | `False` | Hide column by default |
-| `resizable` | `bool` | `False` | Enable column resizing |
-| `min_width` | `str` | `"50px"` | Minimum width when resizing |
-| `max_width` | `str` | `"500px"` | Maximum width when resizing |
-| `width` | `str` | `None` | Initial column width |
 
 ### DataTable
 
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
-| `data` | `list[dict]` | required | Row data |
-| `columns` | `list[Column]` | required | Column definitions |
-| `pagination` | `bool` | `False` | Enable pagination |
-| `page_size` | `int` | `10` | Rows per page |
-| `page` | `int` | `1` | Current page |
-| `row_selection` | `bool` | `False` | Enable selection |
-| `sort_column` | `str` | `None` | Sorted column |
-| `sort_direction` | `str` | `"asc"` | Sort direction |
-| `column_visibility` | `dict[str, bool]` | `{}` | Accessor -> visible mapping |
-| `resizable` | `bool` | `False` | Enable resize for all columns |
-| `loading` | `bool` | `False` | Show loading state |
-| `empty_message` | `str` | `"No results."` | Empty state text |
+| `data` | list | `[]` | Array of row objects |
+| `columns` | list | `[]` | Column configurations |
+| `selectable` | bool | `False` | Enable row selection |
+| `selected` | list | `[]` | Selected row IDs |
+| `on_select` | callable | `None` | Selection change handler |
+| `filterable` | bool | `False` | Show global filter |
+| `page_size` | int | `10` | Rows per page |
+| `page_sizes` | list | `[10, 25, 50]` | Available page sizes |
+| `default_sort` | str | `None` | Initial sort column |
+| `default_sort_dir` | str | `"asc"` | Initial sort direction |
+| `column_visibility` | bool | `False` | Enable column toggle |
+| `resizable` | bool | `False` | Enable column resize |
 
-### DataTableColumnToggle
+---
 
-| Prop | Type | Default | Description |
-|------|------|---------|-------------|
-| `columns` | `list[Column]` | required | Column definitions |
-| `visibility` | `dict[str, bool]` | `{}` | Current visibility state |
-| `on_visibility_change` | `Callable` | `None` | Callback when visibility changes |
+## Accessibility
 
-### DataTableFacetedFilter
+| Feature | Implementation |
+|---------|----------------|
+| **Sortable headers** | `aria-sort="ascending/descending"` |
+| **Selectable rows** | Checkbox with `aria-label` |
+| **Pagination** | Announced via `aria-live` |
+| **Column resize** | Keyboard-accessible handles |
+| **Focus management** | Tab through headers and cells |
 
-| Prop | Type | Default | Description |
-|------|------|---------|-------------|
-| `column` | `str` | required | Column to filter |
-| `title` | `str` | required | Filter title |
-| `options` | `list[str]` | required | Filter options |
-| `selected` | `list[str]` | `[]` | Selected filters |
+---
 
-## Events
+## Troubleshooting
 
-```python
-# Sort change
-on_sort=lambda column, direction: ...
+| Issue | Cause | Solution |
+|-------|-------|----------|
+| Sort not working | `sortable=False` | Add `sortable=True` to column |
+| No pagination | Small dataset | Add more data or lower `page_size` |
+| Selection lost | Component re-render | Use Signal for `selected` |
+| Columns not resizing | `resizable=False` | Add `resizable=True` to DataTable |
 
-# Page change
-on_page_change=lambda page: ...
+---
 
-# Row selection
-on_row_select=lambda selected_rows: ...
+## Related Components
 
-# Column visibility change (from DataTableColumnToggle)
-on_visibility_change=lambda visibility_dict: ...
-
-# Column resize (JavaScript event)
-# table.addEventListener('pynext:column-resize', (e) => {
-#     accessor = e.detail.accessor  # Column accessor
-#     width = e.detail.width        # New width (e.g., "250px")
-# })
-```
-
+- **[Button](./button.md)** — For table actions
+- **[Badge](./badge.md)** — For status cells
+- **[DropdownMenu](./dropdown-menu.md)** — For row actions
+- **[Input](./input.md)** — For filter input

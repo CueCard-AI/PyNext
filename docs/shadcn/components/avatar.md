@@ -1,14 +1,60 @@
 # Avatar
 
-User profile image with fallback support.
+> **Like a profile picture placeholder — shows who someone is**
 
-## When to Use
+A visual representation of a user, typically showing their photo or initials.
 
-Avatars are for:
-- **User profiles** - Profile pictures
-- **Comments** - Author images
-- **Lists** - Team members
-- **Navigation** - User menu trigger
+---
+
+## First Principles: What IS an Avatar?
+
+### The Core Concept
+
+An avatar is a **visual identity marker** for a user:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         THE AVATAR CONCEPT                                   │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  Three states of an avatar:                                                  │
+│                                                                              │
+│  1. WITH IMAGE:        2. IMAGE LOADING:     3. NO IMAGE (FALLBACK):        │
+│     ┌─────────┐           ┌─────────┐           ┌─────────┐                │
+│     │  ┌───┐  │           │ ░░░░░░░ │           │         │                │
+│     │  │ 😊 │  │           │ ░░░░░░░ │           │   JD    │                │
+│     │  └───┘  │           │ ░░░░░░░ │           │         │                │
+│     └─────────┘           └─────────┘           └─────────┘                │
+│     User's photo          Skeleton              Initials                    │
+│                                                                              │
+│  The avatar ALWAYS shows something — no empty broken images                  │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Why Avatars Are Everywhere
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         AVATAR USE CASES                                     │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  COMMENTS:                         TEAM LISTS:                               │
+│  ─────────                         ───────────                               │
+│  ┌──┐ John: Great work!            ┌──┐ ┌──┐ ┌──┐ ┌──┐ +3                  │
+│  └──┘                              └──┘ └──┘ └──┘ └──┘                      │
+│  ┌──┐ Jane: I agree                                                         │
+│  └──┘                              NAVIGATION:                               │
+│                                    ───────────                               │
+│  MESSAGES:                         Logo  Nav  Nav  Nav  ┌──┐                │
+│  ─────────                                              └──┘ Profile        │
+│  ┌──┐ Sarah  3 new messages                                                 │
+│  └──┘                                                                        │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
 
 ## Installation
 
@@ -16,148 +62,142 @@ Avatars are for:
 pynext ui add avatar
 ```
 
-Or use directly:
+Or import directly:
 
 ```python
 from pynext.shadcn import Avatar, AvatarImage, AvatarFallback
 ```
 
-## Basic Usage
+---
+
+## Step-by-Step Usage
+
+### Step 1: Basic Avatar
 
 ```python
 Avatar()[
-    AvatarImage(src="/avatar.jpg", alt="User"),
-    AvatarFallback()["JD"]
+    AvatarImage(src="https://example.com/avatar.jpg", alt="@username"),
+    AvatarFallback()["JD"]  # Shown if image fails
 ]
 ```
 
-**How it works:** `AvatarImage` shows the image. If it fails to load, `AvatarFallback` is displayed instead.
+### Step 2: Different Sizes
 
-## Examples
+```python
+# Small
+Avatar(class_="h-6 w-6")[
+    AvatarImage(src=user.avatar),
+    AvatarFallback(class_="text-xs")[user.initials]
+]
 
-### Simple Avatar
+# Medium (default)
+Avatar()[
+    AvatarImage(src=user.avatar),
+    AvatarFallback()[user.initials]
+]
+
+# Large
+Avatar(class_="h-16 w-16")[
+    AvatarImage(src=user.avatar),
+    AvatarFallback(class_="text-xl")[user.initials]
+]
+```
+
+### Step 3: Styled Fallback
 
 ```python
 Avatar()[
-    AvatarImage(src="/profile.jpg"),
-    AvatarFallback()["AB"]
-]
-```
-
-### Fallback Only (No Image)
-
-```python
-Avatar()[
-    AvatarFallback()["JD"]
-]
-```
-
-### Sizes
-
-```python
-Avatar(class_="h-8 w-8")[...]   # Small
-Avatar(class_="h-10 w-10")[...]  # Default
-Avatar(class_="h-12 w-12")[...]  # Medium
-Avatar(class_="h-16 w-16")[...]  # Large
-Avatar(class_="h-24 w-24")[...]  # Extra Large
-```
-
-### Avatar Group
-
-```python
-def AvatarGroup(users, max_display=3):
-    displayed = users[:max_display]
-    remaining = len(users) - max_display
-    
-    return div(class_="flex -space-x-2")[
-        [
-            Avatar(class_="border-2 border-background")[
-                AvatarImage(src=user["avatar"]),
-                AvatarFallback()[user["initials"]]
-            ]
-            for user in displayed
-        ],
-        remaining > 0 and Avatar(class_="border-2 border-background")[
-            AvatarFallback()[f"+{remaining}"]
-        ]
+    AvatarImage(src=user.avatar),
+    AvatarFallback(class_="bg-primary text-primary-foreground")[
+        user.initials
     ]
+]
 ```
 
-### With Status Indicator
+---
+
+## Common Patterns
+
+### Pattern 1: User Menu Trigger
 
 ```python
-div(class_="relative")[
-    Avatar()[
-        AvatarImage(src="/user.jpg"),
-        AvatarFallback()["JD"]
+DropdownMenu()[
+    DropdownMenuTrigger()[
+        Avatar(class_="cursor-pointer")[
+            AvatarImage(src=user.avatar),
+            AvatarFallback()[user.initials]
+        ]
     ],
-    span(class_="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 border-2 border-background")
+    DropdownMenuContent(align="end")[
+        DropdownMenuLabel()[user.name],
+        DropdownMenuSeparator(),
+        DropdownMenuItem()["Profile"],
+        DropdownMenuItem()["Settings"],
+        DropdownMenuItem()["Logout"],
+    ]
 ]
 ```
 
-### In a Card
+### Pattern 2: Avatar Stack (Team)
 
 ```python
-Card()[
-    CardHeader(class_="flex flex-row items-center gap-4")[
-        Avatar(class_="h-12 w-12")[
-            AvatarImage(src="/team/jane.jpg"),
-            AvatarFallback()["JD"]
-        ],
-        div()[
-            CardTitle()["Jane Doe"],
-            CardDescription()["Software Engineer"]
+div(class_="flex -space-x-2")[
+    [
+        Avatar(class_="border-2 border-background", key=m.id)[
+            AvatarImage(src=m.avatar),
+            AvatarFallback()[m.initials]
+        ]
+        for m in team_members[:4]
+    ],
+    len(team_members) > 4 and Avatar(class_="border-2 border-background")[
+        AvatarFallback(class_="bg-muted")[
+            f"+{len(team_members) - 4}"
         ]
     ]
 ]
 ```
 
-## Fallback Strategies
-
-### Initials
+### Pattern 3: With Online Status
 
 ```python
-def get_initials(name: str) -> str:
-    parts = name.split()
-    return "".join(p[0].upper() for p in parts[:2])
-
-Avatar()[
-    AvatarImage(src=user.avatar_url),
-    AvatarFallback()[get_initials(user.name)]
+div(class_="relative inline-block")[
+    Avatar()[
+        AvatarImage(src=user.avatar),
+        AvatarFallback()[user.initials]
+    ],
+    span(
+        class_=f"absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-background {'bg-green-500' if user.is_online else 'bg-gray-400'}"
+    )
 ]
 ```
 
-### Icon Fallback
+### Pattern 4: Comment Thread
 
 ```python
-Avatar()[
-    AvatarImage(src=user.avatar),
-    AvatarFallback()["👤"]  # User icon
-]
-```
-
-### Color-coded Fallback
-
-```python
-def avatar_color(name: str) -> str:
-    colors = ["bg-red-500", "bg-blue-500", "bg-green-500", "bg-purple-500"]
-    return colors[hash(name) % len(colors)]
-
-Avatar()[
-    AvatarImage(src=user.avatar),
-    AvatarFallback(class_=avatar_color(user.name))[
-        get_initials(user.name)
+div(class_="flex gap-4")[
+    Avatar()[
+        AvatarImage(src=comment.author.avatar),
+        AvatarFallback()[comment.author.initials]
+    ],
+    div(class_="flex-1")[
+        div(class_="flex items-center gap-2")[
+            span(class_="font-medium")[comment.author.name],
+            span(class_="text-sm text-muted-foreground")[comment.time_ago]
+        ],
+        p(class_="mt-1")[comment.text]
     ]
 ]
 ```
 
-## Props Reference
+---
+
+## API Reference
 
 ### Avatar
 
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
-| `class_` | str | `""` | Size and styling |
+| `class_` | str | `""` | Size and style classes |
 
 ### AvatarImage
 
@@ -170,16 +210,21 @@ Avatar()[
 
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
-| `class_` | str | `""` | Fallback styling |
+| `delay_ms` | int | `600` | Delay before showing fallback |
+
+---
 
 ## Accessibility
 
-- Always provide `alt` text on `AvatarImage`
-- Fallback should be meaningful (initials, not empty)
-- Status indicators need screen reader text
+| Feature | Implementation |
+|---------|----------------|
+| **Alt Text** | Always provide meaningful alt text |
+| **Fallback** | Provides content when image unavailable |
+| **Color Contrast** | Ensure initials are readable |
+
+---
 
 ## Related Components
 
-- [Card](./card.md) - Profile cards
-- [DropdownMenu](./dropdown-menu.md) - User menu
-
+- **[Badge](./badge.md)** — For status indicators
+- **[DropdownMenu](./dropdown-menu.md)** — For user menus

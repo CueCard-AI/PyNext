@@ -1,0 +1,122 @@
+/**
+ * PyNext Signals Runtime (Slim)
+ * SolidJS-style fine-grained reactivity
+ */
+(function(g) {
+    'use strict';
+    
+    var signals = new Map();
+    var effects = [];
+    var currentEffect = null;
+    var batchDepth = 0;
+    var pendingUpdates = [];
+    
+    function createSignal(id, value) {
+        var subscribers = new Set();
+        var signal = {
+            id: id,
+            value: value,
+            get: function() {
+                if (currentEffect) subscribers.add(currentEffect);
+                return signal.value;
+            },
+            set: function(v) {
+                if (signal.value === v) return;
+                signal.value = v;
+                if (batchDepth > 0) {
+                    pendingUpdates.push(signal);
+                } else {
+                    subscribers.forEach(function(fn) { fn(); });
+                }
+            },
+            subscribe: function(fn) {
+                subscribers.add(fn);
+                return function() { subscribers.delete(fn); };
+            }
+        };
+        signals.set(id, signal);
+        return signal;
+    }
+    
+    function getSignal(id) {
+        return signals.get(id);
+    }
+    
+    function setSignal(id, value) {
+        var signal = signals.get(id);
+        if (signal) signal.set(value);
+    }
+    
+    function createEffect(fn) {
+        function execute() {
+            currentEffect = execute;
+            try { fn(); } finally { currentEffect = null; }
+        }
+        effects.push(execute);
+        execute();
+    }
+    
+    function createMemo(fn) {
+        var signal = createSignal('memo_' + Math.random().toString(36).slice(2), undefined);
+        createEffect(function() { signal.set(fn()); });
+        return signal.get;
+    }
+    
+    function batch(fn) {
+        batchDepth++;
+        try {
+            fn();
+        } finally {
+            batchDepth--;
+            if (batchDepth === 0) {
+                var updates = new Set(pendingUpdates);
+                pendingUpdates = [];
+                updates.forEach(function(signal) {
+                    signal.subscribers && signal.subscribers.forEach(function(fn) { fn(); });
+                });
+            }
+        }
+    }
+    
+    function hydrate(data) {
+        if (!data || !data.signals) return;
+        data.signals.forEach(function(s) {
+            createSignal(s.id, s.value);
+        });
+    }
+    
+    // DOM binding
+    function bindText(el, signalId) {
+        var signal = getSignal(signalId);
+        if (!signal) return;
+        createEffect(function() { el.textContent = signal.get(); });
+    }
+    
+    function bindAttr(el, attr, signalId) {
+        var signal = getSignal(signalId);
+        if (!signal) return;
+        createEffect(function() { el.setAttribute(attr, signal.get()); });
+    }
+    
+    function bindClass(el, className, signalId) {
+        var signal = getSignal(signalId);
+        if (!signal) return;
+        createEffect(function() { el.classList.toggle(className, !!signal.get()); });
+    }
+    
+    g.__pynext__ = g.__pynext__ || {};
+    g.__pynext__.signals = signals;
+    g.__pynext__.createSignal = createSignal;
+    g.__pynext__.getSignal = getSignal;
+    g.__pynext__.setSignal = setSignal;
+    g.__pynext__.createEffect = createEffect;
+    g.__pynext__.createMemo = createMemo;
+    g.__pynext__.batch = batch;
+    g.__pynext__.bindText = bindText;
+    g.__pynext__.bindAttr = bindAttr;
+    g.__pynext__.bindClass = bindClass;
+    
+    if (g.__PYNEXT_DATA__) hydrate(g.__PYNEXT_DATA__);
+    
+})(window);
+

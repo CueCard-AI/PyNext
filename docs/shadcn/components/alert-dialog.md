@@ -1,16 +1,60 @@
-# Alert Dialog
+# AlertDialog
 
-A modal dialog for confirmations requiring explicit action.
+> **Like a bouncer at the door — "Are you SURE you want to do this?"**
 
-## When to Use
+A modal dialog that requires explicit user confirmation before proceeding.
 
-Alert dialogs are for:
-- **Destructive actions** - Delete, remove, clear
-- **Important confirmations** - Submit payment, accept terms
-- **Irreversible changes** - Data loss warnings
-- **Critical decisions** - Logout, cancel subscription
+---
 
-**Dialog vs AlertDialog:** Use AlertDialog when users MUST make a choice (no clicking outside to dismiss).
+## First Principles: What IS an AlertDialog?
+
+### The Core Concept
+
+An AlertDialog is a **blocking confirmation** that requires a conscious decision:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         THE ALERTDIALOG CONCEPT                              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  User clicks "Delete Account"                                                │
+│       ↓                                                                      │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │ ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░ │    │
+│  │ ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░ │    │
+│  │ ░░░░░░░░░░┌──────────────────────────────────────┐░░░░░░░░░░░░░░░░░ │    │
+│  │ ░░░░░░░░░░│  ⚠️ Are you absolutely sure?         │░░░░░░░░░░░░░░░░░ │    │
+│  │ ░░░░░░░░░░│                                      │░░░░░░░░░░░░░░░░░ │    │
+│  │ ░░░░░░░░░░│  This action cannot be undone.       │░░░░░░░░░░░░░░░░░ │    │
+│  │ ░░░░░░░░░░│  This will permanently delete your   │░░░░░░░░░░░░░░░░░ │    │
+│  │ ░░░░░░░░░░│  account and all associated data.    │░░░░░░░░░░░░░░░░░ │    │
+│  │ ░░░░░░░░░░│                                      │░░░░░░░░░░░░░░░░░ │    │
+│  │ ░░░░░░░░░░│        [Cancel]    [Delete]          │░░░░░░░░░░░░░░░░░ │    │
+│  │ ░░░░░░░░░░└──────────────────────────────────────┘░░░░░░░░░░░░░░░░░ │    │
+│  │ ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░ │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                              │
+│  KEY DIFFERENCE FROM DIALOG:                                                 │
+│  • Clicking overlay does NOT close (must choose Cancel or Action)            │
+│  • More urgent/warning styling                                               │
+│  • For destructive/irreversible actions                                      │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### AlertDialog vs Dialog
+
+```
+DIALOG:                             ALERTDIALOG:
+───────                             ────────────
+• General purpose                   • Confirmations only
+• Overlay click closes              • Overlay click does NOT close
+• Escape key closes                 • Escape key closes
+• Can be dismissed                  • Must make a choice
+• For forms, content                • For "are you sure?"
+```
+
+---
 
 ## Installation
 
@@ -18,188 +62,164 @@ Alert dialogs are for:
 pynext ui add alert-dialog
 ```
 
-Or use directly:
+Or import directly:
 
 ```python
 from pynext.shadcn import (
     AlertDialog, AlertDialogTrigger, AlertDialogContent,
     AlertDialogHeader, AlertDialogTitle, AlertDialogDescription,
-    AlertDialogFooter, AlertDialogAction, AlertDialogCancel
+    AlertDialogFooter, AlertDialogCancel, AlertDialogAction
 )
 ```
 
-## Basic Usage
+---
+
+## Step-by-Step Usage
+
+### Step 1: Basic Confirmation
 
 ```python
+AlertDialog()[
+    AlertDialogTrigger()[
+        Button(variant="destructive")["Delete"]
+    ],
+    AlertDialogContent()[
+        AlertDialogHeader()[
+            AlertDialogTitle()["Are you sure?"],
+            AlertDialogDescription()[
+                "This action cannot be undone."
+            ]
+        ],
+        AlertDialogFooter()[
+            AlertDialogCancel()["Cancel"],
+            AlertDialogAction()["Continue"]
+        ]
+    ]
+]
+```
+
+### Step 2: With Server Action
+
+```python
+from pynext import server_action
+
+@server_action
+async def delete_account(user_id: str):
+    await db.users.delete(user_id)
+    redirect("/goodbye")
+
 AlertDialog()[
     AlertDialogTrigger()[
         Button(variant="destructive")["Delete Account"]
     ],
     AlertDialogContent()[
         AlertDialogHeader()[
-            AlertDialogTitle()["Are you absolutely sure?"],
+            AlertDialogTitle()["Delete your account?"],
             AlertDialogDescription()[
-                "This action cannot be undone. This will permanently "
-                "delete your account and remove your data."
-            ]
-        ],
-        AlertDialogFooter()[
-            AlertDialogCancel()["Cancel"],
-            AlertDialogAction()["Yes, delete"]
-        ]
-    ]
-]
-```
-
-**How it works:** AlertDialog requires explicit action (Cancel or Action button). Clicking outside or pressing Escape doesn't close it.
-
-## Sub-Components
-
-| Component | Purpose |
-|-----------|---------|
-| `AlertDialog` | Container |
-| `AlertDialogTrigger` | Opens the dialog |
-| `AlertDialogContent` | The modal |
-| `AlertDialogHeader` | Title/description container |
-| `AlertDialogTitle` | Main heading |
-| `AlertDialogDescription` | Explanation text |
-| `AlertDialogFooter` | Action buttons |
-| `AlertDialogAction` | Confirms action |
-| `AlertDialogCancel` | Dismisses dialog |
-
-## Examples
-
-### Delete Confirmation
-
-```python
-AlertDialog()[
-    AlertDialogTrigger()[
-        Button(variant="destructive", size="sm")["🗑️ Delete"]
-    ],
-    AlertDialogContent()[
-        AlertDialogHeader()[
-            AlertDialogTitle()["Delete this item?"],
-            AlertDialogDescription()[
-                "This will permanently delete the item. "
+                "This will permanently delete your account and all data. "
                 "This action cannot be undone."
             ]
         ],
         AlertDialogFooter()[
-            AlertDialogCancel()["Keep it"],
-            AlertDialogAction(on_click=delete_item)[
-                "Delete"
-            ]
+            AlertDialogCancel()["Cancel"],
+            AlertDialogAction(
+                on_click=lambda: delete_account(user.id),
+                class_="bg-red-600 hover:bg-red-700"
+            )["Yes, delete my account"]
         ]
     ]
 ]
 ```
 
-### Logout Confirmation
+---
+
+## Common Patterns
+
+### Pattern 1: Dangerous Action Confirmation
 
 ```python
 AlertDialog()[
     AlertDialogTrigger()[
-        DropdownMenuItem()["Log out"]
+        Button(variant="outline", class_="text-red-600")[
+            Icons.trash(class_="mr-2 h-4 w-4"),
+            "Delete All Data"
+        ]
     ],
     AlertDialogContent()[
         AlertDialogHeader()[
-            AlertDialogTitle()["Log out of your account?"],
-            AlertDialogDescription()[
-                "You'll need to sign in again to access your account."
+            AlertDialogTitle()[
+                Icons.alert_triangle(class_="h-5 w-5 text-red-500 inline mr-2"),
+                "Delete All Data?"
+            ],
+            AlertDialogDescription(class_="space-y-2")[
+                p()["This will permanently delete:"],
+                ul(class_="list-disc pl-4")[
+                    li()["All your projects"],
+                    li()["All files and assets"],
+                    li()["All team memberships"],
+                ],
+                p(class_="font-medium text-red-600")[
+                    "This action cannot be undone."
+                ]
             ]
         ],
         AlertDialogFooter()[
-            AlertDialogCancel()["Stay signed in"],
-            AlertDialogAction(on_click=handle_logout)[
-                "Log out"
-            ]
+            AlertDialogCancel()["Keep my data"],
+            AlertDialogAction(class_="bg-red-600")["Delete everything"]
         ]
     ]
 ]
 ```
 
-### With Warning Icon
+### Pattern 2: Save Changes Before Leaving
 
 ```python
-AlertDialogContent()[
-    AlertDialogHeader()[
-        div(class_="flex items-center gap-4")[
-            span(class_="text-4xl")["⚠️"],
-            div()[
-                AlertDialogTitle()["Unsaved changes"],
-                AlertDialogDescription()[
-                    "You have unsaved changes. Do you want to save before leaving?"
-                ]
+AlertDialog(open=has_unsaved_changes.value)[
+    AlertDialogContent()[
+        AlertDialogHeader()[
+            AlertDialogTitle()["Unsaved Changes"],
+            AlertDialogDescription()[
+                "You have unsaved changes. Do you want to save them before leaving?"
             ]
+        ],
+        AlertDialogFooter()[
+            AlertDialogCancel(on_click=discard_and_leave)["Discard"],
+            AlertDialogAction(on_click=save_and_leave)["Save Changes"]
         ]
-    ],
-    AlertDialogFooter()[
-        AlertDialogCancel()["Cancel"],
-        Button(variant="outline", on_click=discard)["Don't save"],
-        AlertDialogAction(on_click=save)["Save changes"]
     ]
 ]
 ```
 
-## Controlled AlertDialog
+---
 
-```python
-from pynext import Signal
+## API Reference
 
-show_dialog = Signal(False)
-
-def ControlledAlertDialog():
-    return AlertDialog(
-        open=show_dialog.value,
-        on_open_change=show_dialog.set
-    )[
-        AlertDialogContent()[
-            AlertDialogTitle()["Controlled Dialog"],
-            AlertDialogDescription()["Opened via Signal"],
-            AlertDialogFooter()[
-                AlertDialogCancel()["Close"]
-            ]
-        ]
-    ]
-```
-
-## Styling Action Buttons
-
-```python
-AlertDialogFooter()[
-    AlertDialogCancel()["Cancel"],
-    AlertDialogAction(class_="bg-destructive text-destructive-foreground")[
-        "Delete"
-    ]
-]
-```
-
-## Props Reference
-
-### AlertDialog
+### AlertDialogAction
 
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
-| `open` | bool | `None` | Controlled open state |
-| `on_open_change` | callable | `None` | Called when state changes |
+| `on_click` | callable | `None` | Action to perform on click |
 
-### AlertDialogAction / AlertDialogCancel
+### AlertDialogCancel
 
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
-| `on_click` | callable | `None` | Click handler |
-| `class_` | str | `""` | Additional CSS classes |
+| `on_click` | callable | `None` | Optional cancel handler |
+
+---
 
 ## Accessibility
 
-- Focus is trapped inside the dialog
-- Escape key does NOT close (must click Cancel)
-- Uses `role="alertdialog"` for urgency
-- Screen readers announce as alert
-- Focus moves to dialog on open
+| Feature | Implementation |
+|---------|----------------|
+| **Role** | `role="alertdialog"` |
+| **Focus Trap** | Focus stays within dialog |
+| **Escape** | Closes dialog (acts as Cancel) |
+| **Initial Focus** | Cancel button by default |
+
+---
 
 ## Related Components
 
-- [Dialog](./dialog.md) - For non-critical modals
-- [Button](./button.md) - Trigger styling
-
+- **[Dialog](./dialog.md)** — For general modals
+- **[Button](./button.md)** — For trigger elements

@@ -1,0 +1,61 @@
+/**
+ * PyNext Browser Runtime (Slim)
+ * Visibility and online status tracking
+ */
+(function(g) {
+    'use strict';
+    
+    var visibilityId = null;
+    var onlineId = null;
+    
+    function initVisibility(signalId) {
+        visibilityId = signalId;
+        update(signalId, !document.hidden);
+        
+        document.addEventListener('visibilitychange', function() {
+            update(signalId, !document.hidden);
+            dispatch('pynext:visibility-change', { visible: !document.hidden });
+        });
+    }
+    
+    function initOnline(signalId) {
+        onlineId = signalId;
+        update(signalId, navigator.onLine);
+        
+        g.addEventListener('online', function() {
+            update(signalId, true);
+            dispatch('pynext:online-change', { online: true });
+        });
+        
+        g.addEventListener('offline', function() {
+            update(signalId, false);
+            dispatch('pynext:online-change', { online: false });
+        });
+    }
+    
+    function update(id, value) {
+        if (g.__pynext__ && g.__pynext__.setSignal) {
+            g.__pynext__.setSignal(id, value);
+        }
+    }
+    
+    function dispatch(name, detail) {
+        document.dispatchEvent(new CustomEvent(name, { detail: detail }));
+    }
+    
+    function hydrate(data) {
+        if (!data) return;
+        if (data.visibility) initVisibility(data.visibility.id);
+        if (data.online) initOnline(data.online.id);
+    }
+    
+    g.__pynext__ = g.__pynext__ || {};
+    g.__pynext__.browser = {
+        initVisibility: initVisibility,
+        initOnline: initOnline
+    };
+    
+    if (g.__PYNEXT_DATA__) hydrate(g.__PYNEXT_DATA__);
+    
+})(window);
+

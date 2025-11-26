@@ -1,140 +1,281 @@
 # Calendar
 
-A date picker calendar with single and range selection support.
+> **Like a wall calendar you can click — select dates visually**
+
+A month-view calendar for selecting dates with full localization support.
+
+---
+
+## First Principles: What IS a Calendar Component?
+
+### The Core Concept
+
+A calendar is a **visual date picker** that shows dates in familiar month view:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         THE CALENDAR CONCEPT                                 │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  Text Input:                       Calendar:                                 │
+│  ───────────                       ─────────                                 │
+│                                                                              │
+│  ┌─────────────────┐               ┌─────────────────────────┐              │
+│  │ 2024-01-15      │               │  ◀  January 2024  ▶     │              │
+│  └─────────────────┘               ├───┬───┬───┬───┬───┬───┬───┤            │
+│                                    │ S │ M │ T │ W │ T │ F │ S │            │
+│  User must know                    ├───┼───┼───┼───┼───┼───┼───┤            │
+│  exact format!                     │   │ 1 │ 2 │ 3 │ 4 │ 5 │ 6 │            │
+│                                    │ 7 │ 8 │ 9 │10 │11 │12 │13 │            │
+│  Error-prone:                      │14 │[15]│16 │17 │18 │19 │20 │ ← Selected│
+│  - "01/15/2024"                    │21 │22 │23 │24 │25 │26 │27 │            │
+│  - "15/01/2024"                    │28 │29 │30 │31 │   │   │   │            │
+│  - "Jan 15, 2024"                  └───┴───┴───┴───┴───┴───┴───┘            │
+│                                                                              │
+│                                    Click to select!                          │
+│                                    No format confusion                       │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### When to Use Calendar vs Input
+
+```
+USE CALENDAR WHEN:                  USE DATE INPUT WHEN:
+──────────────────                  ────────────────────
+
+• Date is unknown to user           • Date is known exactly
+• Relative selection needed         • Typing is faster
+  ("next Friday")                   • Form autofill needed
+• Date range selection              • Accessibility is critical
+• Visual context helps              • Mobile keyboard preferred
+  (see weekdays, holidays)
+```
+
+---
+
+## How It Works
+
+### Component Structure
+
+```
+Calendar                           ← Root container
+├── CalendarHeader                 ← Navigation bar
+│   ├── CalendarPrevMonth          ← Previous month button
+│   ├── CalendarMonthYear          ← "January 2024"
+│   └── CalendarNextMonth          ← Next month button
+├── CalendarGrid                   ← The date grid
+│   ├── CalendarWeekdays           ← S M T W T F S
+│   └── CalendarDays               ← Date cells
+│       └── CalendarDay            ← Individual date
+└── (optional) CalendarFooter      ← Today button, etc.
+```
+
+### Selection Modes
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         CALENDAR SELECTION MODES                             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  SINGLE:                          RANGE:                                     │
+│  ───────                          ──────                                     │
+│                                                                              │
+│  Click one date                   Click start → Click end                    │
+│  ┌───┬───┬───┐                    ┌───┬───┬───┐                             │
+│  │ 1 │ 2 │ 3 │                    │ 1 │ 2 │ 3 │                             │
+│  │ 4 │[5]│ 6 │ ← Selected         │[4]│ 5 │ 6 │ ← Start                     │
+│  │ 7 │ 8 │ 9 │                    │ 7 │[8]│ 9 │ ← End                       │
+│  └───┴───┴───┘                    └───┴───┴───┘                             │
+│                                   Days 4-8 highlighted                       │
+│                                                                              │
+│  MULTIPLE:                                                                   │
+│  ─────────                                                                  │
+│                                                                              │
+│  Click to toggle                                                             │
+│  ┌───┬───┬───┐                                                              │
+│  │[1]│ 2 │[3]│ ← Multiple selected                                          │
+│  │ 4 │[5]│ 6 │                                                              │
+│  └───┴───┴───┘                                                              │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
 
 ## Installation
+
+```bash
+pynext ui add calendar
+```
+
+Or import directly:
 
 ```python
 from pynext.shadcn import Calendar
 ```
 
-## Basic Usage
+---
+
+## Step-by-Step Usage
+
+### Step 1: Basic Calendar
 
 ```python
+from pynext import Signal
 from datetime import date
 
+selected = Signal(date.today())
+
 Calendar(
-    selected=selected_date,
-    on_select=lambda d: selected_date.set(d)
+    selected=selected.value,
+    on_select=selected.set
 )
 ```
 
-## Examples
-
-### Single Date Selection
+### Step 2: Date Range Selection
 
 ```python
-Calendar(
-    mode="single",
-    selected=selected_date,
-    on_select=handle_select
-)
-```
+from pynext import Signal
 
-### Range Selection
+date_range = Signal({"from": None, "to": None})
 
-```python
 Calendar(
     mode="range",
-    selected={"start": start_date, "end": end_date},
-    on_select=lambda r: set_range(r)
+    selected=date_range.value,
+    on_select=date_range.set
+)
+
+# date_range.value = {"from": date(2024, 1, 10), "to": date(2024, 1, 15)}
+```
+
+### Step 3: With Disabled Dates
+
+```python
+from datetime import date, timedelta
+
+# Disable past dates
+min_date = date.today()
+
+# Disable specific dates
+disabled_dates = [
+    date(2024, 12, 25),  # Christmas
+    date(2024, 1, 1),    # New Year
+]
+
+# Disable weekends
+def is_weekend(d):
+    return d.weekday() >= 5
+
+Calendar(
+    selected=selected.value,
+    on_select=selected.set,
+    min_date=min_date,
+    disabled=disabled_dates,
+    disabled_fn=is_weekend
 )
 ```
 
-### With Date Restrictions
+### Step 4: Localization
 
 ```python
-from datetime import datetime, timedelta
-
+# Spanish calendar (Monday start, Spanish month names)
 Calendar(
-    selected=selected,
-    min_date=datetime.now(),  # No past dates
-    max_date=datetime.now() + timedelta(days=365),  # Up to 1 year
-    disabled_dates=[
-        datetime(2024, 12, 25),  # Christmas
-        datetime(2025, 1, 1),    # New Year
+    locale="es",
+    week_starts_on=1,  # Monday
+    weekday_names=["Lu", "Ma", "Mi", "Ju", "Vi", "Sá", "Do"],
+    month_names=[
+        "Enero", "Febrero", "Marzo", "Abril",
+        "Mayo", "Junio", "Julio", "Agosto",
+        "Septiembre", "Octubre", "Noviembre", "Diciembre"
     ]
 )
+
+# Japanese calendar
+Calendar(
+    locale="ja",
+    weekday_names=["日", "月", "火", "水", "木", "金", "土"],
+    month_names=["1月", "2月", "3月", "4月", "5月", "6月",
+                 "7月", "8月", "9月", "10月", "11月", "12月"]
+)
 ```
 
-### Hide Outside Days
+---
+
+## Common Patterns
+
+### Pattern 1: Date Picker (with Popover)
 
 ```python
-Calendar(
-    selected=selected,
-    show_outside_days=False  # Don't show days from adjacent months
-)
+from pynext import Signal
+
+selected = Signal(None)
+
+Popover()[
+    PopoverTrigger()[
+        Button(variant="outline", class_="w-[240px] justify-start")[
+            Icons.calendar(class_="mr-2 h-4 w-4"),
+            selected.value.strftime("%b %d, %Y") if selected.value else "Pick a date"
+        ]
+    ],
+    PopoverContent(class_="w-auto p-0")[
+        Calendar(
+            selected=selected.value,
+            on_select=selected.set
+        )
+    ]
+]
 ```
 
-### Custom Initial Month
+### Pattern 2: Date Range Picker
 
 ```python
-from datetime import datetime
+date_range = Signal({"from": None, "to": None})
 
-Calendar(
-    selected=None,
-    default_month=datetime(2025, 6, 1)  # Start showing June 2025
-)
+div(class_="grid gap-2")[
+    Popover()[
+        PopoverTrigger()[
+            Button(variant="outline", class_="w-[300px] justify-start")[
+                Icons.calendar(class_="mr-2 h-4 w-4"),
+                format_date_range(date_range.value)
+            ]
+        ],
+        PopoverContent(class_="w-auto p-0", align="start")[
+            Calendar(
+                mode="range",
+                selected=date_range.value,
+                on_select=date_range.set,
+                number_of_months=2  # Show 2 months side by side
+            )
+        ]
+    ]
+]
 ```
 
-### Localization
-
-The calendar supports multiple locales for weekday and month names:
+### Pattern 3: Booking Calendar (with Availability)
 
 ```python
-# Spanish locale
-Calendar(
-    selected=selected_date,
-    locale="es"  # Shows "Enero", "Febrero", "Lu", "Ma", etc.
-)
+# Dates with availability data
+availability = {
+    date(2024, 1, 15): {"available": True, "slots": 3},
+    date(2024, 1, 16): {"available": True, "slots": 1},
+    date(2024, 1, 17): {"available": False, "slots": 0},
+}
 
-# Week starts on Monday (European style)
 Calendar(
-    selected=selected_date,
-    locale="en-GB"  # Mon-Sun order
-)
-
-# German locale
-Calendar(
-    selected=selected_date,
-    locale="de"  # "Januar", "Mo", "Di", "Mi", etc.
-)
-
-# Japanese locale
-Calendar(
-    selected=selected_date,
-    locale="ja"  # "1月", "日", "月", "火", etc.
+    selected=selected.value,
+    on_select=selected.set,
+    # Custom day rendering
+    day_render=lambda d: div(class_="relative")[
+        span()[d.day],
+        availability.get(d, {}).get("available") and 
+            span(class_="absolute bottom-0 left-1/2 w-1 h-1 bg-green-500 rounded-full")
+    ],
+    disabled_fn=lambda d: not availability.get(d, {}).get("available", True)
 )
 ```
 
-**Supported Locales:**
-- `en` (English, Sunday start) - default
-- `en-GB` (English, Monday start)
-- `es` (Spanish)
-- `fr` (French)
-- `de` (German)
-- `ja` (Japanese)
-- `zh` (Chinese)
-- `pt` (Portuguese)
-
-### Custom Weekday/Month Names
-
-Override locale defaults with custom names:
-
-```python
-Calendar(
-    selected=selected_date,
-    weekday_names=["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
-    month_names=["Jan", "Feb", "Mar", "Apr", "May", "Jun", 
-                 "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
-)
-
-# Change only the start day
-Calendar(
-    selected=selected_date,
-    week_starts_on=1  # 0=Sunday, 1=Monday, ..., 6=Saturday
-)
-```
+---
 
 ## API Reference
 
@@ -142,48 +283,46 @@ Calendar(
 
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
-| `mode` | `"single" \| "range"` | `"single"` | Selection mode |
-| `selected` | `date \| dict` | `None` | Selected date(s) |
-| `on_select` | `Callable` | `None` | Selection callback |
-| `default_month` | `date` | Current | Initial month to display |
-| `disabled_dates` | `list[date]` | `[]` | Dates to disable |
-| `min_date` | `date` | `None` | Minimum selectable date |
-| `max_date` | `date` | `None` | Maximum selectable date |
-| `show_outside_days` | `bool` | `True` | Show adjacent month days |
-| `locale` | `str` | `"en"` | Locale preset for weekday/month names |
-| `weekday_names` | `list[str]` | From locale | Custom weekday abbreviations (7 items) |
-| `month_names` | `list[str]` | From locale | Custom month names (12 items) |
-| `week_starts_on` | `int` | From locale | First day of week (0=Sun, 1=Mon, etc.) |
+| `selected` | date/dict | `None` | Selected date(s) |
+| `on_select` | callable | `None` | Called when selection changes |
+| `mode` | str | `"single"` | `"single"`, `"range"`, `"multiple"` |
+| `min_date` | date | `None` | Earliest selectable date |
+| `max_date` | date | `None` | Latest selectable date |
+| `disabled` | list | `[]` | Specific dates to disable |
+| `disabled_fn` | callable | `None` | Function to determine if date disabled |
+| `week_starts_on` | int | `0` | Start day (0=Sunday, 1=Monday) |
+| `locale` | str | `"en"` | Locale for formatting |
+| `weekday_names` | list | `None` | Custom weekday labels |
+| `month_names` | list | `None` | Custom month labels |
+| `number_of_months` | int | `1` | Number of months to display |
 
-## Events
+---
 
-```python
-# Listen for selection
-@on("pynext:calendar-select")
-def handle_select(event):
-    date = event.detail.date
-    mode = event.detail.mode
-    start = event.detail.start  # For range mode
-    end = event.detail.end      # For range mode
+## Accessibility
 
-# Listen for navigation
-@on("pynext:calendar-navigate")
-def handle_navigate(event):
-    year = event.detail.year
-    month = event.detail.month
-```
+| Feature | Implementation |
+|---------|----------------|
+| **ARIA Grid** | `role="grid"` with proper cell roles |
+| **Arrow Keys** | Navigate between dates |
+| **Page Up/Down** | Navigate months |
+| **Home/End** | Jump to start/end of week |
+| **Enter/Space** | Select focused date |
 
-## Styling
+---
 
-The calendar uses these key classes:
+## Troubleshooting
 
-- `bg-primary text-primary-foreground` - Selected day
-- `bg-accent text-accent-foreground` - Today
-- `text-muted-foreground opacity-50` - Disabled/outside days
+| Issue | Cause | Solution |
+|-------|-------|----------|
+| Wrong month showing | Initial date not set | Pass `default_month` prop |
+| Can't select past dates | `min_date` set | Remove or adjust min_date |
+| Wrong week start | Default is Sunday | Set `week_starts_on=1` for Monday |
+| Localization not working | Missing locale data | Provide custom `weekday_names` and `month_names` |
 
-## Keyboard Navigation
+---
 
-- `←/→` - Navigate days
-- `↑/↓` - Navigate weeks
-- `Enter` - Select focused day
+## Related Components
 
+- **[DatePicker](./date-picker.md)** — Calendar in a popover
+- **[Popover](./popover.md)** — For dropdown calendars
+- **[Input](./input.md)** — For typed date entry

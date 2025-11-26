@@ -1,16 +1,67 @@
 # Alert
 
-Display important messages to users.
+> **Like a sticky note on your monitor — persistent, important information**
 
-## When to Use
+A highlighted message that stays visible on the page to convey important information.
 
-Alerts are for:
-- **Success messages** - "Your changes have been saved"
-- **Error messages** - "Something went wrong"
-- **Warnings** - "This action cannot be undone"
-- **Information** - "New features are available"
+---
 
-Alerts are static and always visible. For dismissible notifications, consider a toast component.
+## First Principles: What IS an Alert?
+
+### The Core Concept
+
+An alert is a **persistent in-page notification** that draws attention:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         THE ALERT CONCEPT                                    │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  TOAST (temporary):                ALERT (persistent):                       │
+│  ──────────────────                ───────────────────                       │
+│                                                                              │
+│  ┌─────────────────┐               ┌──────────────────────────────────────┐ │
+│  │                 │               │                                      │ │
+│  │  Page Content   │               │  ⚠️ ALERT: Your trial expires in 3   │ │
+│  │                 │               │     days. Upgrade now to continue.   │ │
+│  │         ┌─────┐ │               │                                      │ │
+│  │         │Saved│ │               └──────────────────────────────────────┘ │
+│  │         └─────┘ │               │                                      │ │
+│  │           ↑     │               │  Page Content                        │ │
+│  │       Disappears│               │                                      │ │
+│  │       after 3s  │               │  Alert stays until dismissed or      │ │
+│  │                 │               │  condition changes                   │ │
+│  └─────────────────┘               └──────────────────────────────────────┘ │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Alert Variants
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         ALERT TYPES                                          │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  DEFAULT:          Neutral information                                       │
+│  ├────────────────────────────────────────┐                                 │
+│  │ ℹ️ Note: This feature is in beta       │                                 │
+│  └────────────────────────────────────────┘                                 │
+│                                                                              │
+│  DESTRUCTIVE:      Error or danger                                           │
+│  ├────────────────────────────────────────┐                                 │
+│  │ ⚠️ Error: Could not save changes       │                                 │
+│  └────────────────────────────────────────┘                                 │
+│                                                                              │
+│  (Custom):         Success, warning, info                                    │
+│  ├────────────────────────────────────────┐                                 │
+│  │ ✓ Success: Your changes have been saved│                                 │
+│  └────────────────────────────────────────┘                                 │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
 
 ## Installation
 
@@ -18,13 +69,17 @@ Alerts are static and always visible. For dismissible notifications, consider a 
 pynext ui add alert
 ```
 
-Or use directly:
+Or import directly:
 
 ```python
 from pynext.shadcn import Alert, AlertTitle, AlertDescription
 ```
 
-## Basic Usage
+---
+
+## Step-by-Step Usage
+
+### Step 1: Basic Alert
 
 ```python
 Alert()[
@@ -35,25 +90,11 @@ Alert()[
 ]
 ```
 
-**How it works:** Alert provides a styled container. AlertTitle and AlertDescription structure the content.
-
-## Variants
-
-### Default
-
-```python
-Alert()[
-    AlertTitle()["Note"],
-    AlertDescription()["This is a default alert."]
-]
-```
-
-Neutral styling, for general information.
-
-### Destructive
+### Step 2: Destructive Alert
 
 ```python
 Alert(variant="destructive")[
+    Icons.alert_circle(class_="h-4 w-4"),
     AlertTitle()["Error"],
     AlertDescription()[
         "Your session has expired. Please log in again."
@@ -61,178 +102,92 @@ Alert(variant="destructive")[
 ]
 ```
 
-Red styling, for errors and dangerous actions.
-
-## Examples
-
-### Success Message
-
-```python
-Alert(class_="border-green-500 text-green-700 bg-green-50")[
-    span(class_="text-green-500")["✓"],
-    AlertTitle()["Success!"],
-    AlertDescription()[
-        "Your payment has been processed successfully."
-    ]
-]
-```
-
-### Warning Message
-
-```python
-Alert(class_="border-yellow-500 text-yellow-700 bg-yellow-50")[
-    span(class_="text-yellow-500")["⚠️"],
-    AlertTitle()["Warning"],
-    AlertDescription()[
-        "Your free trial expires in 3 days."
-    ]
-]
-```
-
-### With Icon
+### Step 3: With Icon
 
 ```python
 Alert()[
-    div(class_="flex gap-3")[
-        span(class_="text-xl")["💡"],
-        div()[
-            AlertTitle()["Pro Tip"],
-            AlertDescription()[
-                "Use keyboard shortcuts to work faster."
-            ]
-        ]
+    Icons.terminal(class_="h-4 w-4"),
+    AlertTitle()["Terminal"],
+    AlertDescription()[
+        "Run `pynext init` to create a new project."
     ]
 ]
 ```
 
-### Dismissible Alert
+---
+
+## Common Patterns
+
+### Pattern 1: Form Validation Error
 
 ```python
-from pynext import Signal
-
-show_alert = Signal(True)
-
-def DismissibleAlert():
-    if not show_alert.value:
-        return None
-    
-    return Alert(class_="relative pr-12")[
-        AlertTitle()["New Feature"],
-        AlertDescription()[
-            "Check out the new dashboard design."
-        ],
-        button(
-            class_="absolute right-4 top-4 opacity-70 hover:opacity-100",
-            on_click=lambda: show_alert.set(False)
-        )["✕"]
-    ]
-```
-
-### Alert List
-
-```python
-def AlertList(alerts: list):
-    return div(class_="space-y-4")[
-        [
-            Alert(
-                variant="destructive" if alert["type"] == "error" else "default",
-                key=alert["id"]
-            )[
-                AlertTitle()[alert["title"]],
-                AlertDescription()[alert["message"]]
-            ]
-            for alert in alerts
-        ]
-    ]
-```
-
-### Form Validation Alert
-
-```python
-errors = ["Email is required", "Password must be at least 8 characters"]
-
-Alert(variant="destructive")[
+errors and Alert(variant="destructive")[
+    Icons.alert_circle(class_="h-4 w-4"),
     AlertTitle()["There were errors with your submission"],
     AlertDescription()[
-        ul(class_="list-disc pl-4 mt-2")[
+        ul(class_="list-disc pl-4")[
             [li()[error] for error in errors]
         ]
     ]
 ]
 ```
 
-## Styling
-
-### Custom Colors
+### Pattern 2: Feature Announcement
 
 ```python
-# Info (blue)
-Alert(class_="border-blue-200 bg-blue-50 text-blue-800")
-
-# Success (green)
-Alert(class_="border-green-200 bg-green-50 text-green-800")
-
-# Warning (yellow)
-Alert(class_="border-yellow-200 bg-yellow-50 text-yellow-800")
-
-# Error (red) - or use variant="destructive"
-Alert(class_="border-red-200 bg-red-50 text-red-800")
-```
-
-### With Border Accent
-
-```python
-Alert(class_="border-l-4 border-l-blue-500")[
-    AlertTitle()["Info"],
-    AlertDescription()["Left border accent style."]
+Alert(class_="bg-gradient-to-r from-purple-500/10 to-pink-500/10 border-purple-200")[
+    Icons.sparkles(class_="h-4 w-4 text-purple-500"),
+    AlertTitle()["New Feature!"],
+    AlertDescription()[
+        "Dark mode is now available. ",
+        a(href="/settings", class_="underline")["Enable it in settings."]
+    ]
 ]
 ```
 
-### Compact Alert
+### Pattern 3: Dismissible Alert
 
 ```python
-Alert(class_="py-2")[
-    p(class_="text-sm")["A compact inline alert message."]
+from pynext import Signal
+
+show_alert = Signal(True)
+
+show_alert.value and Alert(class_="relative")[
+    Icons.info(class_="h-4 w-4"),
+    AlertTitle()["Update Available"],
+    AlertDescription()["A new version is ready to install."],
+    Button(
+        variant="ghost",
+        size="icon",
+        class_="absolute top-2 right-2",
+        on_click=lambda: show_alert.set(False)
+    )[Icons.x(class_="h-4 w-4")]
 ]
 ```
 
-## Props Reference
+---
+
+## API Reference
 
 ### Alert
 
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
-| `variant` | str | `"default"` | Visual style: "default" or "destructive" |
-| `class_` | str | `""` | Additional CSS classes |
+| `variant` | str | `"default"` | `"default"` or `"destructive"` |
 
-### AlertTitle
-
-| Prop | Type | Default | Description |
-|------|------|---------|-------------|
-| `class_` | str | `""` | Additional CSS classes |
-
-### AlertDescription
-
-| Prop | Type | Default | Description |
-|------|------|---------|-------------|
-| `class_` | str | `""` | Additional CSS classes |
+---
 
 ## Accessibility
 
-- Uses `role="alert"` for screen reader announcement
-- Color is not the only indicator (icons, text help)
-- Destructive alerts should be announced with urgency
+| Feature | Implementation |
+|---------|----------------|
+| **Role** | `role="alert"` for important messages |
+| **Icons** | Include `aria-hidden="true"` on decorative icons |
+| **Dismissible** | Include accessible close button |
 
-```python
-Alert(variant="destructive", role="alert", aria_live="assertive")[
-    AlertTitle()["Error"],
-    AlertDescription()["Critical error occurred."]
-]
-```
+---
 
 ## Related Components
 
-- [AlertDialog](./alert-dialog.md) - Modal confirmation
-- [Card](./card.md) - For less urgent information
-- [Badge](./badge.md) - Inline status indicators
-
+- **[Toast](./toast.md)** — For temporary notifications
+- **[AlertDialog](./alert-dialog.md)** — For confirmations

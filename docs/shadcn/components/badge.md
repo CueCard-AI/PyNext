@@ -1,14 +1,49 @@
 # Badge
 
-Small status indicator for labeling items.
+> **Like a label sticker — a small visual tag that categorizes or highlights**
 
-## When to Use
+A compact element for displaying status, categories, or counts.
 
-Badges are for:
-- **Status indicators** - Active, Pending, Closed
-- **Counts** - Notifications, unread messages
-- **Categories** - Tags, labels
-- **New/Updated** - Feature highlights
+---
+
+## First Principles: What IS a Badge?
+
+### The Core Concept
+
+A badge is a **small visual label** that provides quick context:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         THE BADGE CONCEPT                                    │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  WITHOUT BADGES:                   WITH BADGES:                              │
+│  ───────────────                   ────────────                              │
+│                                                                              │
+│  Task List:                        Task List:                                │
+│  • Fix bug                         • Fix bug [Critical]                      │
+│  • Add feature                     • Add feature [In Progress]               │
+│  • Update docs                     • Update docs [Done]                      │
+│                                                                              │
+│  Hard to scan status!              Status visible at a glance!               │
+│                                                                              │
+│  Badge Types:                                                                │
+│  ─────────────                                                              │
+│  [Default]  [Secondary]  [Destructive]  [Outline]                           │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Common Badge Uses
+
+```
+STATUS:     [Active]  [Pending]  [Closed]
+CATEGORY:   [Bug]  [Feature]  [Documentation]
+COUNT:      Inbox [3]  Notifications [12]
+NEW:        Feature [New]  [Beta]
+```
+
+---
 
 ## Installation
 
@@ -16,92 +51,174 @@ Badges are for:
 pynext ui add badge
 ```
 
-Or use directly:
+Or import directly:
 
 ```python
 from pynext.shadcn import Badge
 ```
 
-## Basic Usage
+---
+
+## Step-by-Step Usage
+
+### Step 1: Basic Badge
 
 ```python
 Badge()["Badge"]
 ```
 
-## Variants
+### Step 2: Variants
 
 ```python
-Badge(variant="default")["Default"]
+Badge()["Default"]
 Badge(variant="secondary")["Secondary"]
-Badge(variant="destructive")["Destructive"]
 Badge(variant="outline")["Outline"]
+Badge(variant="destructive")["Destructive"]
 ```
 
-| Variant | Use Case |
-|---------|----------|
-| `default` | Primary status, active states |
-| `secondary` | Neutral information |
-| `destructive` | Errors, warnings |
-| `outline` | Subtle, less emphasis |
-
-## Examples
-
-### Status Badges
+### Step 3: In Context
 
 ```python
-Badge(variant="default")["Active"]
-Badge(variant="secondary")["Pending"]
-Badge(variant="destructive")["Rejected"]
-Badge(class_="bg-green-500")["Approved"]
-```
+# Next to text
+h3(class_="flex items-center gap-2")[
+    "Feature Name",
+    Badge(variant="secondary")["Beta"]
+]
 
-### With Icons
-
-```python
-Badge()[
-    span(class_="mr-1")["✓"],
-    "Verified"
+# In a list item
+div(class_="flex items-center justify-between")[
+    span()["Task title"],
+    Badge()["In Progress"]
 ]
 ```
 
-### Notification Count
+---
+
+## Common Patterns
+
+### Pattern 1: Status Badge
 
 ```python
-Button(class_="relative")[
-    "Inbox",
-    Badge(class_="absolute -top-2 -right-2 h-5 w-5 p-0 justify-center")[
-        "3"
+def status_badge(status: str):
+    variants = {
+        "active": ("default", "Active"),
+        "pending": ("secondary", "Pending"),
+        "completed": ("outline", "Completed"),
+        "cancelled": ("destructive", "Cancelled"),
+    }
+    variant, label = variants.get(status, ("secondary", status))
+    return Badge(variant=variant)[label]
+
+# Usage
+status_badge(task.status)
+```
+
+### Pattern 2: Notification Count
+
+```python
+Button(variant="ghost", class_="relative")[
+    Icons.bell(class_="h-5 w-5"),
+    unread_count > 0 and Badge(
+        class_="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0",
+        variant="destructive"
+    )[unread_count if unread_count < 100 else "99+"]
+]
+```
+
+### Pattern 3: Tag List
+
+```python
+div(class_="flex flex-wrap gap-2")[
+    [
+        Badge(variant="outline", class_="cursor-pointer hover:bg-muted", key=tag)[
+            tag,
+            Button(
+                variant="ghost",
+                size="icon",
+                class_="h-4 w-4 ml-1 p-0",
+                on_click=lambda t=tag: remove_tag(t)
+            )[Icons.x(class_="h-3 w-3")]
+        ]
+        for tag in tags
     ]
 ]
 ```
 
-### In Cards/Lists
+### Pattern 4: Priority Indicator
 
 ```python
-div(class_="flex items-center justify-between")[
-    span()["Premium Plan"],
-    Badge(variant="secondary")["Current"]
-]
+def priority_badge(priority: str):
+    colors = {
+        "critical": "bg-red-500 text-white",
+        "high": "bg-orange-500 text-white",
+        "medium": "bg-yellow-500 text-black",
+        "low": "bg-green-500 text-white",
+    }
+    return Badge(class_=colors.get(priority, ""))[priority.capitalize()]
 ```
 
-## Custom Colors
+---
 
-```python
-Badge(class_="bg-blue-500 hover:bg-blue-600")["Info"]
-Badge(class_="bg-yellow-500 text-yellow-950")["Warning"]
-Badge(class_="bg-green-500")["Success"]
-Badge(class_="bg-purple-500")["Premium"]
-```
+## API Reference
 
-## Props Reference
+### Badge
 
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
 | `variant` | str | `"default"` | Visual style |
-| `class_` | str | `""` | Additional CSS classes |
+
+### Variants
+
+| Variant | Appearance |
+|---------|------------|
+| `default` | Primary color, filled |
+| `secondary` | Muted color, filled |
+| `outline` | Border only, transparent |
+| `destructive` | Red/danger color |
+
+---
+
+## Styling
+
+### Custom Colors
+
+```python
+# Success
+Badge(class_="bg-green-500 text-white")["Success"]
+
+# Warning
+Badge(class_="bg-yellow-500 text-black")["Warning"]
+
+# Info
+Badge(class_="bg-blue-500 text-white")["Info"]
+```
+
+### Sizes
+
+```python
+# Small
+Badge(class_="text-xs px-1.5 py-0.5")["Small"]
+
+# Default
+Badge()["Default"]
+
+# Large
+Badge(class_="text-sm px-3 py-1")["Large"]
+```
+
+---
+
+## Accessibility
+
+| Feature | Implementation |
+|---------|----------------|
+| **Semantics** | Purely decorative, use with context |
+| **Color Contrast** | Ensure text is readable |
+| **Screen Readers** | Badge text is announced |
+
+---
 
 ## Related Components
 
-- [Button](./button.md) - For actions
-- [Card](./card.md) - Often contains badges
-
+- **[Avatar](./avatar.md)** — Often paired with badges
+- **[Button](./button.md)** — For actionable badges

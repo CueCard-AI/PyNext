@@ -1,0 +1,97 @@
+/**
+ * PyNext Sheet/Drawer Runtime
+ * Size target: ~0.8 KB minified
+ */
+(function(g) {
+    'use strict';
+    
+    var ui = g.__pynext__.ui;
+    
+    function initSheets() {
+        ui.on('click', '[data-pynext-sheet-trigger]', function(e, trigger) {
+            var sheetId = trigger.dataset.pynextSheetTrigger;
+            var sheet = document.querySelector('[data-pynext-sheet="' + sheetId + '"]');
+            if (sheet) openSheet(sheet);
+        });
+        
+        ui.on('click', '[data-pynext-sheet-close]', function(e, btn) {
+            var sheet = btn.closest('[data-pynext-sheet]');
+            if (sheet) closeSheet(sheet);
+        });
+        
+        ui.on('click', '[data-pynext-sheet-overlay]', function(e, overlay) {
+            var sheet = overlay.closest('[data-pynext-sheet]');
+            if (sheet) closeSheet(sheet);
+        });
+        
+        // Swipe to close (mobile)
+        initSwipeToClose();
+    }
+    
+    function initSwipeToClose() {
+        var touchStart = null;
+        var sheet = null;
+        
+        document.addEventListener('touchstart', function(e) {
+            var content = e.target.closest('[data-pynext-sheet-content]');
+            if (!content) return;
+            
+            sheet = content.closest('[data-pynext-sheet]');
+            if (!sheet || sheet.dataset.pynextSheetSwipe === 'false') return;
+            
+            touchStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        }, { passive: true });
+        
+        document.addEventListener('touchend', function(e) {
+            if (!touchStart || !sheet) return;
+            
+            var touchEnd = { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY };
+            var side = sheet.dataset.pynextSheetSide || 'right';
+            var dx = touchEnd.x - touchStart.x;
+            var dy = touchEnd.y - touchStart.y;
+            var threshold = 100;
+            
+            var shouldClose = false;
+            if (side === 'right' && dx > threshold) shouldClose = true;
+            if (side === 'left' && dx < -threshold) shouldClose = true;
+            if (side === 'bottom' && dy > threshold) shouldClose = true;
+            if (side === 'top' && dy < -threshold) shouldClose = true;
+            
+            if (shouldClose) closeSheet(sheet);
+            
+            touchStart = null;
+            sheet = null;
+        }, { passive: true });
+    }
+    
+    function openSheet(sheet) {
+        var content = sheet.querySelector('[data-pynext-sheet-content]');
+        
+        sheet.removeAttribute('hidden');
+        sheet.setAttribute('data-state', 'open');
+        sheet._prevFocus = document.activeElement;
+        
+        var focusable = ui.getFocusable(content);
+        if (focusable.length) focusable[0].focus();
+        
+        content.addEventListener('keydown', function(e) {
+            if (e.key === 'Tab') ui.trapFocus(content, e);
+            if (e.key === 'Escape') closeSheet(sheet);
+        });
+        
+        document.body.style.overflow = 'hidden';
+    }
+    
+    function closeSheet(sheet) {
+        sheet.setAttribute('hidden', '');
+        sheet.setAttribute('data-state', 'closed');
+        
+        if (sheet._prevFocus) sheet._prevFocus.focus();
+        document.body.style.overflow = '';
+    }
+    
+    initSheets();
+    ui.sheet = { open: openSheet, close: closeSheet };
+    
+})(window);
+

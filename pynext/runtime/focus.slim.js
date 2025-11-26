@@ -1,0 +1,106 @@
+/**
+ * PyNext Focus Runtime (Slim)
+ * Focus traps and roving focus
+ */
+(function(g) {
+    'use strict';
+    
+    var FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+    var focusStack = [];
+    var traps = new Set();
+    
+    function getFocusable(el) {
+        return Array.from(el.querySelectorAll(FOCUSABLE)).filter(function(e) {
+            return e.offsetParent !== null;
+        });
+    }
+    
+    function createTrap(container, opts) {
+        opts = opts || {};
+        var autoFocus = opts.autoFocus !== false;
+        var restoreFocus = opts.restoreFocus !== false;
+        
+        if (restoreFocus && document.activeElement) {
+            focusStack.push(document.activeElement);
+        }
+        
+        function handleKeydown(e) {
+            if (e.key !== 'Tab') return;
+            var focusable = getFocusable(container);
+            if (!focusable.length) return;
+            
+            var first = focusable[0];
+            var last = focusable[focusable.length - 1];
+            
+            if (e.shiftKey && document.activeElement === first) {
+                e.preventDefault();
+                last.focus();
+            } else if (!e.shiftKey && document.activeElement === last) {
+                e.preventDefault();
+                first.focus();
+            }
+        }
+        
+        container.addEventListener('keydown', handleKeydown);
+        traps.add(container);
+        
+        if (autoFocus) {
+            var focusable = getFocusable(container);
+            if (focusable.length) focusable[0].focus();
+        }
+        
+        return {
+            release: function() {
+                container.removeEventListener('keydown', handleKeydown);
+                traps.delete(container);
+                if (restoreFocus && focusStack.length) {
+                    focusStack.pop().focus();
+                }
+            }
+        };
+    }
+    
+    function initRoving(container, opts) {
+        opts = opts || {};
+        var selector = opts.selector || '[role="menuitem"], [role="option"], [role="tab"]';
+        var orientation = opts.orientation || 'horizontal';
+        var loop = opts.loop !== false;
+        
+        function getItems() {
+            return Array.from(container.querySelectorAll(selector));
+        }
+        
+        container.addEventListener('keydown', function(e) {
+            var items = getItems();
+            var current = items.indexOf(document.activeElement);
+            if (current < 0) return;
+            
+            var next = null;
+            var isHoriz = orientation === 'horizontal';
+            
+            if ((isHoriz && e.key === 'ArrowRight') || (!isHoriz && e.key === 'ArrowDown')) {
+                next = loop ? (current + 1) % items.length : Math.min(current + 1, items.length - 1);
+            } else if ((isHoriz && e.key === 'ArrowLeft') || (!isHoriz && e.key === 'ArrowUp')) {
+                next = loop ? (current - 1 + items.length) % items.length : Math.max(current - 1, 0);
+            } else if (e.key === 'Home') {
+                next = 0;
+            } else if (e.key === 'End') {
+                next = items.length - 1;
+            }
+            
+            if (next !== null && next !== current) {
+                e.preventDefault();
+                items[next].focus();
+            }
+        });
+    }
+    
+    g.__pynext__ = g.__pynext__ || {};
+    g.__pynext__.focus = {
+        createTrap: createTrap,
+        initRoving: initRoving,
+        getFocusable: getFocusable
+    };
+    
+})(window);
+

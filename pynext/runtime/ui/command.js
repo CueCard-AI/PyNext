@@ -1,0 +1,119 @@
+/**
+ * PyNext Command Palette Runtime
+ * Size target: ~1 KB minified
+ */
+(function(g) {
+    'use strict';
+    
+    var ui = g.__pynext__.ui;
+    
+    function initCommands() {
+        document.querySelectorAll('[data-pynext-command]').forEach(initCommand);
+        
+        // Global keyboard shortcut (Cmd+K)
+        document.addEventListener('keydown', function(e) {
+            if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+                var command = document.querySelector('[data-pynext-command-dialog]');
+                if (command) {
+                    e.preventDefault();
+                    if (command.hasAttribute('hidden')) {
+                        openCommand(command);
+                    } else {
+                        closeCommand(command);
+                    }
+                }
+            }
+        });
+    }
+    
+    function initCommand(command) {
+        var input = command.querySelector('[data-pynext-command-input]');
+        var empty = command.querySelector('[data-pynext-command-empty]');
+        
+        if (input) {
+            input.addEventListener('input', function() {
+                var query = input.value.toLowerCase();
+                var hasMatch = false;
+                
+                command.querySelectorAll('[data-pynext-command-item]').forEach(function(item) {
+                    var text = (item.textContent || '').toLowerCase();
+                    var keywords = item.dataset.keywords || '';
+                    var match = text.includes(query) || keywords.toLowerCase().includes(query);
+                    item.style.display = match ? '' : 'none';
+                    if (match) hasMatch = true;
+                });
+                
+                // Show/hide groups
+                command.querySelectorAll('[data-pynext-command-group]').forEach(function(group) {
+                    var visibleItems = group.querySelectorAll('[data-pynext-command-item]:not([style*="none"])');
+                    group.style.display = visibleItems.length ? '' : 'none';
+                });
+                
+                if (empty) empty.style.display = hasMatch ? 'none' : '';
+            });
+        }
+        
+        // Item selection
+        ui.on('click', '[data-pynext-command-item]', function(e, item) {
+            if (!command.contains(item)) return;
+            if (item.hasAttribute('disabled')) return;
+            
+            var value = item.dataset.pynextCommandItem;
+            closeCommand(command);
+            
+            command.dispatchEvent(new CustomEvent('pynext:command-select', {
+                bubbles: true,
+                detail: { value: value }
+            }));
+        });
+        
+        // Keyboard navigation
+        command.addEventListener('keydown', function(e) {
+            var items = command.querySelectorAll('[data-pynext-command-item]:not([style*="none"]):not([disabled])');
+            var current = Array.from(items).indexOf(document.activeElement);
+            
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                var next = current < items.length - 1 ? current + 1 : 0;
+                items[next].focus();
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                var prev = current > 0 ? current - 1 : items.length - 1;
+                items[prev].focus();
+            } else if (e.key === 'Enter' && document.activeElement.matches('[data-pynext-command-item]')) {
+                document.activeElement.click();
+            } else if (e.key === 'Escape') {
+                closeCommand(command);
+            }
+        });
+    }
+    
+    function openCommand(command) {
+        var input = command.querySelector('[data-pynext-command-input]');
+        
+        command.removeAttribute('hidden');
+        command.setAttribute('data-state', 'open');
+        command._prevFocus = document.activeElement;
+        
+        if (input) {
+            input.value = '';
+            input.dispatchEvent(new Event('input'));
+            input.focus();
+        }
+        
+        document.body.style.overflow = 'hidden';
+    }
+    
+    function closeCommand(command) {
+        command.setAttribute('hidden', '');
+        command.setAttribute('data-state', 'closed');
+        
+        if (command._prevFocus) command._prevFocus.focus();
+        document.body.style.overflow = '';
+    }
+    
+    initCommands();
+    ui.command = { open: openCommand, close: closeCommand };
+    
+})(window);
+
