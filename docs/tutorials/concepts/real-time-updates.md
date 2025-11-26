@@ -61,51 +61,75 @@ def cleanup():
 
 ### Smart Polling
 
-Only poll when the tab is visible:
+Only poll when the tab is visible using `use_visibility()`:
 
 ```python
-from pynext import Signal
-from pynext.core.client import client_effect, use_storage
+from pynext import Signal, use_visibility, client_effect, server_action
 
-# Track visibility state
-is_visible = Signal(True)
+# ═══════════════════════════════════════════════════════════════════════════
+# Smart Polling — Only poll when user is looking at the tab
+# ═══════════════════════════════════════════════════════════════════════════
 
-
-@client_effect
-def track_visibility():
-    """
-    Track browser tab visibility.
-    
-    This client_effect runs in the browser and listens for
-    visibility changes. Polling stops when tab is hidden.
-    """
-    # Effect cleanup function is called when the effect re-runs
-    pass
+# Track visibility state — updates automatically when tab switches
+is_visible = use_visibility()
 
 
 # Server action for polling
 @server_action
 async def poll_for_updates():
     """Fetch latest data from server."""
-    # Only runs when called
     data = await get_latest_data()
     return data
 
 
-def PollingComponent():
+# Smart polling that respects visibility
+@client_effect
+def smart_poll():
     """
-    Component that polls for updates.
+    Poll only when tab is visible.
     
-    Uses server action for the actual data fetching,
-    with visibility-aware polling on the client.
+    When user switches to another tab:
+    - is_visible.value becomes False
+    - Polling stops (saves server resources)
+    
+    When user returns:
+    - is_visible.value becomes True
+    - Polling resumes
     """
+    if is_visible.value:
+        # Start polling interval
+        poll_for_updates()
+
+
+def PollingComponent():
+    """Component that polls for updates."""
     return div()[
-        # Server action handles the polling interval
-        # and respects is_visible signal
+        # Show visibility status
+        span()[f"Tab visible: {is_visible.value}"],
+        
+        # Data updates automatically via smart_poll
     ]
 ```
 
-> **Note:** For advanced visibility tracking, you can use the `script()` escape hatch for the `visibilitychange` event, or wait for a future `use_visibility()` hook.
+**How it works:**
+
+```
+User switches tabs:
+  │
+  ▼
+Browser fires 'visibilitychange' event
+  │
+  ▼
+PyNext updates is_visible signal (True → False)
+  │
+  ▼
+Your code reacts: if is_visible.value → stops polling
+  │
+  ▼
+User returns to tab → signal updates → polling resumes
+```
+
+> **See also:** [Visibility Documentation](../../features/VISIBILITY.md) for complete API.
 
 ---
 
@@ -141,63 +165,68 @@ async def events_endpoint(request):
 
 ### Client Side
 
-For SSE connections, we use PyNext's `client_effect` for browser-specific APIs:
+PyNext provides `use_event_source()` to connect to SSE endpoints from Python:
 
 ```python
-from pynext import Signal
-from pynext.core.client import client_effect
+from pynext import Signal, use_event_source
 
 notifications = Signal([])
 tasks = Signal([])
 
+# ═══════════════════════════════════════════════════════════════════════════
+# SSE Connection — Pure Python, no JavaScript needed!
+# ═══════════════════════════════════════════════════════════════════════════
 
-@client_effect
-def setup_sse():
-    """
-    Connect to SSE endpoint.
+# use_event_source connects to YOUR server endpoint (created above)
+# Each key in the handlers dict matches an event name from your server
+sse = use_event_source("/api/events", {
+    # When server yields: {"event": "notification", "data": ...}
+    "notification": lambda data: notifications.update(
+        lambda current: [data, *current][:50]  # Keep last 50
+    ),
     
-    This uses client_effect because EventSource is a browser-specific API
-    that requires JavaScript. The effect runs after hydration.
-    """
-    # This will be transpiled to JavaScript
-    pass
+    # When server yields: {"event": "task_update", "data": ...}
+    "task_update": lambda data: tasks.update(
+        lambda current: [
+            data if t["id"] == data["id"] else t 
+            for t in current
+        ]
+    ),
+}, {
+    "reconnect": True,        # Auto-reconnect on error (default)
+    "reconnect_delay": 1000,  # Wait 1 second before retry
+})
 
-
-# The actual SSE connection (using script() as an escape hatch)
-# In future versions, PyNext will provide a use_event_source() hook
-def SSEConnection():
-    """
-    Set up Server-Sent Events connection.
-    
-    Note: SSE is a browser API that requires JavaScript.
-    We use script() as an escape hatch for browser-specific APIs.
-    """
-    return script()["""
-        const events = new EventSource('/api/events');
-        
-        events.addEventListener('notification', (e) => {
-            const data = JSON.parse(e.data);
-            // Update Signal via PyNext bridge
-            __pynext__.getSignal('notifications')?.update((current) => 
-                [...current, data].slice(-50)
-            );
-        });
-        
-        events.addEventListener('task_update', (e) => {
-            const data = JSON.parse(e.data);
-            __pynext__.getSignal('tasks')?.update((current) =>
-                current.map(t => t.id === data.id ? data : t)
-            );
-        });
-        
-        events.onerror = () => {
-            // Reconnect on error
-            setTimeout(() => events.close(), 1000);
-        };
-    """]
+# You can control the connection:
+# sse.close()      — Disconnect
+# sse.reconnect()  — Manually reconnect
 ```
 
-> **Note:** SSE and WebSocket are browser-specific APIs that currently require the `script()` escape hatch. A future PyNext version will provide `use_event_source()` and `use_websocket()` hooks.
+**How it works:**
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                        SSE Data Flow                                 │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  YOUR SERVER                          USER'S BROWSER                 │
+│  ════════════                         ══════════════                 │
+│                                                                      │
+│  @api_route("/api/events")            use_event_source("/api/events",│
+│  async def events():                      handlers={...}             │
+│      yield {"event": "notification",  )                              │
+│             "data": {...}}                     │                     │
+│              │                                 │                     │
+│              └────────── SSE Stream ──────────►│                     │
+│                       (one-way push)           │                     │
+│                                                ▼                     │
+│                                       Handler called with data       │
+│                                       Signal updated automatically   │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+> **See also:** [SSE Documentation](../../features/SSE.md) for complete setup guide.
 
 ---
 

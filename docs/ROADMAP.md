@@ -17,54 +17,62 @@ Connecting Figma to the component registry would streamline designer-developer c
 
 ---
 
-### Advanced Components (Phase 2+) — COMPLETED ✓
-
-All 12 advanced components have been implemented:
-
-- [x] **Skeleton** — Loading placeholder animations
-- [x] **Tooltip** — Contextual hover information
-- [x] **Popover** — Floating content panels
-- [x] **Toast / Sonner** — Non-blocking notifications
-- [x] **Sheet / Drawer** — Slide-out panels
-- [x] **Combobox / Autocomplete** — Searchable select with filtering
-- [x] **Command palette** — cmdk-style command menu (⌘K)
-- [x] **Calendar / DatePicker** — Date selection with range support
-- [x] **Data Table** — Sortable, filterable, paginated tables
-- [x] **File upload** — Drag-and-drop with preview
-- [x] **Charts** — Integration with Chart.js (`pynext.charts`)
-- [x] **Rich text editor** — Tiptap integration (`pynext.editor`)
-
----
-
-### Editor Enhancements
-
-Extend the Rich Text Editor (`pynext.editor`) with advanced features:
-
-- [ ] **useEditor() Python API** — Programmatic editor control from Python
-  - `get_content()`, `set_content()`, `focus()`, `clear()`
-  - `insert_text()`, `toggle_bold()`, `toggle_italic()`, etc.
-  - `get_markdown()`, `set_markdown()` (when markdown extension enabled)
-
-- [ ] **Markdown Extension** — Full markdown support via Tiptap
-  - Parse markdown input, export to markdown
-  - Syntax highlighting in code blocks
-  - GFM (GitHub Flavored Markdown) compatibility
-
-- [ ] **Mentions Extension** — @mention support
-  - Customizable suggestion list
-  - Server action integration for user search
-  - Configurable trigger character (@, #, etc.)
-
-- [ ] **Slash Commands** — / command palette
-  - Quick formatting commands (/h1, /bold, /code)
-  - Custom command registration
-  - Integration with Command component
-
 - [ ] **Collaborative Editing** — Real-time collaboration via Yjs
-  - Document sync across multiple users
-  - User cursors and presence indicators
-  - Conflict resolution
-  - Optional: WebSocket or WebRTC transport
+  
+  **Core Concept**: Multiple users editing the same document simultaneously, with changes merging automatically using CRDTs (Conflict-free Replicated Data Types).
+  
+  **Architecture**:
+  ```
+  ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+  │  Client A   │     │  Client B   │     │  Client C   │
+  │  (Y.Doc)    │     │  (Y.Doc)    │     │  (Y.Doc)    │
+  └──────┬──────┘     └──────┬──────┘     └──────┬──────┘
+         │                   │                   │
+         └───────────────────┼───────────────────┘
+                             │
+                     ┌───────┴───────┐
+                     │   Provider    │
+                     │  (WebSocket)  │
+                     └───────┬───────┘
+                             │
+                     ┌───────┴───────┐
+                     │    Server     │
+                     │  (y-websocket)│
+                     └───────────────┘
+  ```
+  
+  **Proposed Python API**:
+  ```python
+  Editor(
+      id="shared-doc",
+      collaborative=CollaborativeConfig(
+          room="document-123",
+          provider="websocket",
+          websocket_url="wss://sync.example.com",
+          user={"name": "Alice", "color": "#ff0000"},
+          awareness=True,
+          persist=True,
+      )
+  )
+  ```
+  
+  **Required Dependencies**:
+  - Client: `yjs`, `y-websocket`, `@tiptap/extension-collaboration`
+  - Server: `y-py`, `websockets`
+  
+  **Implementation Phases**:
+  1. Basic WebSocket sync (2 users, same document)
+  2. Cursor awareness and presence indicators
+  3. Multiple provider support (WebSocket, WebRTC)
+  4. Offline-first with IndexedDB persistence
+  5. Advanced features (comments, suggestions, history)
+  
+  **Considerations**:
+  - Scalability: 2-10 users → y-websocket; 10-50 → Redis; 50+ → custom sharding
+  - Security: Room authorization, operation validation, rate limiting
+  - Offline: IndexedDB for local persistence, sync on reconnect
+  
+  See: [docs/editor/COLLABORATIVE.md](./editor/COLLABORATIVE.md) for full architecture
 
 ---
 
@@ -108,12 +116,7 @@ Building the PyNext community and ecosystem:
 
 ### Real-Time & Browser APIs
 
-Native Python APIs for browser-specific features (currently require `script()` escape hatch):
-
-- [ ] **`use_event_source()`** — Server-Sent Events (SSE) with automatic reconnection
 - [ ] **`use_websocket()`** — WebSocket connections with message handling
-- [ ] **`use_visibility()`** — Track document visibility (for smart polling)
-- [ ] **`use_online()`** — Network status detection
 - [ ] **`use_media_query()`** — Responsive media query matching
 - [ ] **`use_geolocation()`** — Browser geolocation API
 - [ ] **`use_clipboard()`** — Copy/paste functionality
@@ -147,6 +150,72 @@ Making components easier to test:
 ---
 
 ## Recently Completed
+
+### Real-Time & Browser APIs
+
+Native Python APIs for browser-specific features:
+
+- [x] **`use_event_source()`** — Server-Sent Events (SSE) with automatic reconnection ✅ COMPLETED
+  - Connect to SSE endpoints from Python
+  - Event handlers via dict mapping
+  - Auto-reconnect on error
+  - See: [docs/features/SSE.md](./features/SSE.md)
+
+- [x] **`use_visibility()`** — Track document visibility (for smart polling) ✅ COMPLETED
+  - Returns signal that updates on tab switch
+  - Pause expensive operations when hidden
+  - See: [docs/features/VISIBILITY.md](./features/VISIBILITY.md)
+
+- [x] **`use_online()`** — Network status detection ✅ COMPLETED
+  - Returns signal for online/offline state
+  - Disable features when offline
+  - See: [docs/features/ONLINE_STATUS.md](./features/ONLINE_STATUS.md)
+
+### Editor Enhancements
+
+Extend the Rich Text Editor (`pynext.editor`) with advanced features:
+
+- [x] **useEditor() Python API** — Programmatic editor control from Python ✅ COMPLETED
+  - `get_content()`, `set_content()`, `focus()`, `clear()`
+  - `insert_text()`, `toggle_bold()`, `toggle_italic()`, etc.
+  - `get_markdown()`, `set_markdown()` (when markdown extension enabled)
+  - See: [docs/editor/USE_EDITOR.md](./editor/USE_EDITOR.md)
+
+- [x] **Markdown Extension** — Full markdown support via Tiptap ✅ COMPLETED
+  - Parse markdown input, export to markdown
+  - `MarkdownEditor` convenience component
+  - `TiptapLoader(markdown=True)` for library support
+  - See: [docs/editor/MARKDOWN.md](./editor/MARKDOWN.md)
+
+- [x] **Mentions Extension** — @mention support ✅ COMPLETED
+  - Customizable suggestion list with `MentionConfig`
+  - Server action integration for user search
+  - Configurable trigger character (@, #, etc.)
+  - See: [docs/editor/MENTIONS.md](./editor/MENTIONS.md)
+
+- [x] **Slash Commands** — / command palette ✅ COMPLETED
+  - Quick formatting commands (/h1, /bold, /code)
+  - Custom command registration with `SlashCommand`
+  - `DEFAULT_SLASH_COMMANDS` for common actions
+  - See: [docs/editor/SLASH_COMMANDS.md](./editor/SLASH_COMMANDS.md)
+
+
+### Advanced Components (Phase 2+) — COMPLETED ✓
+
+All 12 advanced components have been implemented:
+
+- [x] **Skeleton** — Loading placeholder animations
+- [x] **Tooltip** — Contextual hover information
+- [x] **Popover** — Floating content panels
+- [x] **Toast / Sonner** — Non-blocking notifications
+- [x] **Sheet / Drawer** — Slide-out panels
+- [x] **Combobox / Autocomplete** — Searchable select with filtering
+- [x] **Command palette** — cmdk-style command menu (⌘K)
+- [x] **Calendar / DatePicker** — Date selection with range support
+- [x] **Data Table** — Sortable, filterable, paginated tables
+- [x] **File upload** — Drag-and-drop with preview
+- [x] **Charts** — Integration with Chart.js (`pynext.charts`)
+- [x] **Rich text editor** — Tiptap integration (`pynext.editor`)
 
 ### Phase 2: Client Runtime ✓
 

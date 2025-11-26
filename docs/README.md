@@ -115,7 +115,10 @@ docs/
 │   ├── KEYBOARD.md              Shortcuts & sequences
 │   ├── THEME.md                 Dark mode & theming
 │   ├── FOCUS.md                 Accessibility & traps
-│   └── STORAGE.md               Persistent state
+│   ├── STORAGE.md               Persistent state
+│   ├── SSE.md                   Server-Sent Events
+│   ├── VISIBILITY.md            Tab visibility tracking
+│   └── ONLINE_STATUS.md         Network detection
 │
 ├── integrations/                🔌 External Tools
 │   ├── NPM_PACKAGES.md          Using npm
@@ -234,6 +237,9 @@ Browser interactivity with Python — no JavaScript required!
 | [Theme Management](features/THEME.md) | Dark mode, system preferences, flash prevention | 🟡 Intermediate |
 | [Focus Management](features/FOCUS.md) | Focus traps, roving focus, skip links | 🟡 Intermediate |
 | [Storage](features/STORAGE.md) | `use_storage` for localStorage/sessionStorage | 🟡 Intermediate |
+| [Server-Sent Events](features/SSE.md) | `use_event_source` for real-time updates | 🟡 Intermediate |
+| [Visibility Tracking](features/VISIBILITY.md) | `use_visibility` for smart polling | 🟡 Intermediate |
+| [Network Status](features/ONLINE_STATUS.md) | `use_online` for offline detection | 🟡 Intermediate |
 
 ---
 

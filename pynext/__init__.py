@@ -295,6 +295,13 @@ from pynext.core.client import (
     client_effect,
     use_theme,
     get_client_hydration_data,
+    # Browser APIs
+    use_event_source,
+    SSEHandle,
+    use_visibility,
+    VisibilitySignal,
+    use_online,
+    OnlineSignal,
 )
 
 __all__ = [
@@ -516,5 +523,12 @@ __all__ = [
     "client_effect",
     "use_theme",
     "get_client_hydration_data",
+    # Browser APIs
+    "use_event_source",
+    "SSEHandle",
+    "use_visibility",
+    "VisibilitySignal",
+    "use_online",
+    "OnlineSignal",
 ]
 

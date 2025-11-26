@@ -551,6 +551,367 @@ def use_theme(
 
 
 # =============================================================================
+# Server-Sent Events (SSE)
+# =============================================================================
+
+@dataclass
+class SSEHandle:
+    """
+    Handle for controlling an SSE connection.
+    
+    The handle provides methods to control the connection from Python,
+    which generate JavaScript that executes in the browser.
+    """
+    id: str
+    url: str
+    handlers: Dict[str, Callable]
+    options: Dict[str, Any] = field(default_factory=dict)
+    
+    def close(self) -> str:
+        """
+        Close the SSE connection.
+        
+        Returns JavaScript code that closes the connection.
+        """
+        return f"__pynext__.sse.close('{self.id}')"
+    
+    def reconnect(self) -> str:
+        """
+        Manually reconnect to the SSE endpoint.
+        
+        Returns JavaScript code that reconnects.
+        """
+        return f"__pynext__.sse.reconnect('{self.id}')"
+    
+    @property
+    def is_connected(self) -> str:
+        """JavaScript expression that returns connection status."""
+        return f"__pynext__.sse.isConnected('{self.id}')"
+    
+    def to_dict(self) -> dict:
+        # Convert handler lambdas to JS
+        js_handlers = {}
+        for event_name, handler in self.handlers.items():
+            if callable(handler):
+                # Transpile the lambda to JS
+                js_handlers[event_name] = _transpile_sse_handler(handler)
+            else:
+                js_handlers[event_name] = handler
+        
+        return {
+            "id": self.id,
+            "url": self.url,
+            "handlers": js_handlers,
+            "options": {
+                "reconnect": self.options.get("reconnect", True),
+                "reconnectDelay": self.options.get("reconnect_delay", 1000),
+            },
+        }
+    
+    def get_js_init(self) -> str:
+        """Generate JavaScript initialization code."""
+        config = json.dumps(self.to_dict())
+        return f"__pynext__.sse.connect({config})"
+
+
+def _transpile_sse_handler(handler: Callable) -> str:
+    """
+    Transpile a Python handler to JavaScript.
+    
+    For SSE handlers, we generate JS that updates signals.
+    """
+    import inspect
+    import ast
+    
+    try:
+        source = inspect.getsource(handler)
+        # Clean up lambda source
+        if 'lambda' in source:
+            # Extract the lambda body
+            match = source.split('lambda')[1] if 'lambda' in source else source
+            # Extract after the colon
+            if ':' in match:
+                body = match.split(':', 1)[1].strip()
+                # Remove trailing comma, paren, etc.
+                body = body.rstrip(',)}').strip()
+                return _convert_python_expr_to_js(body)
+    except (OSError, TypeError):
+        pass
+    
+    # Fallback: return a no-op
+    return "function(data) { console.log('SSE event:', data); }"
+
+
+def _convert_python_expr_to_js(expr: str) -> str:
+    """Convert a Python expression to JavaScript for SSE handlers."""
+    # Handle Signal.update() pattern
+    if '.update(' in expr:
+        # notifications.update(lambda n: [data, *n][:50])
+        parts = expr.split('.update(', 1)
+        signal_name = parts[0].strip()
+        
+        # Extract the lambda inside update
+        inner = parts[1].rstrip(')')
+        if inner.startswith('lambda'):
+            # Parse lambda: lambda n: [data, *n][:50]
+            lambda_parts = inner.split(':', 1)
+            if len(lambda_parts) == 2:
+                param = lambda_parts[0].replace('lambda', '').strip()
+                body = lambda_parts[1].strip()
+                
+                # Convert Python list operations to JS
+                js_body = body
+                # [data, *n] -> [data, ...n]
+                js_body = js_body.replace('*', '...')
+                # [:50] -> .slice(0, 50)
+                if '[:' in js_body:
+                    js_body = js_body.replace('[:', '.slice(0,').replace(']', ')')
+                
+                return f"function(data) {{ __pynext__.getSignal('{signal_name}')?.update(({param}) => {js_body}); }}"
+    
+    # Handle Signal.set() pattern
+    if '.set(' in expr:
+        parts = expr.split('.set(', 1)
+        signal_name = parts[0].strip()
+        value = parts[1].rstrip(')')
+        return f"function(data) {{ __pynext__.setSignal('{signal_name}', {value}); }}"
+    
+    # Default: wrap in function
+    return f"function(data) {{ {expr}; }}"
+
+
+_sse_connections: Dict[str, SSEHandle] = {}
+
+
+def use_event_source(
+    url: str,
+    handlers: Dict[str, Callable],
+    options: Optional[Dict[str, Any]] = None,
+) -> SSEHandle:
+    """
+    Connect to a Server-Sent Events (SSE) endpoint.
+    
+    SSE allows the server to push real-time updates to the client.
+    This hook creates a connection and maps event types to handlers.
+    
+    Usage:
+        # Simple connection
+        sse = use_event_source("/api/events", {
+            "notification": lambda data: notifications.update(lambda n: [data, *n]),
+            "task_update": lambda data: tasks.set(data),
+        })
+        
+        # With reconnection options
+        sse = use_event_source("/api/events", handlers, {
+            "reconnect": True,
+            "reconnect_delay": 2000,  # 2 seconds
+        })
+        
+        # Close connection
+        Button(onclick=lambda: sse.close())["Disconnect"]
+    
+    Args:
+        url: The SSE endpoint URL (must be created on your server)
+        handlers: Dict mapping event names to handler functions
+        options: Connection options:
+            - reconnect: Auto-reconnect on error (default: True)
+            - reconnect_delay: Delay before reconnect in ms (default: 1000)
+    
+    Returns:
+        SSEHandle with close(), reconnect(), and is_connected
+    
+    Note:
+        The server endpoint must be created separately using @api_route
+        and EventStream. See docs/features/SSE.md for full setup.
+    """
+    connection_id = f"sse_{uuid.uuid4().hex[:8]}"
+    
+    handle = SSEHandle(
+        id=connection_id,
+        url=url,
+        handlers=handlers,
+        options=options or {},
+    )
+    
+    _sse_connections[connection_id] = handle
+    
+    # Register with render context
+    ctx = get_context()
+    if ctx:
+        if not hasattr(ctx, 'sse_connections'):
+            ctx.sse_connections = []
+        ctx.sse_connections.append(handle)
+    
+    return handle
+
+
+# =============================================================================
+# Tab Visibility
+# =============================================================================
+
+@dataclass
+class VisibilitySignal:
+    """
+    A signal that tracks tab visibility.
+    
+    Value is True when the tab is visible, False when hidden.
+    """
+    id: str
+    _value: bool = field(default=True, repr=False)
+    
+    def __call__(self) -> bool:
+        """Read the current visibility state."""
+        return self._value
+    
+    @property
+    def value(self) -> bool:
+        """Read the current visibility state."""
+        return self._value
+    
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "type": "visibility",
+        }
+    
+    def get_js_init(self) -> str:
+        """Generate JavaScript initialization code."""
+        return f"__pynext__.browser.initVisibility('{self.id}')"
+
+
+_visibility_signal: Optional[VisibilitySignal] = None
+
+
+def use_visibility() -> VisibilitySignal:
+    """
+    Track whether the browser tab is visible.
+    
+    Use this to pause expensive operations when the user
+    switches to another tab, saving resources.
+    
+    Usage:
+        is_visible = use_visibility()
+        
+        # Check visibility
+        if is_visible.value:
+            poll_for_updates()
+        
+        # Use with client_effect
+        @client_effect
+        def smart_polling():
+            if is_visible():
+                start_polling()
+            else:
+                stop_polling()
+    
+    Returns:
+        VisibilitySignal that is True when tab is active
+    
+    How it works:
+        Browser fires 'visibilitychange' event when user switches tabs.
+        This signal automatically updates, triggering reactive updates.
+    """
+    global _visibility_signal
+    
+    # Return existing signal if already created (singleton per page)
+    if _visibility_signal is not None:
+        return _visibility_signal
+    
+    signal_id = f"visibility_{uuid.uuid4().hex[:8]}"
+    
+    _visibility_signal = VisibilitySignal(id=signal_id)
+    
+    # Register with render context
+    ctx = get_context()
+    if ctx:
+        ctx.visibility_signal = _visibility_signal
+    
+    return _visibility_signal
+
+
+# =============================================================================
+# Network Status
+# =============================================================================
+
+@dataclass
+class OnlineSignal:
+    """
+    A signal that tracks network connectivity.
+    
+    Value is True when online, False when offline.
+    """
+    id: str
+    _value: bool = field(default=True, repr=False)
+    
+    def __call__(self) -> bool:
+        """Read the current online state."""
+        return self._value
+    
+    @property
+    def value(self) -> bool:
+        """Read the current online state."""
+        return self._value
+    
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "type": "online",
+        }
+    
+    def get_js_init(self) -> str:
+        """Generate JavaScript initialization code."""
+        return f"__pynext__.browser.initOnline('{self.id}')"
+
+
+_online_signal: Optional[OnlineSignal] = None
+
+
+def use_online() -> OnlineSignal:
+    """
+    Track whether the browser has network connectivity.
+    
+    Use this to show offline indicators, queue actions for later,
+    or disable features that require internet.
+    
+    Usage:
+        is_online = use_online()
+        
+        # Show offline banner
+        if not is_online.value:
+            show_offline_indicator()
+        
+        # Disable submit when offline
+        Button(
+            disabled=not is_online.value,
+            onclick=submit_form
+        )["Submit"]
+    
+    Returns:
+        OnlineSignal that is True when connected to network
+    
+    How it works:
+        Browser fires 'online' and 'offline' events when connectivity changes.
+        This signal automatically updates, triggering reactive updates.
+    """
+    global _online_signal
+    
+    # Return existing signal if already created (singleton per page)
+    if _online_signal is not None:
+        return _online_signal
+    
+    signal_id = f"online_{uuid.uuid4().hex[:8]}"
+    
+    _online_signal = OnlineSignal(id=signal_id)
+    
+    # Register with render context
+    ctx = get_context()
+    if ctx:
+        ctx.online_signal = _online_signal
+    
+    return _online_signal
+
+
+# =============================================================================
 # Hydration Data Generation
 # =============================================================================
 
@@ -567,19 +928,25 @@ def get_client_hydration_data() -> dict:
         "refs": [r.to_dict() for r in _refs.values()],
         "effects": [e.to_dict() for e in _client_effects.values()],
         "theme": _theme_state.to_dict() if _theme_state else None,
+        "sse": [c.to_dict() for c in _sse_connections.values()],
+        "visibility": _visibility_signal.to_dict() if _visibility_signal else None,
+        "online": _online_signal.to_dict() if _online_signal else None,
     }
 
 
 def reset_client_state() -> None:
     """Reset all client state (useful for testing)."""
-    global _theme_state
+    global _theme_state, _visibility_signal, _online_signal
     _shortcuts.clear()
     _sequences.clear()
     _handlers.clear()
     _storage_signals.clear()
     _refs.clear()
     _client_effects.clear()
+    _sse_connections.clear()
     _theme_state = None
+    _visibility_signal = None
+    _online_signal = None
 
 
 # =============================================================================
@@ -606,6 +973,14 @@ __all__ = [
     # Theme
     "use_theme",
     "ThemeState",
+    # SSE (Server-Sent Events)
+    "use_event_source",
+    "SSEHandle",
+    # Browser APIs
+    "use_visibility",
+    "VisibilitySignal",
+    "use_online",
+    "OnlineSignal",
     # Utilities
     "get_client_hydration_data",
     "reset_client_state",
