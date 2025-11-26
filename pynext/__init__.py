@@ -284,6 +284,19 @@ from pynext.core.draft import (
     DraftOverlay,
 )
 
+# Client-Side Primitives
+from pynext.core.client import (
+    on_keydown,
+    on_key_sequence,
+    register_shortcut,
+    unregister_shortcut,
+    use_storage,
+    use_ref,
+    client_effect,
+    use_theme,
+    get_client_hydration_data,
+)
+
 __all__ = [
     # Version
     "__version__",
@@ -493,5 +506,15 @@ __all__ = [
     "DraftSwitch",
     "DraftBanner",
     "DraftOverlay",
+    # Client-Side Primitives
+    "on_keydown",
+    "on_key_sequence",
+    "register_shortcut",
+    "unregister_shortcut",
+    "use_storage",
+    "use_ref",
+    "client_effect",
+    "use_theme",
+    "get_client_hydration_data",
 ]
 

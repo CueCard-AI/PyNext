@@ -110,6 +110,13 @@ docs/
 │   ├── SCRIPT_OPTIMIZATION.md   Third-party scripts
 │   └── CODE_SPLITTING.md        Smaller bundles
 │
+├── features/                    ✨ Client Runtime
+│   ├── CLIENT_RUNTIME.md        Complete overview
+│   ├── KEYBOARD.md              Shortcuts & sequences
+│   ├── THEME.md                 Dark mode & theming
+│   ├── FOCUS.md                 Accessibility & traps
+│   └── STORAGE.md               Persistent state
+│
 ├── integrations/                🔌 External Tools
 │   ├── NPM_PACKAGES.md          Using npm
 │   └── REACT_INTEGRATION.md     React components
@@ -213,6 +220,20 @@ Making your app fast and efficient.
 | [Font Optimization](optimization/FONT_OPTIMIZATION.md) | Font loading, subsetting, display | 🟢 Beginner |
 | [Script Optimization](optimization/SCRIPT_OPTIMIZATION.md) | Third-party scripts, loading strategies | 🟡 Intermediate |
 | [Code Splitting](optimization/CODE_SPLITTING.md) | Bundle optimization, lazy loading | 🟡 Intermediate |
+
+---
+
+### ✨ Client Runtime Features
+
+Browser interactivity with Python — no JavaScript required!
+
+| Document | Description | Difficulty |
+|----------|-------------|------------|
+| [Client Runtime Overview](features/CLIENT_RUNTIME.md) | Complete guide to browser APIs from Python | 🟡 Intermediate |
+| [Keyboard Shortcuts](features/KEYBOARD.md) | `@on_keydown`, sequences, platform detection | 🟡 Intermediate |
+| [Theme Management](features/THEME.md) | Dark mode, system preferences, flash prevention | 🟡 Intermediate |
+| [Focus Management](features/FOCUS.md) | Focus traps, roving focus, skip links | 🟡 Intermediate |
+| [Storage](features/STORAGE.md) | `use_storage` for localStorage/sessionStorage | 🟡 Intermediate |
 
 ---
 
@@ -338,6 +359,10 @@ Static Gen ──► ISR ──► Draft Mode ──► i18n
 | Show loading spinners | [Streaming & Suspense](rendering/STREAMING_SUSPENSE.md) | Suspense |
 | Optimize images | [Image Optimization](optimization/IMAGE_OPTIMIZATION.md) | Quick Start |
 | Deploy to production | [Deployment](production/DEPLOYMENT.md) | Docker/Cloud |
+| Add keyboard shortcuts | [Keyboard](features/KEYBOARD.md) | Basic Usage |
+| Implement dark mode | [Theme](features/THEME.md) | Setup Step-by-Step |
+| Persist user preferences | [Storage](features/STORAGE.md) | use_storage API |
+| Trap focus in modals | [Focus](features/FOCUS.md) | Focus Trap |
 
 ### Key Concepts Glossary
 
@@ -353,6 +378,10 @@ Static Gen ──► ISR ──► Draft Mode ──► i18n
 | **ISR** | Incremental Static Regeneration | [ISR](rendering/ISR.md) |
 | **Server Action** | Server function callable from client | [Server Actions](data-server/SERVER_ACTIONS.md) |
 | **Middleware** | Request interceptor | [Middleware](advanced/MIDDLEWARE.md) |
+| **@on_keydown** | Keyboard shortcut decorator | [Keyboard](features/KEYBOARD.md) |
+| **use_storage** | Persistent localStorage signal | [Storage](features/STORAGE.md) |
+| **FocusTrap** | Keep focus inside a container | [Focus](features/FOCUS.md) |
+| **ThemeProvider** | Dark mode context provider | [Theme](features/THEME.md) |
 
 ---
 
@@ -395,10 +424,11 @@ Found an error or want to improve the docs?
 | Rendering Strategies | 5 | `rendering/` |
 | Advanced Features | 3 | `advanced/` |
 | Optimization | 4 | `optimization/` |
+| Client Runtime | 5 | `features/` |
 | Integrations | 2 | `integrations/` |
 | Production | 2 | `production/` |
 | Reference | 1 | `reference/` |
-| **Total** | **32 documents** | **10 folders** |
+| **Total** | **37 documents** | **11 folders** |
 
 ---
 

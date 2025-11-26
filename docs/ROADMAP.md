@@ -74,6 +74,23 @@ Building the PyNext community and ecosystem:
 
 ---
 
+### Real-Time & Browser APIs
+
+Native Python APIs for browser-specific features (currently require `script()` escape hatch):
+
+- [ ] **`use_event_source()`** — Server-Sent Events (SSE) with automatic reconnection
+- [ ] **`use_websocket()`** — WebSocket connections with message handling
+- [ ] **`use_visibility()`** — Track document visibility (for smart polling)
+- [ ] **`use_online()`** — Network status detection
+- [ ] **`use_media_query()`** — Responsive media query matching
+- [ ] **`use_geolocation()`** — Browser geolocation API
+- [ ] **`use_clipboard()`** — Copy/paste functionality
+- [ ] **`use_window_size()`** — Viewport dimensions tracking
+- [ ] **`use_scroll_position()`** — Scroll position tracking
+- [ ] **`use_intersection()`** — Intersection Observer for lazy loading
+
+---
+
 ### Performance
 
 Optimizing for production:
@@ -98,6 +115,15 @@ Making components easier to test:
 ---
 
 ## Recently Completed
+
+### Phase 2: Client Runtime ✓
+
+- [x] Keyboard shortcuts (`@on_keydown`, `@on_key_sequence`)
+- [x] Theme management (`ThemeProvider`, `ThemeToggle`, `use_theme`)
+- [x] Focus management (`FocusTrap`, `RovingFocus`, `SkipLinks`)
+- [x] Storage signals (`use_storage` for localStorage/sessionStorage)
+- [x] Client effects (`@client_effect` for browser-side logic)
+- [x] Lambda transpilation (Python → JavaScript for event handlers)
 
 ### Phase 1: Core UI System ✓
 
