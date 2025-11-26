@@ -132,10 +132,65 @@ class NPMBundler:
             self._react_compat = True
     
     def load_config(self) -> None:
-        """Load npm package configuration from pynext.config.py."""
-        if not self.config_file.exists():
-            return
+        """
+        Load npm package configuration.
         
+        Reads from pynext.npm.txt (preferred) or pynext.config.py (legacy).
+        """
+        # Try new format first: pynext.npm.txt
+        npm_txt_path = self.project_dir / "pynext.npm.txt"
+        if npm_txt_path.exists():
+            self._load_from_npm_txt(npm_txt_path)
+        
+        # Also check legacy format in pynext.config.py
+        if self.config_file.exists():
+            self._load_from_config_py()
+    
+    def _load_from_npm_txt(self, path: Path) -> None:
+        """Load packages from pynext.npm.txt file."""
+        try:
+            from pynext.deps import DependencyManager
+            
+            deps_manager = DependencyManager(str(self.project_dir))
+            packages = deps_manager.load_npm_packages()
+            
+            for pkg in packages:
+                self._packages[pkg.name] = pkg.version
+                if self._is_react_package(pkg.name):
+                    self._react_packages.add(pkg.name)
+                    self._react_compat = True
+        except ImportError:
+            # Fallback: parse manually if deps module not available
+            for line in path.read_text().splitlines():
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                
+                # Parse package@version or @scope/package@version
+                if line.startswith("@"):
+                    # Scoped package
+                    at_positions = [i for i, c in enumerate(line) if c == "@"]
+                    if len(at_positions) >= 2:
+                        last_at = at_positions[-1]
+                        name = line[:last_at]
+                        version = line[last_at + 1:]
+                    else:
+                        name = line
+                        version = "latest"
+                else:
+                    if "@" in line:
+                        name, version = line.rsplit("@", 1)
+                    else:
+                        name = line
+                        version = "latest"
+                
+                self._packages[name] = version
+                if self._is_react_package(name):
+                    self._react_packages.add(name)
+                    self._react_compat = True
+    
+    def _load_from_config_py(self) -> None:
+        """Load packages from pynext.config.py (legacy format)."""
         config_globals: dict[str, Any] = {}
         exec(self.config_file.read_text(), config_globals)
         

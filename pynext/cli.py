@@ -15,6 +15,19 @@ from pathlib import Path
 def cmd_dev(args: argparse.Namespace) -> int:
     """Run the development server."""
     from pynext.server.dev import run_dev_server
+    from pynext.deps import DependencyManager
+    
+    # Check dependencies on startup (unless --skip-deps)
+    if not args.skip_deps:
+        deps = DependencyManager(".")
+        if deps.has_dependencies():
+            missing = deps.check_all()
+            if missing["python"] or missing["npm"]:
+                print("[PyNext] Checking dependencies...")
+                deps.print_status()
+                if not args.no_install:
+                    print("[PyNext] Installing missing dependencies...")
+                    deps.install_all()
     
     run_dev_server(
         pages_dir=args.pages,
@@ -361,20 +374,23 @@ def actions():
 PyNext Configuration
 """
 
-# NPM packages to bundle
-npm_packages = [
-    # Add npm packages here, e.g.:
-    # "chart.js",
-    # {"lodash": "^4.17.21"},
-]
-
 # Build options
 build = {
     "output": ".pynext/build",
     "minify": True,
 }
+
+# Development options
+dev = {
+    "port": 3000,
+    "host": "127.0.0.1",
+}
 '''
     (project_dir / "pynext.config.py").write_text(config)
+    
+    # Create dependency files
+    from pynext.deps import create_dependency_templates
+    create_dependency_templates(str(project_dir))
     
     # Create base CSS
     base_css = '''/* PyNext Base Styles */
@@ -467,15 +483,17 @@ package-lock.json
   
     {args.name}/
     ├── pages/
-    │   ├── index.py        # Home page
-    │   ├── about.py        # About page
-    │   ├── actions.py      # Server actions example
+    │   ├── index.py              # Home page
+    │   ├── about.py              # About page
+    │   ├── actions.py            # Server actions example
     │   └── users/
-    │       └── [id].py     # Dynamic route
+    │       └── [id].py           # Dynamic route
     ├── public/
-    │   └── styles.css      # Base styles
-    ├── components/         # Reusable components
-    └── pynext.config.py    # Configuration
+    │   └── styles.css            # Base styles
+    ├── components/               # Reusable components
+    ├── pynext.config.py          # Configuration
+    ├── pynext.requirements.txt   # Python dependencies
+    └── pynext.npm.txt            # NPM dependencies
 """)
     
     return 0
@@ -500,6 +518,79 @@ def cmd_routes(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_deps(args: argparse.Namespace) -> int:
+    """Manage project dependencies."""
+    from pynext.deps import DependencyManager
+    
+    deps = DependencyManager(args.dir)
+    
+    if args.deps_command == "install":
+        print("[PyNext] Installing dependencies...")
+        
+        if args.python_only:
+            success = deps.install_python_deps()
+            if success:
+                print("[PyNext] Python dependencies installed ✓")
+            else:
+                print("[PyNext] Failed to install Python dependencies")
+                return 1
+        elif args.npm_only:
+            success = deps.install_npm_deps()
+            if success:
+                print("[PyNext] NPM dependencies installed ✓")
+            else:
+                print("[PyNext] Failed to install NPM dependencies")
+                return 1
+        else:
+            python_ok = deps.install_python_deps()
+            npm_ok = deps.install_npm_deps()
+            
+            if python_ok:
+                print("[PyNext] Python dependencies installed ✓")
+            if npm_ok:
+                print("[PyNext] NPM dependencies installed ✓")
+            
+            if not python_ok or not npm_ok:
+                return 1
+        
+        return 0
+    
+    elif args.deps_command == "check":
+        print("[PyNext] Checking dependencies...")
+        
+        missing = deps.check_all()
+        
+        if not missing["python"] and not missing["npm"]:
+            print("[PyNext] All dependencies installed ✓")
+            return 0
+        
+        if missing["python"]:
+            print(f"\n[PyNext] Missing Python packages ({len(missing['python'])}):")
+            for pkg in missing["python"]:
+                print(f"  - {pkg}")
+        
+        if missing["npm"]:
+            print(f"\n[PyNext] Missing NPM packages ({len(missing['npm'])}):")
+            for pkg in missing["npm"]:
+                print(f"  - {pkg}")
+        
+        print("\n[PyNext] Run 'pynext deps install' to install missing dependencies")
+        return 1
+    
+    elif args.deps_command == "init":
+        from pynext.deps import create_dependency_templates
+        
+        python_path, npm_path = create_dependency_templates(args.dir)
+        print(f"[PyNext] Created {python_path.name}")
+        print(f"[PyNext] Created {npm_path.name}")
+        return 0
+    
+    else:
+        # No subcommand, show status
+        deps.print_status()
+        return 0
+
+
 def main() -> int:
     """Main CLI entry point."""
     parser = argparse.ArgumentParser(
@@ -520,6 +611,8 @@ def main() -> int:
     dev_parser.add_argument("--static", default="public", help="Static files directory")
     dev_parser.add_argument("--host", default="127.0.0.1", help="Host to bind to")
     dev_parser.add_argument("--port", "-p", type=int, default=3000, help="Port to listen on")
+    dev_parser.add_argument("--skip-deps", action="store_true", help="Skip dependency check")
+    dev_parser.add_argument("--no-install", action="store_true", help="Don't auto-install missing deps")
     
     # build command
     build_parser = subparsers.add_parser("build", help="Build for production")
@@ -536,6 +629,22 @@ def main() -> int:
     routes_parser = subparsers.add_parser("routes", help="List all routes")
     routes_parser.add_argument("--pages", default="pages", help="Pages directory")
     
+    # deps command
+    deps_parser = subparsers.add_parser("deps", help="Manage dependencies")
+    deps_parser.add_argument("--dir", default=".", help="Project directory")
+    deps_subparsers = deps_parser.add_subparsers(dest="deps_command", help="Dependency commands")
+    
+    # deps install
+    deps_install = deps_subparsers.add_parser("install", help="Install dependencies")
+    deps_install.add_argument("--python", dest="python_only", action="store_true", help="Install only Python deps")
+    deps_install.add_argument("--npm", dest="npm_only", action="store_true", help="Install only NPM deps")
+    
+    # deps check
+    deps_subparsers.add_parser("check", help="Check for missing dependencies")
+    
+    # deps init
+    deps_subparsers.add_parser("init", help="Create dependency files")
+    
     args = parser.parse_args()
     
     if args.version:
@@ -551,6 +660,8 @@ def main() -> int:
         return cmd_init(args)
     elif args.command == "routes":
         return cmd_routes(args)
+    elif args.command == "deps":
+        return cmd_deps(args)
     else:
         parser.print_help()
         return 0

@@ -1,0 +1,26 @@
+# PyNext NPM Dependencies
+#
+# Add NPM packages for client-side JavaScript here.
+# Format: package@version or @scope/package@version
+#
+# These packages can be imported in your components:
+#
+#   from pynext.bundler import npm_import
+#   chart_url = npm_import("chart.js")
+#   script(src=chart_url, type="module")
+
+# Charts (uncomment to use)
+# chart.js@^4.4.0
+# d3@^7.0.0
+
+# Utilities
+# lodash@^4.17.0
+# date-fns@^3.0.0
+
+# React-compatible UI (auto-uses Preact ~4KB)
+# @mui/material@^5.14.0
+# framer-motion@^10.0.0
+
+# Add your dependencies below:
+
+
