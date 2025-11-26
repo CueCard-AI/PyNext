@@ -217,6 +217,111 @@ Popover()[
 
 ---
 
+## Troubleshooting
+
+### Popover doesn't open
+
+**Problem:** Clicking trigger does nothing.
+
+**Cause:** Missing JavaScript runtime or incorrect structure.
+
+**Solution:** Ensure proper component nesting:
+
+```python
+Popover()[
+    PopoverTrigger()[
+        Button()["Click me"]  # Must have a clickable child
+    ],
+    PopoverContent()[
+        "Content here"
+    ]
+]
+```
+
+### Popover appears in wrong position
+
+**Problem:** Popover shows on wrong side of trigger.
+
+**Solution:** Adjust `side` and `align` props:
+
+```python
+PopoverContent(
+    side="top",      # top, right, bottom, left
+    align="start",   # start, center, end
+    side_offset=8    # Distance from trigger
+)[...]
+```
+
+### Popover gets cut off by container
+
+**Problem:** Popover content clipped by parent with `overflow: hidden`.
+
+**Solution:** Popover uses a portal by default. If still clipped, check:
+
+```python
+# Ensure content uses portal
+PopoverContent()[  # Portal is automatic
+    "This should not be clipped"
+]
+```
+
+### Click outside doesn't close popover
+
+**Problem:** Popover stays open when clicking outside.
+
+**Cause:** Click handler not reaching popover overlay.
+
+**Solution:** Ensure no elements are stopping event propagation:
+
+```python
+# Wrong - stops propagation
+Div(onclick="event.stopPropagation()")[
+    Popover()[...]
+]
+
+# Correct - let events bubble
+Div()[
+    Popover()[...]
+]
+```
+
+### Form inside popover submits and closes immediately
+
+**Problem:** Submitting form in popover closes it before action completes.
+
+**Solution:** Prevent default and handle manually:
+
+```python
+PopoverContent()[
+    Form(
+        on_submit=lambda e: (
+            e.preventDefault(),
+            handle_submit()
+            # Don't close - let user see result
+        )
+    )[
+        Input(name="value"),
+        Button(type="submit")["Submit"]
+    ]
+]
+```
+
+### Popover arrow not visible
+
+**Problem:** No arrow/pointer on popover.
+
+**Solution:** Add arrow styling:
+
+```python
+PopoverContent(class_="relative")[
+    # Arrow (requires custom CSS)
+    Div(class_="absolute -top-2 left-1/2 -translate-x-1/2 w-0 h-0 border-l-8 border-r-8 border-b-8 border-transparent border-b-white"),
+    "Content"
+]
+```
+
+---
+
 ## Related Components
 
 - **[Tooltip](./tooltip.md)** — For simple text hints

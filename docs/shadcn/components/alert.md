@@ -187,6 +187,69 @@ show_alert.value and Alert(class_="relative")[
 
 ---
 
+## Troubleshooting
+
+### Alert not visible or wrong styling
+
+**Problem:** Alert renders but looks plain/unstyled.
+
+**Cause:** Missing Tailwind classes or CSS.
+
+**Solution:** Ensure Tailwind is configured and pynext styles are imported:
+
+```python
+# Check that Alert is imported from shadcn
+from pynext.shadcn import Alert, AlertTitle, AlertDescription
+```
+
+### Icon doesn't align with text
+
+**Problem:** Icon appears misaligned with alert content.
+
+**Solution:** Use proper flex alignment:
+
+```python
+Alert()[
+    Div(class_="flex items-start gap-3")[
+        Icon(class_="h-4 w-4 mt-0.5"),  # Add margin-top for alignment
+        Div()[
+            AlertTitle()["Title"],
+            AlertDescription()["Description"]
+        ]
+    ]
+]
+```
+
+### Destructive variant not showing red
+
+**Problem:** `variant="destructive"` shows default styling.
+
+**Cause:** CSS variables not defined or Tailwind not processing the classes.
+
+**Solution:** Verify your `globals.css` includes:
+
+```css
+:root {
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 0 0% 98%;
+}
+```
+
+### Screen reader not announcing alert
+
+**Problem:** Screen readers skip over the alert.
+
+**Solution:** Add `role="alert"` for important messages:
+
+```python
+Alert(role="alert")[
+    AlertTitle()["Error"],
+    AlertDescription()["Something went wrong."]
+]
+```
+
+---
+
 ## Related Components
 
 - **[Toast](./toast.md)** — For temporary notifications

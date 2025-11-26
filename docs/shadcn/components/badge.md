@@ -218,6 +218,78 @@ Badge(class_="text-sm px-3 py-1")["Large"]
 
 ---
 
+## Troubleshooting
+
+### Badge not displaying correct color
+
+**Problem:** Badge shows default color instead of variant color.
+
+**Cause:** CSS variables not defined.
+
+**Solution:** Ensure your theme includes:
+
+```css
+:root {
+  --primary: 222.2 47.4% 11.2%;
+  --secondary: 210 40% 96.1%;
+  --destructive: 0 84.2% 60.2%;
+}
+```
+
+### Badge text overflows
+
+**Problem:** Long text causes badge to stretch or overflow.
+
+**Solution:** Use truncation or max-width:
+
+```python
+Badge(class_="max-w-[100px] truncate")["Very long status text"]
+```
+
+### Badge not aligned with other elements
+
+**Problem:** Badge appears above or below inline text.
+
+**Solution:** Use proper alignment:
+
+```python
+Span(class_="inline-flex items-center gap-1")[
+    "Status:",
+    Badge(class_="align-middle")["Active"]
+]
+```
+
+### Notification badge not positioned correctly
+
+**Problem:** Badge on avatar or icon not in corner.
+
+**Solution:** Use relative/absolute positioning:
+
+```python
+Div(class_="relative inline-block")[
+    Avatar()[...],
+    Badge(
+        class_="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center"
+    )["3"]
+]
+```
+
+### Badge color contrast issues
+
+**Problem:** Badge text is hard to read.
+
+**Solution:** Ensure sufficient contrast:
+
+```python
+# Use dark text on light backgrounds
+Badge(class_="bg-yellow-200 text-yellow-900")["Warning"]
+
+# Use light text on dark backgrounds
+Badge(class_="bg-blue-700 text-white")["Info"]
+```
+
+---
+
 ## Related Components
 
 - **[Avatar](./avatar.md)** — Often paired with badges

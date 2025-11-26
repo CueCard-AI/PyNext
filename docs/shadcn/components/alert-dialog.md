@@ -219,6 +219,68 @@ AlertDialog(open=has_unsaved_changes.value)[
 
 ---
 
+## Troubleshooting
+
+### AlertDialog doesn't close after action
+
+**Problem:** User clicks the action button but the dialog stays open.
+
+**Cause:** The action button must trigger closing. Unlike Dialog, AlertDialog is designed to require explicit action.
+
+**Solution:**
+
+```python
+AlertDialogAction(
+    on_click=lambda: (
+        perform_action(),
+        dialog_open.set(False)  # Explicitly close
+    )
+)["Delete"]
+```
+
+### Cancel button doesn't close dialog
+
+**Problem:** Clicking Cancel does nothing.
+
+**Solution:** Ensure `dialog_open` signal is passed correctly:
+
+```python
+# Create signal to control state
+dialog_open = Signal(False)
+
+AlertDialog(open=dialog_open)[
+    AlertDialogTrigger()[...],
+    AlertDialogContent()[
+        AlertDialogCancel(on_click=lambda: dialog_open.set(False))["Cancel"],
+        ...
+    ]
+]
+```
+
+### Focus goes behind dialog
+
+**Problem:** Tab key moves focus to elements behind the dialog.
+
+**Solution:** Make sure you're using `AlertDialogContent`, not a plain `div`. The component includes built-in focus trapping.
+
+### Dialog opens immediately on page load
+
+**Problem:** AlertDialog shows as soon as page renders.
+
+**Cause:** Signal initialized to `True`.
+
+**Solution:**
+
+```python
+# Wrong - opens immediately
+dialog_open = Signal(True)
+
+# Correct - starts closed
+dialog_open = Signal(False)
+```
+
+---
+
 ## Related Components
 
 - **[Dialog](./dialog.md)** — For general modals

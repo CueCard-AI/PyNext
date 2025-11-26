@@ -195,6 +195,112 @@ Tooltip()[
 
 ---
 
+## Troubleshooting
+
+### Tooltip doesn't appear
+
+**Problem:** Hovering over trigger shows nothing.
+
+**Cause:** Missing `TooltipProvider` wrapper.
+
+**Solution:** Wrap your app or component tree:
+
+```python
+TooltipProvider()[  # Required!
+    Tooltip()[
+        TooltipTrigger()[Button()["Hover me"]],
+        TooltipContent()["Tooltip text"]
+    ]
+]
+```
+
+### Tooltip appears instantly without delay
+
+**Problem:** Tooltip shows immediately on hover, feels jarring.
+
+**Solution:** Add delay via provider:
+
+```python
+TooltipProvider(delay_duration=300)[  # 300ms delay
+    Tooltip()[...]
+]
+```
+
+### Tooltip position is wrong
+
+**Problem:** Tooltip appears on wrong side.
+
+**Solution:** Set explicit side:
+
+```python
+TooltipContent(side="bottom")[  # top, right, bottom, left
+    "This appears below"
+]
+```
+
+### Tooltip gets cut off at edges
+
+**Problem:** Tooltip clipped at screen/container edge.
+
+**Solution:** Tooltip auto-flips by default. If still clipped:
+
+```python
+TooltipContent(
+    side="top",
+    side_offset=4,
+    avoid_collisions=True  # Enable collision detection
+)[...]
+```
+
+### Tooltip not showing on disabled button
+
+**Problem:** Tooltip doesn't work on `disabled` elements.
+
+**Cause:** Disabled elements don't receive mouse events.
+
+**Solution:** Wrap in a span:
+
+```python
+Tooltip()[
+    TooltipTrigger(as_child=True)[
+        Span(class_="inline-block")[  # Wrapper receives events
+            Button(disabled=True)["Disabled"]
+        ]
+    ],
+    TooltipContent()["This feature is coming soon"]
+]
+```
+
+### Tooltip flickers on quick mouse movements
+
+**Problem:** Tooltip appears/disappears rapidly.
+
+**Solution:** Increase delay and skip delay on immediate re-hover:
+
+```python
+TooltipProvider(
+    delay_duration=200,
+    skip_delay_duration=100  # Quick re-hover shows immediately
+)[...]
+```
+
+### Screen reader not announcing tooltip
+
+**Problem:** Tooltip content not read by screen readers.
+
+**Solution:** Tooltip uses `aria-describedby` automatically. Ensure trigger has accessible label:
+
+```python
+Tooltip()[
+    TooltipTrigger()[
+        Button(aria_label="Settings")[Icon()]  # Has accessible name
+    ],
+    TooltipContent()["Adjust your preferences"]
+]
+```
+
+---
+
 ## Related Components
 
 - **[Popover](./popover.md)** — For interactive content

@@ -224,6 +224,89 @@ div(class_="flex gap-4")[
 
 ---
 
+## Troubleshooting
+
+### Image not loading, shows fallback immediately
+
+**Problem:** Avatar always shows fallback even with valid image URL.
+
+**Cause:** Image URL is incorrect or CORS blocked.
+
+**Solution:**
+
+```python
+# Check the URL is accessible
+AvatarImage(
+    src="/static/images/user.jpg",  # Relative URLs often work better
+    alt="User"
+)
+
+# Or use a CDN with CORS headers
+AvatarImage(
+    src="https://cdn.example.com/user.jpg",
+    alt="User"
+)
+```
+
+### Fallback flashes before image loads
+
+**Problem:** Fallback text briefly appears, then image loads.
+
+**Cause:** Default delay is short (600ms).
+
+**Solution:** Increase the delay:
+
+```python
+AvatarFallback(delay_ms=1500)["JD"]
+```
+
+### Avatar not circular
+
+**Problem:** Avatar appears square.
+
+**Solution:** Ensure proper classes:
+
+```python
+Avatar(class_="rounded-full")[  # Add rounded-full
+    AvatarImage(src=url, alt="User"),
+    AvatarFallback()["JD"]
+]
+```
+
+### Initials too large/small for avatar size
+
+**Problem:** Fallback text doesn't fit the avatar size.
+
+**Solution:** Adjust text size based on avatar size:
+
+```python
+# Small avatar
+Avatar(class_="h-8 w-8")[
+    AvatarFallback(class_="text-xs")["JD"]
+]
+
+# Large avatar
+Avatar(class_="h-16 w-16")[
+    AvatarFallback(class_="text-lg")["JD"]
+]
+```
+
+### Multiple avatars overlap incorrectly
+
+**Problem:** Stacked avatars don't overlap properly.
+
+**Solution:** Use negative margins and proper z-index:
+
+```python
+Div(class_="flex -space-x-2")[
+    Avatar(class_="ring-2 ring-background z-30")[...],
+    Avatar(class_="ring-2 ring-background z-20")[...],
+    Avatar(class_="ring-2 ring-background z-10")[...],
+]
+```
+
+---
+
 ## Related Components
 
 - **[Badge](./badge.md)** — For status indicators

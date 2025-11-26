@@ -137,6 +137,57 @@ jobs:
           ruff check pynext tests
         continue-on-error: true
 
+  js-tests:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: 'npm'
+          cache-dependency-path: tests/js/package.json
+      
+      - name: Install JS test dependencies
+        working-directory: tests/js
+        run: |
+          npm install
+      
+      - name: Run JS tests
+        working-directory: tests/js
+        run: |
+          npm test -- --coverage
+      
+      - name: Upload JS coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: js-coverage
+          path: tests/js/coverage/
+
+  bundle-size:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      
+      - name: Check bundle size
+        run: |
+          node scripts/check-bundle-size.js
+      
+      - name: Report sizes
+        if: always()
+        run: |
+          echo "## Bundle Size Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          node scripts/check-bundle-size.js 2>&1 | tail -20 >> $GITHUB_STEP_SUMMARY || true
+
   e2e:
     runs-on: ubuntu-latest
     if: github.event_name == 'push'
@@ -162,4 +213,3 @@ jobs:
         run: |
           pytest tests/e2e -v --timeout=60
         continue-on-error: true
-
