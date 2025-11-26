@@ -17,22 +17,54 @@ Connecting Figma to the component registry would streamline designer-developer c
 
 ---
 
-### Advanced Components (Phase 2+)
+### Advanced Components (Phase 2+) — COMPLETED ✓
 
-More complex interactive components:
+All 12 advanced components have been implemented:
 
-- [ ] **Calendar / DatePicker** — Date selection with range support
-- [ ] **Combobox / Autocomplete** — Searchable select with filtering
-- [ ] **Command palette** — cmdk-style command menu (⌘K)
-- [ ] **Data Table** — Sortable, filterable, paginated tables
-- [ ] **Charts** — Integration with Chart.js or similar
-- [ ] **File upload** — Drag-and-drop with preview
-- [ ] **Rich text editor** — WYSIWYG content editing
-- [ ] **Toast / Sonner** — Non-blocking notifications
-- [ ] **Tooltip** — Contextual hover information
-- [ ] **Popover** — Floating content panels
-- [ ] **Sheet / Drawer** — Slide-out panels
-- [ ] **Skeleton** — Loading placeholder animations
+- [x] **Skeleton** — Loading placeholder animations
+- [x] **Tooltip** — Contextual hover information
+- [x] **Popover** — Floating content panels
+- [x] **Toast / Sonner** — Non-blocking notifications
+- [x] **Sheet / Drawer** — Slide-out panels
+- [x] **Combobox / Autocomplete** — Searchable select with filtering
+- [x] **Command palette** — cmdk-style command menu (⌘K)
+- [x] **Calendar / DatePicker** — Date selection with range support
+- [x] **Data Table** — Sortable, filterable, paginated tables
+- [x] **File upload** — Drag-and-drop with preview
+- [x] **Charts** — Integration with Chart.js (`pynext.charts`)
+- [x] **Rich text editor** — Tiptap integration (`pynext.editor`)
+
+---
+
+### Editor Enhancements
+
+Extend the Rich Text Editor (`pynext.editor`) with advanced features:
+
+- [ ] **useEditor() Python API** — Programmatic editor control from Python
+  - `get_content()`, `set_content()`, `focus()`, `clear()`
+  - `insert_text()`, `toggle_bold()`, `toggle_italic()`, etc.
+  - `get_markdown()`, `set_markdown()` (when markdown extension enabled)
+
+- [ ] **Markdown Extension** — Full markdown support via Tiptap
+  - Parse markdown input, export to markdown
+  - Syntax highlighting in code blocks
+  - GFM (GitHub Flavored Markdown) compatibility
+
+- [ ] **Mentions Extension** — @mention support
+  - Customizable suggestion list
+  - Server action integration for user search
+  - Configurable trigger character (@, #, etc.)
+
+- [ ] **Slash Commands** — / command palette
+  - Quick formatting commands (/h1, /bold, /code)
+  - Custom command registration
+  - Integration with Command component
+
+- [ ] **Collaborative Editing** — Real-time collaboration via Yjs
+  - Document sync across multiple users
+  - User cursors and presence indicators
+  - Conflict resolution
+  - Optional: WebSocket or WebRTC transport
 
 ---
 

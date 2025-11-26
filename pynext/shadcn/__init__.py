@@ -53,6 +53,40 @@ from .switch import Switch
 from .checkbox import Checkbox
 from .radio_group import RadioGroup, RadioGroupItem
 
+# Phase 2 Components - Foundation
+from .skeleton import Skeleton, SkeletonCard, SkeletonTable, SkeletonText
+from .tooltip import Tooltip, TooltipTrigger, TooltipContent, TooltipProvider
+from .popover import Popover, PopoverTrigger, PopoverContent, PopoverAnchor, PopoverClose
+from .toast import Toaster, Toast, toast
+
+# Phase 2 Components - Interactive
+from .sheet import (
+    Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle,
+    SheetDescription, SheetFooter, SheetClose
+)
+from .combobox import (
+    Combobox, ComboboxTrigger, ComboboxContent, ComboboxInput,
+    ComboboxItem, ComboboxEmpty, ComboboxGroup, ComboboxSeparator, ComboboxCreate
+)
+
+# Phase 3 Components - Complex
+from .command import (
+    Command, CommandDialog, CommandInput, CommandList, CommandEmpty,
+    CommandGroup, CommandItem, CommandSeparator, CommandShortcut
+)
+from .calendar import Calendar
+from .date_picker import DatePicker, DateRangePicker
+from .data_table import (
+    DataTable, DataTableColumn, DataTableToolbar,
+    DataTableFacetedFilter, DataTablePagination, DataTableColumnToggle
+)
+
+# Phase 4 Components - External Integrations
+from .file_upload import (
+    FileUpload, FileUploadDropzone, FileUploadTrigger,
+    FileUploadList, FileUploadItem
+)
+
 __all__ = [
     # Basic
     "Button",
@@ -83,5 +117,29 @@ __all__ = [
     "Switch",
     "Checkbox",
     "RadioGroup", "RadioGroupItem",
+    
+    # Phase 2 - Foundation
+    "Skeleton", "SkeletonCard", "SkeletonTable", "SkeletonText",
+    "Tooltip", "TooltipTrigger", "TooltipContent", "TooltipProvider",
+    "Popover", "PopoverTrigger", "PopoverContent", "PopoverAnchor", "PopoverClose",
+    "Toaster", "Toast", "toast",
+    
+    # Phase 2 - Interactive
+    "Sheet", "SheetTrigger", "SheetContent", "SheetHeader", "SheetTitle",
+    "SheetDescription", "SheetFooter", "SheetClose",
+    "Combobox", "ComboboxTrigger", "ComboboxContent", "ComboboxInput",
+    "ComboboxItem", "ComboboxEmpty", "ComboboxGroup", "ComboboxSeparator", "ComboboxCreate",
+    
+    # Phase 3 - Complex
+    "Command", "CommandDialog", "CommandInput", "CommandList", "CommandEmpty",
+    "CommandGroup", "CommandItem", "CommandSeparator", "CommandShortcut",
+    "Calendar",
+    "DatePicker", "DateRangePicker",
+    "DataTable", "DataTableColumn", "DataTableToolbar",
+    "DataTableFacetedFilter", "DataTablePagination", "DataTableColumnToggle",
+    
+    # Phase 4 - External Integrations
+    "FileUpload", "FileUploadDropzone", "FileUploadTrigger",
+    "FileUploadList", "FileUploadItem",
 ]
 
