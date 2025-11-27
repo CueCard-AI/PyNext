@@ -6,6 +6,126 @@ This document tracks future enhancements and features for PyNext. Ideas captured
 
 ## Future Enhancements
 
+### Next.js Feature Parity
+
+Achieving complete feature parity with Next.js while maintaining SolidJS principles (fine-grained reactivity, zero unnecessary JS, build-time optimization).
+
+**Already Implemented**: `loading.py`, `error.py`, `not-found.py`, `layout.py`, `page.py`, `route.py`, dynamic routes, parallel routes, intercepting routes, `@island`, `Link()`, server actions, ISR, streaming, middleware, `Image()`, `Font()`, `Metadata` API, Tailwind utilities
+
+#### Phase 1: File Conventions (P0)
+
+- [ ] **Route Groups `(folder)`** — Organize routes without affecting URLs
+  - Files: `pynext/router/groups.py` (new)
+  - APIs: `is_route_group()`, `strip_route_groups()`, `RouteGroupRegistry`
+  - Behavior: `pages/(marketing)/about/page.py` → `/about`
+
+- [ ] **Template `template.py`** — Layouts that remount on navigation
+  - Files: `pynext/core/template.py`, `pynext/runtime/template.js`
+  - APIs: `@template(animate=True, animation_duration=200)`
+  - Use case: Page transitions, analytics tracking, state reset
+
+- [ ] **Error Pages `forbidden.py`, `unauthorized.py`** — Custom 403/401 pages
+  - Files: `pynext/core/errors.py` (new)
+  - APIs: `ForbiddenError`, `UnauthorizedError`, `@forbidden_page`, `@unauthorized_page`
+
+- [ ] **`src/` Folder Support** — Auto-detect `src/pages/` structure
+  - Files: `pynext/core/paths.py` (new)
+  - APIs: `resolve_project_paths()`, `detect_project_structure()`
+
+#### Phase 2: Environment & Config (P0)
+
+- [ ] **Environment Variables** — Full `.env` file support
+  - Files: `pynext/env.py`, `pynext/build/env.py`
+  - Load order: `.env` → `.env.local` → `.env.{mode}` → `.env.{mode}.local`
+  - APIs: `env.DATABASE_URL`, `env.get_int()`, `env.get_bool()`, `env.get_list()`
+  - Client: `PYNEXT_PUBLIC_*` vars exposed, build-time inlined
+
+- [ ] **Route Segment Config** — Per-route configuration
+  - Files: `pynext/core/route_config.py` (new)
+  - APIs: `RouteConfig(dynamic="force-dynamic", revalidate=60, runtime="edge")`
+
+#### Phase 3: SEO & Assets (P1)
+
+- [ ] **Sitemap Generation** — Build-time `sitemap.xml`
+  - Files: `pynext/seo/sitemap.py`
+  - APIs: `@sitemap(changefreq="daily")`, custom `sitemap.py`
+
+- [ ] **Robots.txt** — Configurable robots file
+  - Files: `pynext/seo/robots.py`
+  - APIs: `RobotsConfig`, `RobotsRule`
+
+- [ ] **App Icons Convention** — Auto-detect favicon, icon.png, apple-icon.png
+  - Files: Update `pynext/core/metadata.py`
+
+- [ ] **PWA Manifest** — `manifest.json` generation
+  - Files: `pynext/pwa/manifest.py`
+  - APIs: `PWAManifest`, `ManifestIcon`
+
+- [ ] **Dynamic OG Images** — Generate OG images at request time
+  - Files: `pynext/seo/og_image.py`
+  - APIs: `@og_image`, `generate_og_image()`
+  - Implementation: Pillow-based, ISR-cached
+
+#### Phase 4: Developer Experience (P1)
+
+- [ ] **Fast File Watching** — <50ms dev reload
+  - Files: Update `pynext/server/dev.py`, add `runtime/dev-reload.js`
+  - Implementation: `watchfiles` (Rust), WebSocket push
+
+- [ ] **Component Generator CLI** — Scaffold pages/components/APIs
+  - Commands: `pynext generate page`, `pynext g component`, `pynext g api`
+
+- [ ] **PyTest Utilities** — Testing helpers
+  - Files: `pynext/testing/` module
+  - APIs: `render_component()`, `assert_has_class()`, `assert_accessible()`
+
+- [ ] **Linting Integration** — `pynext lint` with ruff
+  - Commands: `pynext lint`, `pynext lint --fix`
+
+#### Phase 5: Browser APIs (P1)
+
+All return fine-grained signals (no component re-renders):
+
+- [ ] **`use_websocket(url, on_message)`** → `WebSocketHandle`
+- [ ] **`use_media_query("(max-width: 768px)")`** → `Signal[bool]`
+- [ ] **`use_geolocation(watch=True)`** → `GeolocationHandle`
+- [ ] **`use_clipboard()`** → `ClipboardHandle`
+- [ ] **`use_window_size()`** → `Signal[WindowSize]`
+- [ ] **`use_scroll_position()`** → `Signal[ScrollPosition]`
+- [ ] **`use_intersection(element_id)`** → `Signal[bool]`
+
+#### Phase 6: Advanced Features (P2)
+
+- [ ] **MDX Support** — Markdown with components, `mdx-components.py`
+- [ ] **Instrumentation** — `instrumentation.py`, OpenTelemetry
+- [ ] **Proxy Configuration** — `proxy.py` for request rewrites
+- [ ] **Edge Runtime** — Cloudflare, Vercel Edge, Deno adapters
+- [ ] **CSS Modules** — `Component.module.css` with build-time scoping
+
+#### Performance Targets
+
+| Metric | Next.js | PyNext Target |
+|--------|---------|---------------|
+| JS Bundle (hello world) | ~80KB | <10KB |
+| TTI | ~1.5s | <500ms |
+| Build time | ~30s | <10s |
+| Dev reload | ~300ms | <50ms |
+
+#### Summary
+
+| Phase | Features | New Files | Est. Tests |
+|-------|----------|-----------|------------|
+| 1 | File conventions | 6 | 80+ |
+| 2 | Env & config | 4 | 50+ |
+| 3 | SEO & assets | 8 | 60+ |
+| 4 | Developer experience | 6 | 70+ |
+| 5 | Browser APIs | 2 | 50+ |
+| 6 | Advanced | 10 | 80+ |
+
+**Total**: 36 new files, 390+ tests, ~18 days
+
+---
+
 ### Figma Integration
 
 Connecting Figma to the component registry would streamline designer-developer collaboration:
