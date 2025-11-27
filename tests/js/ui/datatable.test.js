@@ -92,9 +92,9 @@ describe('DataTable Component', () => {
             <div data-pynext-datatable>
                 <table>
                     <tbody>
-                        <tr data-pynext-table-row>John Doe</tr>
-                        <tr data-pynext-table-row>Jane Smith</tr>
-                        <tr data-pynext-table-row>Bob Johnson</tr>
+                        <tr data-pynext-table-row><td>John Doe</td></tr>
+                        <tr data-pynext-table-row><td>Jane Smith</td></tr>
+                        <tr data-pynext-table-row><td>Bob Johnson</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -170,10 +170,14 @@ describe('DataTable Component', () => {
     test('supports row selection', () => {
         container.innerHTML = `
             <div data-pynext-datatable data-selection="true">
-                <tr data-pynext-table-row data-selected="false">
-                    <td><input type="checkbox" data-pynext-row-select></td>
-                    <td>Row 1</td>
-                </tr>
+                <table>
+                    <tbody>
+                        <tr data-pynext-table-row data-selected="false">
+                            <td><input type="checkbox" data-pynext-row-select></td>
+                            <td>Row 1</td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         `;
         

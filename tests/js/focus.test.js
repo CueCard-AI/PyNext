@@ -10,12 +10,15 @@ describe('Focus Management', () => {
         container = document.createElement('div');
         document.body.appendChild(container);
         
-        // Mock focus.js functions
+        // Mock focus.js functions - don't check offsetParent since JSDOM doesn't render
         window.__pynext__ = window.__pynext__ || {};
         window.__pynext__.focus = {
             getFocusable: (el) => {
                 const selector = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
-                return Array.from(el.querySelectorAll(selector)).filter(e => e.offsetParent !== null);
+                // In JSDOM, we can't check offsetParent, so check style.display instead
+                return Array.from(el.querySelectorAll(selector)).filter(e => {
+                    return !e.hasAttribute('hidden') && e.style.display !== 'none';
+                });
             },
             trapFocus: (container, event) => {
                 const focusable = window.__pynext__.focus.getFocusable(container);
@@ -159,4 +162,3 @@ describe('Roving Focus', () => {
         document.body.removeChild(container);
     });
 });
-

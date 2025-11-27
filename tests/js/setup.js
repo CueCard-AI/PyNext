@@ -4,6 +4,11 @@
  * Uses Jest with jsdom for DOM testing
  */
 
+// Polyfill TextEncoder/TextDecoder for older Node versions
+const { TextEncoder, TextDecoder } = require('util');
+global.TextEncoder = TextEncoder;
+global.TextDecoder = TextDecoder;
+
 // Mock browser APIs that jsdom doesn't provide
 global.matchMedia = global.matchMedia || function(query) {
     return {

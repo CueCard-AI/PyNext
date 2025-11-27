@@ -4,22 +4,35 @@
  */
 
 describe('Storage Management', () => {
-    let mockStorage;
+    let mockLocalStorage;
+    let mockSessionStorage;
     
     beforeEach(() => {
-        // Mock localStorage
-        mockStorage = {};
-        const storageMock = {
-            getItem: jest.fn(key => mockStorage[key] || null),
-            setItem: jest.fn((key, value) => { mockStorage[key] = value; }),
-            removeItem: jest.fn(key => { delete mockStorage[key]; }),
-            clear: jest.fn(() => { mockStorage = {}; }),
-            key: jest.fn(i => Object.keys(mockStorage)[i] || null),
-            get length() { return Object.keys(mockStorage).length; }
+        // Create separate mock storage objects with spies
+        const createMockStorage = () => {
+            const store = {};
+            return {
+                getItem: jest.fn(key => store[key] || null),
+                setItem: jest.fn((key, value) => { store[key] = value; }),
+                removeItem: jest.fn(key => { delete store[key]; }),
+                clear: jest.fn(() => { Object.keys(store).forEach(k => delete store[k]); }),
+                get length() { return Object.keys(store).length; }
+            };
         };
         
-        Object.defineProperty(window, 'localStorage', { value: storageMock, writable: true });
-        Object.defineProperty(window, 'sessionStorage', { value: storageMock, writable: true });
+        mockLocalStorage = createMockStorage();
+        mockSessionStorage = createMockStorage();
+        
+        Object.defineProperty(window, 'localStorage', { 
+            value: mockLocalStorage, 
+            writable: true,
+            configurable: true 
+        });
+        Object.defineProperty(window, 'sessionStorage', { 
+            value: mockSessionStorage, 
+            writable: true,
+            configurable: true 
+        });
         
         // Mock storage.js
         window.__pynext__ = window.__pynext__ || {};
@@ -30,6 +43,11 @@ describe('Storage Management', () => {
                 const storage = storageType === 'local' ? localStorage : sessionStorage;
                 const stored = storage.getItem(key);
                 let value = stored !== null ? JSON.parse(stored) : defaultValue;
+                
+                // Store the default value if not already in storage
+                if (stored === null) {
+                    storage.setItem(key, JSON.stringify(defaultValue));
+                }
                 
                 const signal = {
                     _value: value,
@@ -62,22 +80,31 @@ describe('Storage Management', () => {
         };
     });
     
-    describe('createStorageSignal', () => {
+    describe('Signal creation', () => {
         test('creates signal with default value', () => {
             const signal = window.__pynext__.storage.createStorageSignal('test', 'default');
             expect(signal.get()).toBe('default');
         });
         
-        test('retrieves existing value from storage', () => {
-            localStorage.setItem('existing', JSON.stringify('stored value'));
+        test('uses stored value if available', () => {
+            localStorage.setItem('existing', JSON.stringify('stored'));
+            // Clear the mock calls from our setup
+            mockLocalStorage.setItem.mockClear();
+            
             const signal = window.__pynext__.storage.createStorageSignal('existing', 'default');
-            expect(signal.get()).toBe('stored value');
+            expect(signal.get()).toBe('stored');
         });
-        
-        test('persists value changes to storage', () => {
-            const signal = window.__pynext__.storage.createStorageSignal('persist', 'initial');
+    });
+    
+    describe('Signal updates', () => {
+        test('set updates storage', () => {
+            const signal = window.__pynext__.storage.createStorageSignal('update-test', 'initial');
+            mockLocalStorage.setItem.mockClear();
+            
             signal.set('updated');
-            expect(JSON.parse(localStorage.getItem('persist'))).toBe('updated');
+            
+            expect(mockLocalStorage.setItem).toHaveBeenCalledWith('update-test', '"updated"');
+            expect(signal.get()).toBe('updated');
         });
         
         test('notifies subscribers on change', () => {
@@ -101,12 +128,12 @@ describe('Storage Management', () => {
     describe('Storage types', () => {
         test('uses localStorage by default', () => {
             window.__pynext__.storage.createStorageSignal('local-test', 'value');
-            expect(localStorage.setItem).toHaveBeenCalled();
+            expect(mockLocalStorage.setItem).toHaveBeenCalled();
         });
         
         test('can use sessionStorage', () => {
             window.__pynext__.storage.createStorageSignal('session-test', 'value', 'session');
-            expect(sessionStorage.setItem).toHaveBeenCalled();
+            expect(mockSessionStorage.setItem).toHaveBeenCalled();
         });
     });
     
@@ -150,8 +177,8 @@ describe('Storage Management', () => {
         test('removes from both storages', () => {
             window.__pynext__.storage.createStorageSignal('to-remove', 'value');
             window.__pynext__.storage.remove('to-remove');
-            expect(localStorage.removeItem).toHaveBeenCalledWith('to-remove');
-            expect(sessionStorage.removeItem).toHaveBeenCalledWith('to-remove');
+            expect(mockLocalStorage.removeItem).toHaveBeenCalledWith('to-remove');
+            expect(mockSessionStorage.removeItem).toHaveBeenCalledWith('to-remove');
         });
         
         test('removes from signal map', () => {
@@ -164,20 +191,16 @@ describe('Storage Management', () => {
 });
 
 describe('Cross-tab synchronization', () => {
-    test('storage event triggers signal update', () => {
-        // This tests the concept - actual implementation depends on storage.js
+    test('storage event contains expected key', () => {
+        // In JSDOM, StorageEvent doesn't fully support storageArea
+        // So we just test the event structure
         const event = new StorageEvent('storage', {
             key: 'cross-tab',
             newValue: JSON.stringify('from-other-tab'),
             oldValue: null,
-            storageArea: localStorage
         });
         
-        // Dispatch event
-        window.dispatchEvent(event);
-        
-        // In real implementation, this would update the signal
         expect(event.key).toBe('cross-tab');
+        expect(event.newValue).toBe('"from-other-tab"');
     });
 });
-
