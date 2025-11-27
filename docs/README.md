@@ -110,7 +110,7 @@ docs/
 │   ├── SCRIPT_OPTIMIZATION.md   Third-party scripts
 │   └── CODE_SPLITTING.md        Smaller bundles
 │
-├── features/                    ✨ Client Runtime
+├── features/                    ✨ Client Runtime & File Conventions
 │   ├── CLIENT_RUNTIME.md        Complete overview
 │   ├── KEYBOARD.md              Shortcuts & sequences
 │   ├── THEME.md                 Dark mode & theming
@@ -118,7 +118,11 @@ docs/
 │   ├── STORAGE.md               Persistent state
 │   ├── SSE.md                   Server-Sent Events
 │   ├── VISIBILITY.md            Tab visibility tracking
-│   └── ONLINE_STATUS.md         Network detection
+│   ├── ONLINE_STATUS.md         Network detection
+│   ├── ROUTE_GROUPS.md          (folder) URL organization
+│   ├── TEMPLATE.md              Remounting layouts
+│   ├── ERROR_PAGES.md           Custom 401/403/404
+│   └── PROJECT_STRUCTURE.md     src/ folder support
 │
 ├── integrations/                🔌 External Tools
 │   ├── NPM_PACKAGES.md          Using npm
@@ -240,6 +244,19 @@ Browser interactivity with Python — no JavaScript required!
 | [Server-Sent Events](features/SSE.md) | `use_event_source` for real-time updates | 🟡 Intermediate |
 | [Visibility Tracking](features/VISIBILITY.md) | `use_visibility` for smart polling | 🟡 Intermediate |
 | [Network Status](features/ONLINE_STATUS.md) | `use_online` for offline detection | 🟡 Intermediate |
+
+---
+
+### 🗂️ File Conventions (NEW)
+
+Next.js-style file conventions for organizing your project.
+
+| Document | Description | Difficulty |
+|----------|-------------|------------|
+| [Route Groups](features/ROUTE_GROUPS.md) | Organize routes with `(folder)` without affecting URLs | 🟢 Beginner |
+| [Template](features/TEMPLATE.md) | Layouts that remount on navigation (page transitions) | 🟡 Intermediate |
+| [Error Pages](features/ERROR_PAGES.md) | Custom 401/403/404/500 pages with zero JS | 🟢 Beginner |
+| [Project Structure](features/PROJECT_STRUCTURE.md) | Auto-detect `src/` folder, path resolution | 🟢 Beginner |
 
 ---
 
@@ -369,6 +386,10 @@ Static Gen ──► ISR ──► Draft Mode ──► i18n
 | Implement dark mode | [Theme](features/THEME.md) | Setup Step-by-Step |
 | Persist user preferences | [Storage](features/STORAGE.md) | use_storage API |
 | Trap focus in modals | [Focus](features/FOCUS.md) | Focus Trap |
+| Organize routes without affecting URLs | [Route Groups](features/ROUTE_GROUPS.md) | Quick Start |
+| Add page transitions | [Template](features/TEMPLATE.md) | Animation Config |
+| Create custom error pages | [Error Pages](features/ERROR_PAGES.md) | Error Decorators |
+| Use `src/` folder structure | [Project Structure](features/PROJECT_STRUCTURE.md) | Auto-Detection |
 
 ### Key Concepts Glossary
 
@@ -388,6 +409,11 @@ Static Gen ──► ISR ──► Draft Mode ──► i18n
 | **use_storage** | Persistent localStorage signal | [Storage](features/STORAGE.md) |
 | **FocusTrap** | Keep focus inside a container | [Focus](features/FOCUS.md) |
 | **ThemeProvider** | Dark mode context provider | [Theme](features/THEME.md) |
+| **Route Group** | Folder wrapped in `()` for URL organization | [Route Groups](features/ROUTE_GROUPS.md) |
+| **Template** | Layout that remounts on navigation | [Template](features/TEMPLATE.md) |
+| **UnauthorizedError** | 401 error for unauthenticated users | [Error Pages](features/ERROR_PAGES.md) |
+| **ForbiddenError** | 403 error for unauthorized users | [Error Pages](features/ERROR_PAGES.md) |
+| **ProjectPaths** | Resolved paths for pages/components/lib | [Project Structure](features/PROJECT_STRUCTURE.md) |
 
 ---
 
@@ -430,11 +456,11 @@ Found an error or want to improve the docs?
 | Rendering Strategies | 5 | `rendering/` |
 | Advanced Features | 3 | `advanced/` |
 | Optimization | 4 | `optimization/` |
-| Client Runtime | 5 | `features/` |
+| Client Runtime & File Conventions | 12 | `features/` |
 | Integrations | 2 | `integrations/` |
 | Production | 2 | `production/` |
 | Reference | 1 | `reference/` |
-| **Total** | **37 documents** | **11 folders** |
+| **Total** | **44 documents** | **11 folders** |
 
 ---
 

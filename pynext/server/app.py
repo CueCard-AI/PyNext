@@ -23,6 +23,15 @@ from pynext.router.file_router import FileRouter
 from pynext.server.actions import handle_action_request, get_registry
 from pynext.server.middleware import add_performance_middleware
 from pynext.runtime import get_runtime_js, get_runtime_path
+from pynext.core.errors import (
+    PyNextError,
+    UnauthorizedError,
+    ForbiddenError,
+    NotFoundError,
+    ServerError,
+    get_default_error_html,
+)
+from pynext.core.paths import resolve_paths
 
 
 class ActionRequest(BaseModel):
@@ -36,18 +45,41 @@ class PyNextApp:
     Main PyNext application.
     
     Combines the file router, action handler, and static file serving.
+    
+    Features:
+    - File-based routing with route groups
+    - Custom error pages (401, 403, 404, 500)
+    - Template support for page transitions
+    - Auto-detection of src/ folder structure
     """
     
     def __init__(
         self,
-        pages_dir: str = "pages",
-        static_dir: str = "public",
+        pages_dir: Optional[str] = None,
+        static_dir: Optional[str] = None,
         debug: bool = False,
         compression: bool = True,
         etag: bool = True,
     ):
-        self.pages_dir = Path(pages_dir).resolve()
-        self.static_dir = Path(static_dir).resolve()
+        # Auto-detect project structure if not specified
+        if pages_dir is None or static_dir is None:
+            paths = resolve_paths()
+            if pages_dir is None:
+                self.pages_dir = paths.pages
+                if debug:
+                    structure = "src/" if paths.uses_src else "standard"
+                    print(f"[PyNext] Detected {structure} structure: {paths.pages}")
+            else:
+                self.pages_dir = Path(pages_dir).resolve()
+            
+            if static_dir is None:
+                self.static_dir = paths.public
+            else:
+                self.static_dir = Path(static_dir).resolve()
+        else:
+            self.pages_dir = Path(pages_dir).resolve()
+            self.static_dir = Path(static_dir).resolve()
+        
         self.debug = debug
         self.compression = compression
         self.etag = etag
@@ -255,6 +287,35 @@ p, h1, h2, h3, h4, h5, h6 {
                 try:
                     html = await route.handle(request)
                     return HTMLResponse(html)
+                
+                except UnauthorizedError as e:
+                    # Handle 401 Unauthorized
+                    return HTMLResponse(
+                        pynext_app._render_401(e),
+                        status_code=401,
+                    )
+                
+                except ForbiddenError as e:
+                    # Handle 403 Forbidden
+                    return HTMLResponse(
+                        pynext_app._render_403(e),
+                        status_code=403,
+                    )
+                
+                except NotFoundError as e:
+                    # Handle 404 Not Found (raised programmatically)
+                    return HTMLResponse(
+                        pynext_app._render_404(url_path, e),
+                        status_code=404,
+                    )
+                
+                except PyNextError as e:
+                    # Handle other PyNext errors
+                    return HTMLResponse(
+                        get_default_error_html(e.status_code, e),
+                        status_code=e.status_code,
+                    )
+                
                 except Exception as e:
                     # Try to render error page
                     error_html = pynext_app._render_error(e, route)
@@ -292,7 +353,35 @@ p, h1, h2, h3, h4, h5, h6 {
         
         return app
     
-    def _render_404(self, path: str) -> str:
+    def _render_401(self, error: UnauthorizedError) -> str:
+        """Render a 401 Unauthorized page."""
+        # Try custom unauthorized page
+        unauthorized = self.router.get_unauthorized()
+        if unauthorized:
+            try:
+                return unauthorized.render_full_page(error)
+            except Exception as e:
+                if self.debug:
+                    print(f"Error rendering custom 401: {e}")
+        
+        # Default 401
+        return get_default_error_html(401, error)
+    
+    def _render_403(self, error: ForbiddenError) -> str:
+        """Render a 403 Forbidden page."""
+        # Try custom forbidden page
+        forbidden = self.router.get_forbidden()
+        if forbidden:
+            try:
+                return forbidden.render_full_page(error)
+            except Exception as e:
+                if self.debug:
+                    print(f"Error rendering custom 403: {e}")
+        
+        # Default 403
+        return get_default_error_html(403, error)
+    
+    def _render_404(self, path: str, error: Optional[NotFoundError] = None) -> str:
         """Render a 404 page."""
         # Try custom not-found page
         not_found = self.router.get_not_found()
@@ -324,16 +413,7 @@ p, h1, h2, h3, h4, h5, h6 {
 </body>
 </html>
 """
-        return """
-<!DOCTYPE html>
-<html>
-<head><title>404 Not Found</title></head>
-<body style="font-family: sans-serif; padding: 40px; text-align: center;">
-<h1>404</h1>
-<p>Page not found</p>
-</body>
-</html>
-"""
+        return get_default_error_html(404, error)
     
     def _render_error(self, error: Exception, route=None) -> Optional[str]:
         """Render an error page using the route's error handler if available."""

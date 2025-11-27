@@ -284,6 +284,60 @@ from pynext.core.draft import (
     DraftOverlay,
 )
 
+# Error Types and Pages
+from pynext.core.errors import (
+    PyNextError,
+    UnauthorizedError,
+    ForbiddenError,
+    NotFoundError,
+    ServerError,
+    BadRequestError,
+    unauthorized,
+    forbidden,
+    not_found as raise_not_found,  # Renamed to avoid conflict with @not_found decorator
+    bad_request,
+    server_error,
+    unauthorized_page,
+    forbidden_page,
+    not_found_page,
+    server_error_page,
+)
+
+# Template (Layouts that remount)
+from pynext.core.template import (
+    template,
+    Template,
+    TemplateConfig,
+    TransitionType as TemplateTransitionType,
+    fade_template,
+    slide_template,
+    scale_template,
+    static_template,
+)
+
+# Path Resolution
+from pynext.core.paths import (
+    ProjectPaths,
+    resolve_paths,
+    detect_structure,
+    get_watch_dirs,
+    ensure_structure,
+    find_project_root,
+    validate_structure,
+    get_page_url,
+)
+
+# Route Groups
+from pynext.router.groups import (
+    is_route_group,
+    strip_groups,
+    get_group_name,
+    get_groups_in_path,
+    RouteGroup,
+    GroupRegistry,
+    scan_groups,
+)
+
 # Client-Side Primitives
 from pynext.core.client import (
     on_keydown,
@@ -530,5 +584,47 @@ __all__ = [
     "VisibilitySignal",
     "use_online",
     "OnlineSignal",
+    # Error Types and Pages
+    "PyNextError",
+    "UnauthorizedError",
+    "ForbiddenError",
+    "NotFoundError",
+    "ServerError",
+    "BadRequestError",
+    "unauthorized",
+    "forbidden",
+    "raise_not_found",  # Renamed to avoid conflict with @not_found decorator
+    "bad_request",
+    "server_error",
+    "unauthorized_page",
+    "forbidden_page",
+    "not_found_page",
+    "server_error_page",
+    # Template
+    "template",
+    "Template",
+    "TemplateConfig",
+    "TemplateTransitionType",
+    "fade_template",
+    "slide_template",
+    "scale_template",
+    "static_template",
+    # Path Resolution
+    "ProjectPaths",
+    "resolve_paths",
+    "detect_structure",
+    "get_watch_dirs",
+    "ensure_structure",
+    "find_project_root",
+    "validate_structure",
+    "get_page_url",
+    # Route Groups
+    "is_route_group",
+    "strip_groups",
+    "get_group_name",
+    "get_groups_in_path",
+    "RouteGroup",
+    "GroupRegistry",
+    "scan_groups",
 ]
 

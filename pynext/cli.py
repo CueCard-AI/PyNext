@@ -248,6 +248,8 @@ def cmd_build(args: argparse.Namespace) -> int:
 
 def cmd_init(args: argparse.Namespace) -> int:
     """Initialize a new PyNext project."""
+    from pynext.core.paths import ensure_structure
+    
     project_dir = Path(args.name).resolve()
     
     if project_dir.exists() and any(project_dir.iterdir()):
@@ -256,10 +258,23 @@ def cmd_init(args: argparse.Namespace) -> int:
     
     project_dir.mkdir(parents=True, exist_ok=True)
     
-    # Create directory structure
-    (project_dir / "pages").mkdir()
-    (project_dir / "public").mkdir()
-    (project_dir / "components").mkdir()
+    # Determine if using src/ structure
+    use_src = getattr(args, 'src', False)
+    if not use_src and not getattr(args, 'yes', False):
+        # Ask about structure (interactive mode)
+        try:
+            response = input("Use src/ directory structure? [y/N]: ").strip().lower()
+            use_src = response in ("y", "yes")
+        except (EOFError, KeyboardInterrupt):
+            use_src = False
+    
+    # Create directory structure using paths module
+    paths = ensure_structure(project_dir, use_src=use_src)
+    pages_dir = paths.pages
+    components_dir = paths.components
+    
+    structure_type = "src/" if use_src else "standard"
+    print(f"[PyNext] Creating project with {structure_type} structure...")
     
     # Create index page
     index_page = '''"""
@@ -288,7 +303,7 @@ def index():
         ]
     ]
 '''
-    (project_dir / "pages" / "index.py").write_text(index_page)
+    (pages_dir / "index.py").write_text(index_page)
     
     # Create about page
     about_page = '''"""
@@ -312,7 +327,7 @@ def about():
         ]
     ]
 '''
-    (project_dir / "pages" / "about.py").write_text(about_page)
+    (pages_dir / "about.py").write_text(about_page)
     
     # Create dynamic route example
     user_page = '''"""
@@ -335,8 +350,8 @@ def user_profile(id: str = ""):
         ]
     ]
 '''
-    (project_dir / "pages" / "users").mkdir()
-    (project_dir / "pages" / "users" / "[id].py").write_text(user_page)
+    (pages_dir / "users").mkdir()
+    (pages_dir / "users" / "[id].py").write_text(user_page)
     
     # Create server action example
     action_page = '''"""
@@ -367,7 +382,7 @@ def actions():
         pre(id="result")["Results will appear here..."]
     ]
 '''
-    (project_dir / "pages" / "actions.py").write_text(action_page)
+    (pages_dir / "actions.py").write_text(action_page)
     
     # Create config file
     config = '''"""
@@ -809,6 +824,8 @@ def main() -> int:
     # init command
     init_parser = subparsers.add_parser("init", help="Initialize new project")
     init_parser.add_argument("name", help="Project name/directory")
+    init_parser.add_argument("--src", action="store_true", help="Use src/ directory structure")
+    init_parser.add_argument("--yes", "-y", action="store_true", help="Skip prompts, use defaults")
     
     # routes command
     routes_parser = subparsers.add_parser("routes", help="List all routes")

@@ -5,8 +5,10 @@ Scans the pages/ directory and creates routes based on file structure.
 Supports:
 - Page routes (index.py, about.py)
 - Dynamic routes ([id].py, [...slug].py)
+- Route groups ((folder))
 - Layouts (layout.py)
-- Special files (loading.py, error.py, not-found.py)
+- Templates (template.py)
+- Special files (loading.py, error.py, not-found.py, unauthorized.py, forbidden.py)
 - API routes (api/route.py)
 """
 
@@ -26,6 +28,12 @@ from pynext.router.dynamic import (
     sort_routes,
 )
 from pynext.router.trie import RouteTrie, LayoutCache, SpecialFilesCache
+from pynext.router.groups import (
+    is_route_group,
+    strip_groups,
+    scan_groups,
+    GroupRegistry,
+)
 
 if TYPE_CHECKING:
     from pynext.core.component import PageComponent, LayoutComponent, LoadingComponent, ErrorComponent, NotFoundComponent
@@ -33,7 +41,11 @@ if TYPE_CHECKING:
 
 
 # Special file names (without .py extension)
-SPECIAL_FILES = frozenset(["layout", "loading", "error", "not-found", "not_found"])
+SPECIAL_FILES = frozenset([
+    "layout", "template", "loading", "error", 
+    "not-found", "not_found",
+    "unauthorized", "forbidden",
+])
 
 
 # Context variables for request data
@@ -138,13 +150,16 @@ class FileRouter:
     
     Supports:
     - Page routes (index.py, about.py, [id].py)
+    - Route groups ((folder)) - organize without affecting URLs
     - Layouts (layout.py)
-    - Special files (loading.py, error.py, not-found.py)
+    - Templates (template.py) - layouts that remount on navigation
+    - Special files (loading.py, error.py, not-found.py, unauthorized.py, forbidden.py)
     - API routes (api/*/route.py)
     
     Performance optimizations:
     - Radix trie for O(1) static route matching, O(log n) dynamic
     - Pre-computed layout chains per directory
+    - Route groups resolved at startup (O(1) lookup)
     - Cached special file resolution with inheritance
     
     Usage:
@@ -163,11 +178,19 @@ class FileRouter:
         self._page_trie: RouteTrie[Route] = RouteTrie()
         self._api_trie: RouteTrie[APIRouteEntry] = RouteTrie()
         
+        # Route groups registry (built once at startup)
+        self._groups: Optional[GroupRegistry] = None
+        
         # Cached special components
         self._layout_cache = LayoutCache()
         self._loading_cache = SpecialFilesCache()
         self._error_cache = SpecialFilesCache()
         self._not_found: Optional["NotFoundComponent"] = None  # Global 404
+        self._unauthorized: Optional["ErrorPage"] = None  # Global 401
+        self._forbidden: Optional["ErrorPage"] = None  # Global 403
+        
+        # Template cache
+        self._templates: dict[str, Any] = {}
         
         # Legacy dicts (kept for compatibility)
         self._layouts: dict[str, "LayoutComponent"] = {}
@@ -182,7 +205,10 @@ class FileRouter:
         self._layouts = {}
         self._loadings = {}
         self._errors = {}
+        self._templates = {}
         self._not_found = None
+        self._unauthorized = None
+        self._forbidden = None
         
         # Reset caches
         self._page_trie = RouteTrie()
@@ -194,7 +220,10 @@ class FileRouter:
         if not self.pages_dir.exists():
             return
         
-        # First pass: collect special files (layouts, loading, error, not-found)
+        # Scan route groups first (O(n) once at startup)
+        self._groups = scan_groups(self.pages_dir)
+        
+        # First pass: collect special files (layouts, loading, error, not-found, etc.)
         for py_file in self.pages_dir.rglob("*.py"):
             if "__pycache__" in str(py_file) or py_file.name.startswith("_"):
                 continue
@@ -241,13 +270,16 @@ class FileRouter:
         )
     
     def _register_special_file(self, file_path: Path, file_type: str) -> None:
-        """Register a special file (layout, loading, error, not-found)."""
+        """Register a special file (layout, template, loading, error, not-found, unauthorized, forbidden)."""
         module = self._load_module(file_path)
         if not module:
             return
         
-        # Get the directory path relative to pages_dir
-        dir_path = str(file_path.parent.relative_to(self.pages_dir))
+        # Get the directory path relative to pages_dir, stripping route groups
+        rel_path = file_path.parent.relative_to(self.pages_dir)
+        # Strip route groups from the path
+        parts = [p for p in rel_path.parts if not is_route_group(p)]
+        dir_path = str(Path(*parts)) if parts else ""
         if dir_path == ".":
             dir_path = ""
         
@@ -256,6 +288,11 @@ class FileRouter:
             if handler:
                 self._layouts[dir_path] = handler
                 self._layout_cache.add_layout(dir_path, handler)
+        
+        elif file_type == "template":
+            handler = self._find_template_handler(module)
+            if handler:
+                self._templates[dir_path] = handler
         
         elif file_type == "loading":
             handler = self._find_loading_handler(module)
@@ -273,11 +310,28 @@ class FileRouter:
             handler = self._find_not_found_handler(module)
             if handler:
                 self._not_found = handler
+        
+        elif file_type == "unauthorized":
+            handler = self._find_error_page_handler(module, 401)
+            if handler:
+                self._unauthorized = handler
+        
+        elif file_type == "forbidden":
+            handler = self._find_error_page_handler(module, 403)
+            if handler:
+                self._forbidden = handler
     
     def _register_page(self, file_path: Path) -> None:
         """Register a page file as a route."""
         rel_path = file_path.relative_to(self.pages_dir)
-        route_pattern = file_path_to_route(str(rel_path))
+        
+        # Strip route groups from the path but keep the file structure
+        # Example: (app)/users/[id].py -> users/[id].py
+        parts = [p for p in rel_path.parts if not is_route_group(p)]
+        stripped_path = str(Path(*parts)) if parts else str(rel_path)
+        
+        # Convert file path to route pattern
+        route_pattern = file_path_to_route(stripped_path)
         
         module = self._load_module(file_path)
         if not module:
@@ -540,6 +594,32 @@ class FileRouter:
         
         return None
     
+    def _find_template_handler(self, module: Any) -> Optional[Any]:
+        """Find a template in a module."""
+        from pynext.core.template import Template
+        
+        for name in dir(module):
+            if name.startswith("_"):
+                continue
+            obj = getattr(module, name)
+            if isinstance(obj, Template):
+                return obj
+        
+        return None
+    
+    def _find_error_page_handler(self, module: Any, status_code: int) -> Optional[Any]:
+        """Find an error page handler (401, 403) in a module."""
+        from pynext.core.errors import ErrorPage, UnauthorizedPage, ForbiddenPage
+        
+        for name in dir(module):
+            if name.startswith("_"):
+                continue
+            obj = getattr(module, name)
+            if isinstance(obj, ErrorPage) and obj.status_code == status_code:
+                return obj
+        
+        return None
+    
     def match(self, path: str) -> tuple[Optional[Route], dict[str, str]]:
         """
         Find a route matching the given path.
@@ -587,6 +667,22 @@ class FileRouter:
     def get_not_found(self) -> Optional["NotFoundComponent"]:
         """Get the global 404 handler."""
         return self._not_found
+    
+    def get_unauthorized(self) -> Optional[Any]:
+        """Get the global 401 handler."""
+        return self._unauthorized
+    
+    def get_forbidden(self) -> Optional[Any]:
+        """Get the global 403 handler."""
+        return self._forbidden
+    
+    def get_groups(self) -> Optional[GroupRegistry]:
+        """Get the route groups registry."""
+        return self._groups
+    
+    def get_template(self, dir_path: str) -> Optional[Any]:
+        """Get a template for a directory path."""
+        return self._templates.get(dir_path)
     
     def reload(self, file_path: Optional[str] = None) -> None:
         """
