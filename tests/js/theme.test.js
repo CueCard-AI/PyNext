@@ -120,8 +120,8 @@ describe('Theme Runtime', () => {
             expect(content).toContain('localStorage');
         });
         
-        test('sets data-theme attribute', () => {
-            expect(content).toContain('data-theme');
+        test('sets colorScheme style', () => {
+            expect(content).toContain('colorScheme');
         });
         
         test('handles matchMedia for system preference', () => {

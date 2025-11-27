@@ -14,9 +14,10 @@ describe('UI Core Runtime', () => {
         
         const FOCUSABLE_SELECTOR = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
         
+        // In JSDOM, offsetParent is always null, so check style.display instead
         window.__pynext__.ui.getFocusable = (container) => {
             return Array.from(container.querySelectorAll(FOCUSABLE_SELECTOR))
-                .filter(el => el.offsetParent !== null || el.offsetWidth > 0 || el.offsetHeight > 0);
+                .filter(el => !el.hasAttribute('hidden') && el.style.display !== 'none');
         };
         
         window.__pynext__.ui.trapFocus = (container, event) => {
