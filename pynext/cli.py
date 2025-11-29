@@ -1699,6 +1699,91 @@ def cmd_manifest(args: argparse.Namespace) -> int:
 # cmd_pwa - PWA validation
 # ========================================
 
+def cmd_lint(args: argparse.Namespace) -> int:
+    """Run PyNext linting."""
+    from pathlib import Path
+    from pynext.lint import lint, fix, LintResult
+    from pynext.lint.config import (
+        create_config_file, create_vscode_config, load_config
+    )
+    from pynext.lint.rules import explain_rule, get_all_rules
+    from pynext.lint.lsp import start_lsp_server
+    from pynext.lint.runner import format_errors
+    
+    project_dir = Path(args.dir).resolve()
+    
+    # Handle subcommands
+    lint_cmd = getattr(args, "lint_command", None)
+    
+    if lint_cmd == "init":
+        # Create config file
+        format_type = "ruff" if getattr(args, "ruff", False) else "pyproject"
+        config_path = create_config_file(project_dir, format_type)
+        print(f"[PyNext] Created config: {config_path}")
+        return 0
+    
+    elif lint_cmd == "vscode":
+        # Create VS Code config
+        settings_path = create_vscode_config(project_dir)
+        print(f"[PyNext] Created VS Code config: {settings_path}")
+        print("[PyNext] Recommended extensions:")
+        print("  - charliermarsh.ruff")
+        print("  - ms-python.python")
+        return 0
+    
+    elif lint_cmd == "rules":
+        # List all rules
+        print("\n[PyNext] Linting Rules:\n")
+        rules = get_all_rules()
+        for rule_id, info in sorted(rules.items()):
+            auto_fix = "✓" if info["auto_fix"] else " "
+            severity = info["severity"][:3].upper()
+            print(f"  {rule_id} [{severity}] [{auto_fix}] {info['name']}")
+            print(f"        {info['description']}")
+        print()
+        print("  Legend: [ERR]=error [WAR]=warning [INF]=info [✓]=auto-fixable")
+        return 0
+    
+    elif lint_cmd == "explain":
+        # Explain a rule
+        rule_id = getattr(args, "rule", "")
+        if not rule_id:
+            print("[PyNext] Error: Please specify a rule (e.g., pynext lint explain PNX001)")
+            return 1
+        
+        explanation = explain_rule(rule_id.upper())
+        print(explanation)
+        return 0
+    
+    elif lint_cmd == "lsp":
+        # Start LSP server
+        print("[PyNext] Starting LSP server...", file=__import__("sys").stderr)
+        start_lsp_server()
+        return 0
+    
+    else:
+        # Default: run linting
+        target = getattr(args, "target", ".")
+        auto_fix = getattr(args, "fix", False)
+        unsafe = getattr(args, "unsafe", False)
+        output_format = getattr(args, "format", "text")
+        
+        # Run linting
+        if auto_fix:
+            print(f"[PyNext] Fixing issues in {target}...")
+            result = fix(target, unsafe=unsafe)
+        else:
+            print(f"[PyNext] Linting {target}...")
+            result = lint(target)
+        
+        # Output results
+        output = format_errors(result, output_format)
+        print(output)
+        
+        # Return exit code
+        return 1 if result.has_errors else 0
+
+
 def cmd_pwa(args: argparse.Namespace) -> int:
     """Handle pwa subcommands."""
     from pathlib import Path
@@ -2028,6 +2113,35 @@ def main() -> int:
     robots_subparsers.add_parser("validate", help="Validate existing file")
     
     # ========================================
+    # pynext lint
+    # ========================================
+    lint_parser = subparsers.add_parser("lint", help="Lint your PyNext project")
+    lint_parser.add_argument("target", nargs="?", default=".", help="File or directory to lint")
+    lint_parser.add_argument("--dir", default=".", help="Project directory")
+    lint_parser.add_argument("--fix", action="store_true", help="Auto-fix issues")
+    lint_parser.add_argument("--unsafe", action="store_true", help="Include unsafe fixes")
+    lint_parser.add_argument("--format", "-f", choices=["text", "json", "github"], 
+                            default="text", help="Output format")
+    lint_subparsers = lint_parser.add_subparsers(dest="lint_command", help="Lint commands")
+    
+    # lint init
+    lint_init = lint_subparsers.add_parser("init", help="Create lint configuration file")
+    lint_init.add_argument("--ruff", action="store_true", help="Create .ruff.toml instead of pyproject.toml")
+    
+    # lint vscode
+    lint_subparsers.add_parser("vscode", help="Configure VS Code for linting")
+    
+    # lint rules
+    lint_subparsers.add_parser("rules", help="List all PyNext-specific rules")
+    
+    # lint explain
+    lint_explain = lint_subparsers.add_parser("explain", help="Explain a rule in detail")
+    lint_explain.add_argument("rule", help="Rule ID (e.g., PNX001)")
+    
+    # lint lsp
+    lint_subparsers.add_parser("lsp", help="Start LSP server for editor integration")
+    
+    # ========================================
     # pynext env
     # ========================================
     env_parser = subparsers.add_parser("env", help="Environment variable management")
@@ -2081,6 +2195,8 @@ def main() -> int:
         return cmd_registry(args)
     elif args.command == "env":
         return cmd_env(args)
+    elif args.command == "lint":
+        return cmd_lint(args)
     elif args.command == "sitemap":
         return cmd_sitemap(args)
     elif args.command == "robots":

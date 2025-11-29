@@ -12,29 +12,6 @@ Achieving complete feature parity with Next.js while maintaining SolidJS princip
 
 **Already Implemented**: `loading.py`, `error.py`, `not-found.py`, `layout.py`, `page.py`, `route.py`, dynamic routes, parallel routes, intercepting routes, `@island`, `Link()`, server actions, ISR, streaming, middleware, `Image()`, `Font()`, `Metadata` API, Tailwind utilities
 
-
-- [x] **Component Generator CLI** — Scaffold pages/components/APIs ✅ COMPLETED
-  - Files: `pynext/generator/` (core.py, templates.py, prompts.py, ai.py, validators.py)
-  - Commands: `pynext generate page`, `pynext g component`, `pynext g api`, etc.
-  - All 11 types: page, component, island, api, layout, template, loading, error, middleware, action, hook
-  - Modes: Interactive (default), Non-interactive (--yes), AI-assisted (--ai)
-  - Templates: Minimal (--minimal) and Full (--full)
-  - AI Features: Leading questions, completeness evaluation, follow-up questions
-  - Tests: **106 comprehensive tests** including:
-    - Unit tests: validators, templates, core logic, prompts, CLI
-    - **19 real API integration tests** with Anthropic Claude:
-      - Page, component, island, API, action, hook generation
-      - Completeness evaluation (sufficient/needs-more scenarios)
-      - Code quality checks (Tailwind, docstrings, syntax validation)
-  - Docs: [docs/features/GENERATOR.md](./features/GENERATOR.md)
-
-- [ ] **PyTest Utilities** — Testing helpers
-  - Files: `pynext/testing/` module
-  - APIs: `render_component()`, `assert_has_class()`, `assert_accessible()`
-
-- [ ] **Linting Integration** — `pynext lint` with ruff
-  - Commands: `pynext lint`, `pynext lint --fix`
-
 #### Phase 5: Browser APIs (P1)
 
 All return fine-grained signals (no component re-renders):
@@ -168,7 +145,6 @@ Improving the component development and usage experience:
 Making PyNext easier and more enjoyable to use:
 
 - [ ] **VS Code extension** — Component autocomplete, prop suggestions, documentation hover
-- [ ] **Component generator CLI** — `pynext generate component MyButton`
 - [ ] **Hot module replacement** — Update components without full page reload
 - [ ] **Visual diff** — Show changes when registry components update
 - [ ] **Error boundaries** — Graceful error handling in components
@@ -234,6 +210,37 @@ Making components easier to test:
   - Performance: <5ms file detection, <50ms total reload
   - Tests: **146 comprehensive unit tests** (ChangeType, FileChange, FileWatcher, DevServer, edge cases, performance benchmarks, async behavior, JS client validation)
   - Docs: [docs/features/DEV_SERVER.md](./features/DEV_SERVER.md)
+
+- [x] **Component Generator CLI** — Scaffold pages/components/APIs ✅ COMPLETED
+  - Files: `pynext/generator/` (core.py, templates.py, prompts.py, ai.py, validators.py)
+  - Commands: `pynext generate page`, `pynext g component`, `pynext g api`, etc.
+  - All 11 types: page, component, island, api, layout, template, loading, error, middleware, action, hook
+  - Modes: Interactive (default), Non-interactive (--yes), AI-assisted (--ai)
+  - Templates: Minimal (--minimal) and Full (--full)
+  - AI Features: Leading questions, completeness evaluation, follow-up questions
+  - Tests: **106 comprehensive tests** including:
+    - Unit tests: validators, templates, core logic, prompts, CLI
+    - **19 real API integration tests** with Anthropic Claude:
+      - Page, component, island, API, action, hook generation
+      - Completeness evaluation (sufficient/needs-more scenarios)
+      - Code quality checks (Tailwind, docstrings, syntax validation)
+  - Docs: [docs/features/GENERATOR.md](./features/GENERATOR.md)
+
+  - [x] **PyTest Utilities** — Testing helpers ✅ COMPLETED
+  - Files: `pynext/testing/` module (render.py, assertions.py, accessibility.py, snapshots.py, async_utils.py, visual.py, benchmarks.py, coverage.py)
+  - APIs: `render()`, `assert_text()`, `assert_has_class()`, `assert_accessible()`, `assert_snapshot()`, `assert_visual_match()`, `@benchmark`, `wait_for()`
+  - Features: 20+ assertion functions, WCAG 2.1 AA accessibility testing, snapshot testing, visual regression, async testing, performance benchmarks, signal/component/branch coverage
+  - Tests: **128 comprehensive unit tests**
+  - Docs: [docs/features/TESTING.md](./features/TESTING.md)
+
+- [x] **Linting Integration** — `pynext lint` with ruff ✅ COMPLETED
+  - Files: `pynext/lint/` module (runner.py, config.py, lsp.py, rules/)
+  - Commands: `pynext lint`, `pynext lint --fix`, `pynext lint init`, `pynext lint vscode`, `pynext lint rules`, `pynext lint explain`, `pynext lint lsp`
+  - Rules: **10 PyNext-specific rules (PNX001-010)** — Unused Signal, Signal in loop, Missing component return, Invalid prop type, Server import in island, Invalid route name, Missing page export, Untracked effect, Direct signal mutation, Missing metadata
+  - Features: Zero-config defaults, ruff integration (Rust-powered), auto-fix, LSP server for any editor, VS Code integration
+  - Tests: **70+ comprehensive unit tests**
+  - Docs: [docs/features/LINTING.md](./features/LINTING.md)
+
 
 #### Phase 3: SEO & Assets (P1)
 
