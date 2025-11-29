@@ -338,6 +338,25 @@ from pynext.router.groups import (
     scan_groups,
 )
 
+# Route Configuration
+from pynext.core.route_config import (
+    RouteConfig,
+    Dynamic,
+    Cache,
+    Runtime,
+    route_config,
+    get_route_config,
+    has_route_config,
+    static_route,
+    dynamic_route,
+    edge_route,
+    cached_route,
+    no_cache_route,
+    get_effective_config,
+    register_path_config,
+    get_config_by_path,
+)
+
 # Environment Variables
 from pynext.env_module import env, Env
 from pynext.env import (
@@ -646,6 +665,22 @@ __all__ = [
     "RouteGroup",
     "GroupRegistry",
     "scan_groups",
+    # Route Configuration
+    "RouteConfig",
+    "Dynamic",
+    "Cache",
+    "Runtime",
+    "route_config",
+    "get_route_config",
+    "has_route_config",
+    "static_route",
+    "dynamic_route",
+    "edge_route",
+    "cached_route",
+    "no_cache_route",
+    "get_effective_config",
+    "register_path_config",
+    "get_config_by_path",
     # Environment Variables
     "env",
     "Env",

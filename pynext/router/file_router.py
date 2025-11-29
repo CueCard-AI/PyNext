@@ -38,6 +38,7 @@ from pynext.router.groups import (
 if TYPE_CHECKING:
     from pynext.core.component import PageComponent, LayoutComponent, LoadingComponent, ErrorComponent, NotFoundComponent
     from pynext.core.api_route import APIRoute
+    from pynext.core.route_config import RouteConfig
 
 
 # Special file names (without .py extension)
@@ -78,6 +79,7 @@ class Route:
         layouts: Optional[list["LayoutComponent"]] = None,
         loading: Optional["LoadingComponent"] = None,
         error: Optional["ErrorComponent"] = None,
+        config: Optional["RouteConfig"] = None,
     ):
         self.pattern = pattern
         self.handler = handler
@@ -85,6 +87,7 @@ class Route:
         self.layouts = layouts or []
         self.loading = loading
         self.error = error
+        self.config = config  # RouteConfig from @route_config decorator
     
     def match(self, path: str) -> Optional[dict[str, str]]:
         """Try to match this route against a path."""
@@ -341,6 +344,9 @@ class FileRouter:
         if not handler:
             return
         
+        # Extract RouteConfig from handler or module
+        route_config = self._extract_route_config(handler, module)
+        
         # Get directory path for cache lookup
         dir_path = str(rel_path.parent)
         if dir_path == ".":
@@ -360,9 +366,15 @@ class FileRouter:
             layouts=layouts,
             loading=loading,
             error=error,
+            config=route_config,
         )
         
         self.routes.append(route)
+        
+        # Register config by path for lookup
+        if route_config:
+            from pynext.core.route_config import register_path_config
+            register_path_config(route_pattern.pattern, route_config)
         
         # Add to trie for fast matching
         # Convert pattern to trie format: /users/:id instead of /users/[id]
@@ -501,6 +513,49 @@ class FileRouter:
         except Exception as e:
             print(f"Error loading {file_path}: {e}")
             return None
+    
+    def _extract_route_config(self, handler: Any, module: Any) -> Optional["RouteConfig"]:
+        """
+        Extract RouteConfig from page handler or module.
+        
+        Checks in order:
+        1. __route_config__ attribute on handler (from @route_config decorator)
+        2. route_config module-level variable
+        
+        Args:
+            handler: Page handler function/component
+            module: Module containing the handler
+        
+        Returns:
+            RouteConfig if found, None otherwise
+        """
+        from pynext.core.route_config import RouteConfig, get_route_config
+        
+        # Check handler for decorator config
+        config = get_route_config(handler)
+        if config:
+            return config
+        
+        # Check if handler is a wrapped component
+        if hasattr(handler, "fn"):
+            config = get_route_config(handler.fn)
+            if config:
+                return config
+        
+        # Check module-level config (alternative syntax)
+        if hasattr(module, "route_config"):
+            mod_config = module.route_config
+            if isinstance(mod_config, RouteConfig):
+                return mod_config
+        
+        # Check for config dict and convert
+        if hasattr(module, "config") and isinstance(module.config, dict):
+            try:
+                return RouteConfig.from_dict(module.config)
+            except Exception:
+                pass
+        
+        return None
     
     def _find_page_handler(self, module: Any) -> Optional["PageComponent"]:
         """Find a page component in a module."""

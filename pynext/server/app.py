@@ -316,7 +316,13 @@ p, h1, h2, h3, h4, h5, h6 {
             if route:
                 try:
                     html = await route.handle(request)
-                    return HTMLResponse(html)
+                    
+                    # Apply RouteConfig headers if present
+                    headers = {}
+                    if route.config:
+                        headers = route.config.to_headers()
+                    
+                    return HTMLResponse(html, headers=headers)
                 
                 except UnauthorizedError as e:
                     # Handle 401 Unauthorized

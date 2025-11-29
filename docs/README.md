@@ -123,7 +123,8 @@ docs/
 │   ├── TEMPLATE.md              Remounting layouts
 │   ├── ERROR_PAGES.md           Custom 401/403/404
 │   ├── PROJECT_STRUCTURE.md     src/ folder support
-│   └── ENVIRONMENT.md           Environment variables (NEW)
+│   ├── ENVIRONMENT.md           Environment variables
+│   └── ROUTE_CONFIG.md          Route segment configuration (NEW)
 │
 ├── integrations/                🔌 External Tools
 │   ├── NPM_PACKAGES.md          Using npm
@@ -261,13 +262,14 @@ Next.js-style file conventions for organizing your project.
 
 ---
 
-### ⚙️ Configuration (NEW)
+### ⚙️ Configuration
 
-Environment and configuration management.
+Environment and route configuration management.
 
 | Document | Description | Difficulty |
 |----------|-------------|------------|
 | [Environment Variables](features/ENVIRONMENT.md) | Type-safe `.env` files with schema validation | 🟢 Beginner |
+| [Route Config](features/ROUTE_CONFIG.md) | Per-route rendering, caching, and runtime | 🟡 Intermediate |
 
 ---
 
@@ -403,6 +405,9 @@ Static Gen ──► ISR ──► Draft Mode ──► i18n
 | Use `src/` folder structure | [Project Structure](features/PROJECT_STRUCTURE.md) | Auto-Detection |
 | Configure environment variables | [Environment](features/ENVIRONMENT.md) | Quick Start |
 | Validate env in production | [Environment](features/ENVIRONMENT.md) | Schema Validation |
+| Configure route caching | [Route Config](features/ROUTE_CONFIG.md) | Quick Start |
+| Use ISR with tags | [Route Config](features/ROUTE_CONFIG.md) | Cache Tags |
+| Run on edge runtime | [Route Config](features/ROUTE_CONFIG.md) | Edge Runtime |
 
 ### Key Concepts Glossary
 
@@ -430,6 +435,10 @@ Static Gen ──► ISR ──► Draft Mode ──► i18n
 | **env** | Singleton for environment variable access | [Environment](features/ENVIRONMENT.md) |
 | **EnvSchema** | Schema validator for environment vars | [Environment](features/ENVIRONMENT.md) |
 | **PYNEXT_PUBLIC_*** | Prefix for client-exposed env vars | [Environment](features/ENVIRONMENT.md) |
+| **RouteConfig** | Per-route rendering and caching config | [Route Config](features/ROUTE_CONFIG.md) |
+| **@route_config** | Decorator for route configuration | [Route Config](features/ROUTE_CONFIG.md) |
+| **Dynamic** | Enum for rendering mode (auto/force/static) | [Route Config](features/ROUTE_CONFIG.md) |
+| **revalidate** | ISR timing in seconds | [Route Config](features/ROUTE_CONFIG.md) |
 
 ---
 
@@ -472,7 +481,7 @@ Found an error or want to improve the docs?
 | Rendering Strategies | 5 | `rendering/` |
 | Advanced Features | 3 | `advanced/` |
 | Optimization | 4 | `optimization/` |
-| Client Runtime & File Conventions | 13 | `features/` |
+| Client Runtime & File Conventions | 14 | `features/` |
 | Integrations | 2 | `integrations/` |
 | Production | 2 | `production/` |
 | Reference | 1 | `reference/` |

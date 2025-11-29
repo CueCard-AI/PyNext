@@ -13,23 +13,6 @@ Achieving complete feature parity with Next.js while maintaining SolidJS princip
 **Already Implemented**: `loading.py`, `error.py`, `not-found.py`, `layout.py`, `page.py`, `route.py`, dynamic routes, parallel routes, intercepting routes, `@island`, `Link()`, server actions, ISR, streaming, middleware, `Image()`, `Font()`, `Metadata` API, Tailwind utilities
 
 
-#### Phase 2: Environment & Config (P0) ✅ COMPLETED
-
-- [x] **Environment Variables** — Full `.env` file support ✅
-  - Files: `pynext/env_module.py`, `pynext/env/loader.py`, `pynext/env/schema.py`, `pynext/env/client.py`, `pynext/build/env.py`
-  - Load order: `.env` → `.env.local` → `.env.{mode}` → `.env.{mode}.local` → OS
-  - APIs: `env.DATABASE_URL`, `env.get_int()`, `env.get_bool()`, `env.get_list()`, `env.get_json()`
-  - Client: `PYNEXT_PUBLIC_*` vars exposed via build-time inlining OR runtime fetch
-  - Schema: `EnvSchema`, `Var(type, required, default, secret, validator, choices)`
-  - CLI: `pynext env list`, `pynext env check`, `pynext env validate`, `pynext env init`
-  - Performance: 16x faster than Next.js (3ms vs 50ms), 0ms client access
-  - Tests: 103 unit tests
-  - Docs: [docs/features/ENVIRONMENT.md](./features/ENVIRONMENT.md)
-
-- [ ] **Route Segment Config** — Per-route configuration
-  - Files: `pynext/core/route_config.py` (new)
-  - APIs: `RouteConfig(dynamic="force-dynamic", revalidate=60, runtime="edge")`
-
 #### Phase 3: SEO & Assets (P1)
 
 - [ ] **Sitemap Generation** — Build-time `sitemap.xml`
@@ -102,13 +85,13 @@ All return fine-grained signals (no component re-renders):
 | Phase | Features | Status | Tests |
 |-------|----------|--------|-------|
 | 1 | File conventions (Route Groups, Template, Error Pages, src/) | ✅ Complete | 192 |
-| 2 | Environment Variables | ✅ Complete | 103 |
+| 2 | Environment Variables + Route Segment Config | ✅ Complete | 187 |
 | 3 | SEO & assets | 🔲 Pending | - |
 | 4 | Developer experience | 🔲 Pending | - |
 | 5 | Browser APIs | 🔲 Pending | - |
 | 6 | Advanced | 🔲 Pending | - |
 
-**Completed**: Phases 1-2 with 295 tests
+**Completed**: Phases 1-2 with 379 tests
 **Remaining**: Phases 3-6 (~36 files, 260+ tests)
 
 ---
@@ -257,6 +240,28 @@ Making components easier to test:
 ---
 
 ## Recently Completed
+
+#### Phase 2: Environment & Config (P0) ✅ COMPLETED
+
+- [x] **Route Segment Config** — Per-route configuration ✅ COMPLETED
+  - Files: `pynext/core/route_config.py`
+  - APIs: `@route_config(dynamic, revalidate, cache, tags, runtime, max_duration)`
+  - Enums: `Dynamic`, `Cache`, `Runtime` for type-safe IDE autocomplete
+  - Shortcuts: `@static_route`, `@dynamic_route`, `@edge_route`, `@cached_route`, `@no_cache_route`
+  - Performance: Config parsed at import (0ms runtime), O(1) lookup
+  - Tests: 84 unit tests
+  - Docs: [docs/features/ROUTE_CONFIG.md](./features/ROUTE_CONFIG.md)
+
+- [x] **Environment Variables** — Full `.env` file support ✅
+  - Files: `pynext/env_module.py`, `pynext/env/loader.py`, `pynext/env/schema.py`, `pynext/env/client.py`, `pynext/build/env.py`
+  - Load order: `.env` → `.env.local` → `.env.{mode}` → `.env.{mode}.local` → OS
+  - APIs: `env.DATABASE_URL`, `env.get_int()`, `env.get_bool()`, `env.get_list()`, `env.get_json()`
+  - Client: `PYNEXT_PUBLIC_*` vars exposed via build-time inlining OR runtime fetch
+  - Schema: `EnvSchema`, `Var(type, required, default, secret, validator, choices)`
+  - CLI: `pynext env list`, `pynext env check`, `pynext env validate`, `pynext env init`
+  - Performance: 16x faster than Next.js (3ms vs 50ms), 0ms client access
+  - Tests: 103 unit tests
+  - Docs: [docs/features/ENVIRONMENT.md](./features/ENVIRONMENT.md)
 
 #### Phase 1: File Conventions (P0) ✅ COMPLETED
 
