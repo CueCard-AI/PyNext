@@ -912,6 +912,888 @@ def use_online() -> OnlineSignal:
 
 
 # =============================================================================
+# WebSocket
+# =============================================================================
+
+@dataclass
+class WebSocketHandle:
+    """
+    Handle for a WebSocket connection.
+    
+    Provides signals for connection state, messages, and errors,
+    plus methods to send messages and control the connection.
+    
+    This is the SolidJS-style approach: signals update, not components.
+    """
+    id: str
+    url: str
+    _connected: bool = field(default=False, repr=False)
+    _last_message: Any = field(default=None, repr=False)
+    _error: Optional[str] = field(default=None, repr=False)
+    _subscribers: List[Callable] = field(default_factory=list, repr=False)
+    
+    # Configuration
+    reconnect: bool = True
+    reconnect_interval: int = 3000
+    on_open: Optional[Callable] = field(default=None, repr=False)
+    on_close: Optional[Callable] = field(default=None, repr=False)
+    on_message: Optional[Callable] = field(default=None, repr=False)
+    on_error: Optional[Callable] = field(default=None, repr=False)
+    
+    def connected(self) -> bool:
+        """Check if WebSocket is currently connected."""
+        return self._connected
+    
+    def last_message(self) -> Any:
+        """Get the most recent message received."""
+        return self._last_message
+    
+    def error(self) -> Optional[str]:
+        """Get the last error message, if any."""
+        return self._error
+    
+    def send(self, data: Union[dict, str, bytes]) -> str:
+        """
+        Send data through the WebSocket.
+        
+        Returns JavaScript code that sends the message.
+        """
+        if isinstance(data, dict):
+            payload = json.dumps(data)
+        else:
+            payload = json.dumps(str(data))
+        return f"__pynext__.websocket.send('{self.id}', {payload})"
+    
+    def close(self) -> str:
+        """Close the WebSocket connection."""
+        return f"__pynext__.websocket.close('{self.id}')"
+    
+    def reconnect_now(self) -> str:
+        """Manually trigger a reconnection."""
+        return f"__pynext__.websocket.reconnect('{self.id}')"
+    
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "url": self.url,
+            "reconnect": self.reconnect,
+            "reconnectInterval": self.reconnect_interval,
+            "hasOnOpen": self.on_open is not None,
+            "hasOnClose": self.on_close is not None,
+            "hasOnMessage": self.on_message is not None,
+            "hasOnError": self.on_error is not None,
+        }
+    
+    def get_js_init(self) -> str:
+        """Generate JavaScript initialization code."""
+        config = json.dumps(self.to_dict())
+        return f"__pynext__.websocket.connect({config})"
+
+
+_websocket_connections: Dict[str, WebSocketHandle] = {}
+
+
+def use_websocket(
+    url: str,
+    *,
+    on_message: Optional[Callable[[Any], None]] = None,
+    on_open: Optional[Callable[[], None]] = None,
+    on_close: Optional[Callable[[], None]] = None,
+    on_error: Optional[Callable[[str], None]] = None,
+    reconnect: bool = True,
+    reconnect_interval: int = 3000,
+) -> WebSocketHandle:
+    """
+    Connect to a WebSocket server.
+    
+    This is THE simplest way to use WebSockets in Python:
+    
+    Usage:
+        # Basic - just URL and message handler
+        ws = use_websocket("/api/chat", on_message=handle_message)
+        
+        # Send messages
+        Button(onclick=lambda: ws.send({"text": "Hello!"}))["Send"]
+        
+        # Check connection state
+        if ws.connected():
+            show_connected_indicator()
+        
+        # Full options
+        ws = use_websocket(
+            url="/api/chat",
+            on_message=lambda data: messages.update(lambda m: [*m, data]),
+            on_open=lambda: print("Connected!"),
+            on_close=lambda: print("Disconnected"),
+            on_error=lambda e: print(f"Error: {e}"),
+            reconnect=True,
+            reconnect_interval=3000,
+        )
+    
+    Args:
+        url: WebSocket URL ("/api/ws" becomes "ws://host/api/ws")
+        on_message: Called when a message is received
+        on_open: Called when connection opens
+        on_close: Called when connection closes
+        on_error: Called on connection error
+        reconnect: Auto-reconnect on disconnect (default: True)
+        reconnect_interval: Time between reconnect attempts in ms
+    
+    Returns:
+        WebSocketHandle with send(), close(), connected(), etc.
+    
+    Why this is better than React:
+        - No useEffect/useState boilerplate
+        - Signals update, components don't re-render
+        - Auto-reconnect built-in
+        - Type-safe with full IDE support
+    """
+    connection_id = f"ws_{uuid.uuid4().hex[:8]}"
+    
+    handle = WebSocketHandle(
+        id=connection_id,
+        url=url,
+        reconnect=reconnect,
+        reconnect_interval=reconnect_interval,
+        on_message=on_message,
+        on_open=on_open,
+        on_close=on_close,
+        on_error=on_error,
+    )
+    
+    _websocket_connections[connection_id] = handle
+    
+    # Register with render context
+    ctx = get_context()
+    if ctx:
+        if not hasattr(ctx, 'websocket_connections'):
+            ctx.websocket_connections = []
+        ctx.websocket_connections.append(handle)
+    
+    return handle
+
+
+# =============================================================================
+# Media Query
+# =============================================================================
+
+@dataclass
+class MediaQuerySignal:
+    """
+    A signal that tracks a CSS media query match.
+    
+    Value is True when the query matches, False otherwise.
+    Updates automatically when the match state changes.
+    """
+    id: str
+    query: str
+    _value: bool = field(default=False, repr=False)
+    _subscribers: List[Callable] = field(default_factory=list, repr=False)
+    
+    def __call__(self) -> bool:
+        """Check if the media query currently matches."""
+        return self._value
+    
+    @property
+    def matches(self) -> bool:
+        """Check if the media query currently matches."""
+        return self._value
+    
+    def subscribe(self, fn: Callable[[bool], None]) -> Callable[[], None]:
+        """Subscribe to match state changes."""
+        self._subscribers.append(fn)
+        return lambda: self._subscribers.remove(fn)
+    
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "query": self.query,
+            "type": "mediaQuery",
+        }
+    
+    def get_js_init(self) -> str:
+        return f"__pynext__.browser.initMediaQuery('{self.id}', '{self.query}')"
+
+
+_media_queries: Dict[str, MediaQuerySignal] = {}
+
+
+def use_media_query(query: str) -> MediaQuerySignal:
+    """
+    Track whether a CSS media query matches.
+    
+    This is responsive design made stupid simple:
+    
+    Usage:
+        # Check screen size
+        is_mobile = use_media_query("(max-width: 768px)")
+        
+        if is_mobile():
+            return MobileNav()
+        else:
+            return DesktopNav()
+        
+        # Check user preferences
+        prefers_dark = use_media_query("(prefers-color-scheme: dark)")
+        reduced_motion = use_media_query("(prefers-reduced-motion: reduce)")
+        
+        # Common patterns
+        is_tablet = use_media_query("(min-width: 768px) and (max-width: 1024px)")
+        is_landscape = use_media_query("(orientation: landscape)")
+        is_retina = use_media_query("(min-resolution: 2dppx)")
+    
+    Args:
+        query: CSS media query string
+    
+    Returns:
+        MediaQuerySignal that is True when query matches
+    
+    Why this is better than React:
+        - One line, no useEffect/useState
+        - Signal updates, no component re-render
+        - Built-in memoization (same query = same signal)
+    """
+    # Check if we already have this query
+    for signal in _media_queries.values():
+        if signal.query == query:
+            return signal
+    
+    signal_id = f"mq_{uuid.uuid4().hex[:8]}"
+    
+    signal = MediaQuerySignal(id=signal_id, query=query)
+    _media_queries[signal_id] = signal
+    
+    # Register with render context
+    ctx = get_context()
+    if ctx:
+        if not hasattr(ctx, 'media_queries'):
+            ctx.media_queries = []
+        ctx.media_queries.append(signal)
+    
+    return signal
+
+
+# =============================================================================
+# Geolocation
+# =============================================================================
+
+@dataclass
+class GeolocationHandle:
+    """
+    Handle for tracking user's geographic location.
+    
+    All values are signals that update when location changes.
+    """
+    id: str
+    watch: bool = False
+    high_accuracy: bool = False
+    timeout: int = 10000
+    max_age: int = 0
+    
+    # Location signals (all Optional because location may not be available)
+    _latitude: Optional[float] = field(default=None, repr=False)
+    _longitude: Optional[float] = field(default=None, repr=False)
+    _accuracy: Optional[float] = field(default=None, repr=False)
+    _altitude: Optional[float] = field(default=None, repr=False)
+    _altitude_accuracy: Optional[float] = field(default=None, repr=False)
+    _heading: Optional[float] = field(default=None, repr=False)
+    _speed: Optional[float] = field(default=None, repr=False)
+    
+    # State signals
+    _loading: bool = field(default=True, repr=False)
+    _error: Optional[str] = field(default=None, repr=False)
+    _permission: str = field(default="prompt", repr=False)  # "granted", "denied", "prompt"
+    
+    def latitude(self) -> Optional[float]:
+        """Get current latitude (or None if unavailable)."""
+        return self._latitude
+    
+    def longitude(self) -> Optional[float]:
+        """Get current longitude (or None if unavailable)."""
+        return self._longitude
+    
+    def accuracy(self) -> Optional[float]:
+        """Get accuracy in meters."""
+        return self._accuracy
+    
+    def altitude(self) -> Optional[float]:
+        """Get altitude in meters (if available)."""
+        return self._altitude
+    
+    def heading(self) -> Optional[float]:
+        """Get heading in degrees (if moving)."""
+        return self._heading
+    
+    def speed(self) -> Optional[float]:
+        """Get speed in meters/second (if moving)."""
+        return self._speed
+    
+    def loading(self) -> bool:
+        """Check if location is currently being fetched."""
+        return self._loading
+    
+    def error(self) -> Optional[str]:
+        """Get the last error message, if any."""
+        return self._error
+    
+    def permission(self) -> str:
+        """Get permission state: 'granted', 'denied', or 'prompt'."""
+        return self._permission
+    
+    def refresh(self) -> str:
+        """Manually request a location update."""
+        return f"__pynext__.browser.refreshGeolocation('{self.id}')"
+    
+    def stop(self) -> str:
+        """Stop watching location (only for watch mode)."""
+        return f"__pynext__.browser.stopGeolocation('{self.id}')"
+    
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "watch": self.watch,
+            "type": "geolocation",
+            "options": {
+                "enableHighAccuracy": self.high_accuracy,
+                "timeout": self.timeout,
+                "maximumAge": self.max_age,
+            },
+        }
+    
+    def get_js_init(self) -> str:
+        config = json.dumps(self.to_dict())
+        return f"__pynext__.browser.initGeolocation({config})"
+
+
+_geolocation: Optional[GeolocationHandle] = None
+
+
+def use_geolocation(
+    *,
+    watch: bool = False,
+    high_accuracy: bool = False,
+    timeout: int = 10000,
+    max_age: int = 0,
+) -> GeolocationHandle:
+    """
+    Track the user's geographic location.
+    
+    Usage:
+        # One-time location fetch
+        geo = use_geolocation()
+        
+        # Continuous tracking
+        geo = use_geolocation(watch=True, high_accuracy=True)
+        
+        # Access location
+        if geo.loading():
+            return "Getting location..."
+        
+        if geo.error():
+            return f"Error: {geo.error()}"
+        
+        lat, lon = geo.latitude(), geo.longitude()
+        return f"You are at {lat}, {lon}"
+    
+    Args:
+        watch: Continuously track location (default: False)
+        high_accuracy: Use GPS for higher accuracy (uses more battery)
+        timeout: Max time to wait for location in ms
+        max_age: Accept cached location up to this age in ms
+    
+    Returns:
+        GeolocationHandle with signals for all location data
+    
+    Why this is better than React:
+        - All values are reactive signals
+        - No effect cleanup needed
+        - Permission state included
+    """
+    global _geolocation
+    
+    # If watch settings match, return existing
+    if _geolocation is not None:
+        if _geolocation.watch == watch and _geolocation.high_accuracy == high_accuracy:
+            return _geolocation
+    
+    geo_id = f"geo_{uuid.uuid4().hex[:8]}"
+    
+    _geolocation = GeolocationHandle(
+        id=geo_id,
+        watch=watch,
+        high_accuracy=high_accuracy,
+        timeout=timeout,
+        max_age=max_age,
+    )
+    
+    # Register with render context
+    ctx = get_context()
+    if ctx:
+        ctx.geolocation = _geolocation
+    
+    return _geolocation
+
+
+# =============================================================================
+# Clipboard
+# =============================================================================
+
+@dataclass
+class ClipboardHandle:
+    """
+    Handle for clipboard operations.
+    
+    Provides signals for clipboard state and methods to read/write.
+    """
+    id: str
+    _text: Optional[str] = field(default=None, repr=False)
+    _copied: bool = field(default=False, repr=False)
+    _supported: bool = field(default=True, repr=False)
+    _subscribers: List[Callable] = field(default_factory=list, repr=False)
+    
+    def text(self) -> Optional[str]:
+        """Get the last read clipboard text."""
+        return self._text
+    
+    def copied(self) -> bool:
+        """Returns True briefly after a successful copy."""
+        return self._copied
+    
+    def supported(self) -> bool:
+        """Check if clipboard API is supported."""
+        return self._supported
+    
+    def copy(self, text: str) -> str:
+        """
+        Copy text to clipboard.
+        
+        Returns JavaScript code that performs the copy.
+        """
+        escaped = json.dumps(text)
+        return f"__pynext__.browser.clipboardCopy('{self.id}', {escaped})"
+    
+    def read(self) -> str:
+        """
+        Read text from clipboard.
+        
+        Returns JavaScript code that reads and updates the text signal.
+        """
+        return f"__pynext__.browser.clipboardRead('{self.id}')"
+    
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "type": "clipboard",
+        }
+    
+    def get_js_init(self) -> str:
+        return f"__pynext__.browser.initClipboard('{self.id}')"
+
+
+_clipboard: Optional[ClipboardHandle] = None
+
+
+def use_clipboard() -> ClipboardHandle:
+    """
+    Access the system clipboard.
+    
+    Usage:
+        clipboard = use_clipboard()
+        
+        # Copy text
+        Button(onclick=lambda: clipboard.copy("Hello!"))["Copy"]
+        
+        # Show feedback
+        if clipboard.copied():
+            show_toast("Copied!")
+        
+        # Read clipboard (requires user gesture)
+        Button(onclick=lambda: clipboard.read())["Paste"]
+        
+        if clipboard.text():
+            print(f"Clipboard contains: {clipboard.text()}")
+    
+    Returns:
+        ClipboardHandle with copy(), read(), and state signals
+    
+    Note:
+        - copy() works without permissions in most browsers
+        - read() requires user permission and a user gesture
+    """
+    global _clipboard
+    
+    if _clipboard is not None:
+        return _clipboard
+    
+    clip_id = f"clip_{uuid.uuid4().hex[:8]}"
+    
+    _clipboard = ClipboardHandle(id=clip_id)
+    
+    # Register with render context
+    ctx = get_context()
+    if ctx:
+        ctx.clipboard = _clipboard
+    
+    return _clipboard
+
+
+# =============================================================================
+# Window Size
+# =============================================================================
+
+@dataclass
+class WindowSize:
+    """
+    Tracks browser window dimensions.
+    
+    Both width and height are reactive signals.
+    """
+    id: str
+    _width: int = field(default=0, repr=False)
+    _height: int = field(default=0, repr=False)
+    _subscribers: List[Callable] = field(default_factory=list, repr=False)
+    
+    def width(self) -> int:
+        """Get current window width in pixels."""
+        return self._width
+    
+    def height(self) -> int:
+        """Get current window height in pixels."""
+        return self._height
+    
+    def __call__(self) -> tuple:
+        """Get (width, height) tuple."""
+        return (self._width, self._height)
+    
+    def subscribe(self, fn: Callable[[int, int], None]) -> Callable[[], None]:
+        """Subscribe to size changes."""
+        self._subscribers.append(fn)
+        return lambda: self._subscribers.remove(fn)
+    
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "type": "windowSize",
+        }
+    
+    def get_js_init(self) -> str:
+        return f"__pynext__.browser.initWindowSize('{self.id}')"
+
+
+_window_size: Optional[WindowSize] = None
+
+
+def use_window_size() -> WindowSize:
+    """
+    Track browser window dimensions.
+    
+    Usage:
+        size = use_window_size()
+        
+        # Access individual dimensions
+        width = size.width()
+        height = size.height()
+        
+        # Or as tuple
+        w, h = size()
+        
+        # Responsive logic
+        if size.width() < 768:
+            return MobileLayout()
+        elif size.width() < 1024:
+            return TabletLayout()
+        else:
+            return DesktopLayout()
+        
+        # Aspect ratio
+        is_portrait = size.height() > size.width()
+    
+    Returns:
+        WindowSize with width() and height() signals
+    
+    Why this is better than React:
+        - No useEffect needed
+        - Debounced automatically (RAF)
+        - Values update, component doesn't re-render
+    """
+    global _window_size
+    
+    if _window_size is not None:
+        return _window_size
+    
+    size_id = f"size_{uuid.uuid4().hex[:8]}"
+    
+    _window_size = WindowSize(id=size_id)
+    
+    # Register with render context
+    ctx = get_context()
+    if ctx:
+        ctx.window_size = _window_size
+    
+    return _window_size
+
+
+# =============================================================================
+# Scroll Position
+# =============================================================================
+
+@dataclass
+class ScrollPosition:
+    """
+    Tracks and controls scroll position.
+    
+    Provides reactive signals for position and methods for scrolling.
+    """
+    id: str
+    _x: int = field(default=0, repr=False)
+    _y: int = field(default=0, repr=False)
+    _progress: float = field(default=0.0, repr=False)
+    _subscribers: List[Callable] = field(default_factory=list, repr=False)
+    
+    def x(self) -> int:
+        """Get horizontal scroll position in pixels."""
+        return self._x
+    
+    def y(self) -> int:
+        """Get vertical scroll position in pixels."""
+        return self._y
+    
+    def progress(self) -> float:
+        """Get scroll progress from 0.0 (top) to 1.0 (bottom)."""
+        return self._progress
+    
+    def __call__(self) -> tuple:
+        """Get (x, y) scroll position tuple."""
+        return (self._x, self._y)
+    
+    def to(self, x: int, y: int, smooth: bool = True) -> str:
+        """
+        Scroll to a specific position.
+        
+        Args:
+            x: Horizontal scroll position
+            y: Vertical scroll position
+            smooth: Use smooth scrolling animation
+        """
+        behavior = "smooth" if smooth else "instant"
+        return f"window.scrollTo({{left: {x}, top: {y}, behavior: '{behavior}'}})"
+    
+    def to_top(self, smooth: bool = True) -> str:
+        """Scroll to the top of the page."""
+        return self.to(0, 0, smooth)
+    
+    def to_bottom(self, smooth: bool = True) -> str:
+        """Scroll to the bottom of the page."""
+        behavior = "smooth" if smooth else "instant"
+        return f"window.scrollTo({{top: document.body.scrollHeight, behavior: '{behavior}'}})"
+    
+    def to_element(self, element_id: str, smooth: bool = True) -> str:
+        """Scroll an element into view."""
+        behavior = "smooth" if smooth else "instant"
+        return f"document.getElementById('{element_id}')?.scrollIntoView({{behavior: '{behavior}'}})"
+    
+    def subscribe(self, fn: Callable[[int, int], None]) -> Callable[[], None]:
+        """Subscribe to scroll position changes."""
+        self._subscribers.append(fn)
+        return lambda: self._subscribers.remove(fn)
+    
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "type": "scrollPosition",
+        }
+    
+    def get_js_init(self) -> str:
+        return f"__pynext__.browser.initScrollPosition('{self.id}')"
+
+
+_scroll_position: Optional[ScrollPosition] = None
+
+
+def use_scroll_position() -> ScrollPosition:
+    """
+    Track and control page scroll position.
+    
+    Usage:
+        scroll = use_scroll_position()
+        
+        # Read scroll position
+        x, y = scroll()
+        # or
+        y = scroll.y()
+        
+        # Check scroll progress (0.0 to 1.0)
+        if scroll.progress() > 0.5:
+            show_back_to_top_button()
+        
+        # Scroll to position
+        Button(onclick=lambda: scroll.to_top())["Back to Top"]
+        
+        # Scroll to element
+        Button(onclick=lambda: scroll.to_element("section-2"))["Go to Section 2"]
+        
+        # Parallax effects
+        header_opacity = 1 - scroll.progress()
+    
+    Returns:
+        ScrollPosition with x(), y(), progress(), and scroll methods
+    
+    Why this is better than React:
+        - RAF-throttled automatically (60fps max)
+        - Progress calculated for you
+        - Simple scroll methods built-in
+    """
+    global _scroll_position
+    
+    if _scroll_position is not None:
+        return _scroll_position
+    
+    scroll_id = f"scroll_{uuid.uuid4().hex[:8]}"
+    
+    _scroll_position = ScrollPosition(id=scroll_id)
+    
+    # Register with render context
+    ctx = get_context()
+    if ctx:
+        ctx.scroll_position = _scroll_position
+    
+    return _scroll_position
+
+
+# =============================================================================
+# Intersection Observer
+# =============================================================================
+
+@dataclass
+class IntersectionSignal:
+    """
+    A signal that tracks when an element enters/exits the viewport.
+    
+    Value is True when the element is visible, False otherwise.
+    """
+    id: str
+    element_id: str
+    threshold: float = 0.0
+    root_margin: str = "0px"
+    _visible: bool = field(default=False, repr=False)
+    _ratio: float = field(default=0.0, repr=False)
+    _subscribers: List[Callable] = field(default_factory=list, repr=False)
+    
+    def __call__(self) -> bool:
+        """Check if element is visible."""
+        return self._visible
+    
+    @property
+    def is_visible(self) -> bool:
+        """Check if element is visible."""
+        return self._visible
+    
+    def ratio(self) -> float:
+        """Get intersection ratio (0.0 to 1.0)."""
+        return self._ratio
+    
+    def subscribe(self, fn: Callable[[bool], None]) -> Callable[[], None]:
+        """Subscribe to visibility changes."""
+        self._subscribers.append(fn)
+        return lambda: self._subscribers.remove(fn)
+    
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "elementId": self.element_id,
+            "type": "intersection",
+            "options": {
+                "threshold": self.threshold,
+                "rootMargin": self.root_margin,
+            },
+        }
+    
+    def get_js_init(self) -> str:
+        config = json.dumps(self.to_dict())
+        return f"__pynext__.browser.initIntersection({config})"
+
+
+_intersections: Dict[str, IntersectionSignal] = {}
+
+
+def use_intersection(
+    element_id: str,
+    *,
+    threshold: float = 0.0,
+    root_margin: str = "0px",
+) -> IntersectionSignal:
+    """
+    Track when an element enters or exits the viewport.
+    
+    Perfect for lazy loading, animations, and infinite scroll.
+    
+    Usage:
+        # Basic: track when element becomes visible
+        is_visible = use_intersection("hero-section")
+        
+        if is_visible():
+            start_animation()
+        
+        # Lazy loading with threshold
+        is_visible = use_intersection(
+            "image-container",
+            threshold=0.5,      # 50% visible
+        )
+        
+        if is_visible():
+            return RealImage()
+        else:
+            return Placeholder()
+        
+        # Infinite scroll
+        bottom_visible = use_intersection(
+            "load-more-trigger",
+            root_margin="100px"  # Trigger 100px before visible
+        )
+        
+        if bottom_visible():
+            load_more_items()
+    
+    Args:
+        element_id: ID of the DOM element to observe
+        threshold: How much of element must be visible (0.0 to 1.0)
+        root_margin: Margin around the viewport (CSS-style)
+    
+    Returns:
+        IntersectionSignal that is True when element is visible
+    
+    Why this is better than React:
+        - No ref needed (just use element ID)
+        - Automatic cleanup
+        - Signal-based, no re-renders
+    """
+    # Check if we already observe this element
+    for signal in _intersections.values():
+        if signal.element_id == element_id:
+            return signal
+    
+    signal_id = f"int_{uuid.uuid4().hex[:8]}"
+    
+    signal = IntersectionSignal(
+        id=signal_id,
+        element_id=element_id,
+        threshold=threshold,
+        root_margin=root_margin,
+    )
+    
+    _intersections[signal_id] = signal
+    
+    # Register with render context
+    ctx = get_context()
+    if ctx:
+        if not hasattr(ctx, 'intersections'):
+            ctx.intersections = []
+        ctx.intersections.append(signal)
+    
+    return signal
+
+
+# =============================================================================
 # Hydration Data Generation
 # =============================================================================
 
@@ -931,12 +1813,21 @@ def get_client_hydration_data() -> dict:
         "sse": [c.to_dict() for c in _sse_connections.values()],
         "visibility": _visibility_signal.to_dict() if _visibility_signal else None,
         "online": _online_signal.to_dict() if _online_signal else None,
+        # New browser APIs
+        "websocket": [c.to_dict() for c in _websocket_connections.values()],
+        "mediaQueries": [q.to_dict() for q in _media_queries.values()],
+        "geolocation": _geolocation.to_dict() if _geolocation else None,
+        "clipboard": _clipboard.to_dict() if _clipboard else None,
+        "windowSize": _window_size.to_dict() if _window_size else None,
+        "scrollPosition": _scroll_position.to_dict() if _scroll_position else None,
+        "intersections": [i.to_dict() for i in _intersections.values()],
     }
 
 
 def reset_client_state() -> None:
     """Reset all client state (useful for testing)."""
     global _theme_state, _visibility_signal, _online_signal
+    global _geolocation, _clipboard, _window_size, _scroll_position
     _shortcuts.clear()
     _sequences.clear()
     _handlers.clear()
@@ -947,6 +1838,14 @@ def reset_client_state() -> None:
     _theme_state = None
     _visibility_signal = None
     _online_signal = None
+    # New browser APIs
+    _websocket_connections.clear()
+    _media_queries.clear()
+    _geolocation = None
+    _clipboard = None
+    _window_size = None
+    _scroll_position = None
+    _intersections.clear()
 
 
 # =============================================================================
@@ -976,11 +1875,32 @@ __all__ = [
     # SSE (Server-Sent Events)
     "use_event_source",
     "SSEHandle",
-    # Browser APIs
+    # Browser APIs - Basic
     "use_visibility",
     "VisibilitySignal",
     "use_online",
     "OnlineSignal",
+    # Browser APIs - WebSocket
+    "use_websocket",
+    "WebSocketHandle",
+    # Browser APIs - Media Query
+    "use_media_query",
+    "MediaQuerySignal",
+    # Browser APIs - Geolocation
+    "use_geolocation",
+    "GeolocationHandle",
+    # Browser APIs - Clipboard
+    "use_clipboard",
+    "ClipboardHandle",
+    # Browser APIs - Window Size
+    "use_window_size",
+    "WindowSize",
+    # Browser APIs - Scroll Position
+    "use_scroll_position",
+    "ScrollPosition",
+    # Browser APIs - Intersection Observer
+    "use_intersection",
+    "IntersectionSignal",
     # Utilities
     "get_client_hydration_data",
     "reset_client_state",

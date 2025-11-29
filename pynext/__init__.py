@@ -425,13 +425,28 @@ from pynext.core.client import (
     client_effect,
     use_theme,
     get_client_hydration_data,
-    # Browser APIs
+    # Browser APIs - Basic
     use_event_source,
     SSEHandle,
     use_visibility,
     VisibilitySignal,
     use_online,
     OnlineSignal,
+    # Browser APIs - Advanced
+    use_websocket,
+    WebSocketHandle,
+    use_media_query,
+    MediaQuerySignal,
+    use_geolocation,
+    GeolocationHandle,
+    use_clipboard,
+    ClipboardHandle,
+    use_window_size,
+    WindowSize,
+    use_scroll_position,
+    ScrollPosition,
+    use_intersection,
+    IntersectionSignal,
 )
 
 __all__ = [
@@ -653,13 +668,28 @@ __all__ = [
     "client_effect",
     "use_theme",
     "get_client_hydration_data",
-    # Browser APIs
+    # Browser APIs - Basic
     "use_event_source",
     "SSEHandle",
     "use_visibility",
     "VisibilitySignal",
     "use_online",
     "OnlineSignal",
+    # Browser APIs - Advanced
+    "use_websocket",
+    "WebSocketHandle",
+    "use_media_query",
+    "MediaQuerySignal",
+    "use_geolocation",
+    "GeolocationHandle",
+    "use_clipboard",
+    "ClipboardHandle",
+    "use_window_size",
+    "WindowSize",
+    "use_scroll_position",
+    "ScrollPosition",
+    "use_intersection",
+    "IntersectionSignal",
     # Error Types and Pages
     "PyNextError",
     "UnauthorizedError",

@@ -119,6 +119,7 @@ docs/
 │   ├── SSE.md                   Server-Sent Events
 │   ├── VISIBILITY.md            Tab visibility tracking
 │   ├── ONLINE_STATUS.md         Network detection
+│   ├── BROWSER_APIS.md          WebSocket, Geolocation, Clipboard, etc.
 │   ├── ROUTE_GROUPS.md          (folder) URL organization
 │   ├── TEMPLATE.md              Remounting layouts
 │   ├── ERROR_PAGES.md           Custom 401/403/404
@@ -251,6 +252,7 @@ Browser interactivity with Python — no JavaScript required!
 | [Server-Sent Events](features/SSE.md) | `use_event_source` for real-time updates | 🟡 Intermediate |
 | [Visibility Tracking](features/VISIBILITY.md) | `use_visibility` for smart polling | 🟡 Intermediate |
 | [Network Status](features/ONLINE_STATUS.md) | `use_online` for offline detection | 🟡 Intermediate |
+| [Browser APIs](features/BROWSER_APIS.md) | WebSocket, Geolocation, Clipboard, Window Size, Scroll, Intersection | 🟡 Intermediate |
 
 ---
 
