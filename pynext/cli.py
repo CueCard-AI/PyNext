@@ -988,6 +988,253 @@ def cmd_env(args: argparse.Namespace) -> int:
         return 0
 
 
+# ========================================
+# cmd_sitemap - Sitemap generation
+# ========================================
+
+def cmd_sitemap(args: argparse.Namespace) -> int:
+    """Handle sitemap subcommands."""
+    from pathlib import Path
+    from pynext.seo.sitemap import SitemapGenerator, clear_sitemap_configs
+    from pynext.router.file_router import FileRouter
+    
+    root = Path(args.dir).resolve() if hasattr(args, "dir") else Path.cwd()
+    
+    # Find pages directory
+    pages_dir = None
+    for candidate in ["pages", "src/pages"]:
+        if (root / candidate).is_dir():
+            pages_dir = root / candidate
+            break
+    
+    if not pages_dir:
+        print("[PyNext] Error: No pages/ directory found.")
+        return 1
+    
+    # Get base URL
+    base_url = getattr(args, "base_url", None) or "https://example.com"
+    if base_url == "https://example.com":
+        print("[PyNext] Warning: Using default base URL. Set --base-url for production.")
+    
+    if args.sitemap_command == "generate":
+        # Initialize router
+        router = FileRouter(str(pages_dir))
+        router.scan()
+        
+        # Generate sitemap
+        generator = SitemapGenerator(router, base_url)
+        entries = generator.discover_urls()
+        
+        if not entries:
+            print("[PyNext] No pages with @sitemap decorator found.")
+            print("  Add @sitemap() to your page functions:")
+            print()
+            print("    from pynext import page, sitemap")
+            print()
+            print("    @sitemap()")
+            print("    @page")
+            print("    def MyPage():")
+            print("        return div('Hello')")
+            return 1
+        
+        # Determine output
+        output_dir = Path(getattr(args, "output", None) or root / "public")
+        output_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Write sitemap(s)
+        written = generator.write_to_directory(output_dir, entries)
+        
+        print(f"[PyNext] ✓ Generated sitemap with {len(entries)} URLs")
+        for path in written:
+            print(f"  → {path.relative_to(root)}")
+        
+        if generator.needs_index(entries):
+            print(f"  ℹ Split into sitemap index (>{SitemapGenerator.MAX_URLS_PER_SITEMAP} URLs)")
+        
+        return 0
+    
+    elif args.sitemap_command == "validate":
+        # Validate existing sitemap
+        sitemap_path = root / "public" / "sitemap.xml"
+        
+        if not sitemap_path.exists():
+            print(f"[PyNext] No sitemap found at {sitemap_path}")
+            print("  Run: pynext sitemap generate")
+            return 1
+        
+        import xml.etree.ElementTree as ET
+        
+        try:
+            tree = ET.parse(sitemap_path)
+            root_elem = tree.getroot()
+            
+            # Count URLs
+            ns = {"sm": "http://www.sitemaps.org/schemas/sitemap/0.9"}
+            urls = root_elem.findall(".//sm:url", ns) or root_elem.findall(".//url")
+            
+            print(f"[PyNext] ✓ Valid sitemap")
+            print(f"  URLs: {len(urls)}")
+            
+            # Check for common issues
+            warnings = []
+            for url_elem in urls[:10]:  # Check first 10
+                loc = url_elem.find("sm:loc", ns) or url_elem.find("loc")
+                if loc is not None and not loc.text.startswith(("http://", "https://")):
+                    warnings.append(f"Relative URL found: {loc.text}")
+            
+            if warnings:
+                print(f"\n  ⚠ Warnings:")
+                for w in warnings[:5]:
+                    print(f"    - {w}")
+            
+            return 0
+            
+        except ET.ParseError as e:
+            print(f"[PyNext] ✗ Invalid XML: {e}")
+            return 1
+    
+    elif args.sitemap_command == "preview":
+        # Preview sitemap entries without generating file
+        router = FileRouter(str(pages_dir))
+        router.scan()
+        
+        generator = SitemapGenerator(router, base_url)
+        entries = generator.discover_urls()
+        
+        print(f"[PyNext] Sitemap Preview ({len(entries)} URLs)")
+        print()
+        
+        limit = getattr(args, "limit", 20)
+        for entry in entries[:limit]:
+            priority_str = f" (priority={entry.priority})" if entry.priority else ""
+            print(f"  {entry.loc}{priority_str}")
+        
+        if len(entries) > limit:
+            print(f"  ... and {len(entries) - limit} more")
+        
+        return 0
+    
+    else:
+        # No subcommand - show help
+        print("\n[PyNext] Sitemap Commands:\n")
+        print("  pynext sitemap generate     Generate sitemap.xml")
+        print("  pynext sitemap validate     Validate existing sitemap")
+        print("  pynext sitemap preview      Preview URLs without generating")
+        print()
+        print("  Options:")
+        print("    --base-url URL           Base URL for sitemap")
+        print("    --output DIR             Output directory")
+        print()
+        return 0
+
+
+# ========================================
+# cmd_robots - Robots.txt management
+# ========================================
+
+def cmd_robots(args: argparse.Namespace) -> int:
+    """Handle robots subcommands."""
+    from pathlib import Path
+    from pynext.seo.robots import RobotsConfig, RobotsRule, RobotsGenerator
+    
+    root = Path(args.dir).resolve() if hasattr(args, "dir") else Path.cwd()
+    
+    # Get base URL
+    base_url = getattr(args, "base_url", None) or "https://example.com"
+    
+    def load_robots_config() -> RobotsConfig:
+        """Load robots config from pynext.config.py or default."""
+        config_path = root / "pynext.config.py"
+        
+        if config_path.exists():
+            import importlib.util
+            spec = importlib.util.spec_from_file_location("pynext_config", config_path)
+            if spec and spec.loader:
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+                
+                if hasattr(module, "robots"):
+                    return module.robots
+        
+        # Default config
+        return RobotsConfig(
+            rules=[RobotsRule(user_agent="*", allow=["/"]) ],
+            sitemap=True,
+        )
+    
+    if args.robots_command == "generate":
+        config = load_robots_config()
+        generator = RobotsGenerator(config, base_url)
+        
+        # Validate
+        warnings = generator.validate()
+        if warnings:
+            print("[PyNext] ⚠ Warnings:")
+            for w in warnings:
+                print(f"  - {w}")
+            print()
+        
+        # Write file
+        output_path = Path(getattr(args, "output", None) or root / "public" / "robots.txt")
+        generator.write_to_file(output_path)
+        
+        print(f"[PyNext] ✓ Generated robots.txt")
+        print(f"  → {output_path.relative_to(root)}")
+        return 0
+    
+    elif args.robots_command == "preview":
+        config = load_robots_config()
+        content = config.generate(base_url)
+        
+        print("[PyNext] Robots.txt Preview:\n")
+        print(content)
+        print()
+        return 0
+    
+    elif args.robots_command == "validate":
+        robots_path = root / "public" / "robots.txt"
+        
+        if not robots_path.exists():
+            print(f"[PyNext] No robots.txt found at {robots_path}")
+            print("  Run: pynext robots generate")
+            return 1
+        
+        content = robots_path.read_text()
+        
+        # Basic validation
+        lines = content.strip().split("\n")
+        has_user_agent = any(line.lower().startswith("user-agent:") for line in lines)
+        has_sitemap = any(line.lower().startswith("sitemap:") for line in lines)
+        
+        print(f"[PyNext] Robots.txt Validation:\n")
+        print(f"  ✓ File exists")
+        print(f"  {'✓' if has_user_agent else '⚠'} Has User-agent directive")
+        print(f"  {'✓' if has_sitemap else 'ℹ'} Has Sitemap directive")
+        print(f"  Lines: {len(lines)}")
+        
+        return 0
+    
+    else:
+        # No subcommand - show help
+        print("\n[PyNext] Robots.txt Commands:\n")
+        print("  pynext robots generate     Generate robots.txt")
+        print("  pynext robots preview      Preview without generating")
+        print("  pynext robots validate     Validate existing file")
+        print()
+        print("  Configure in pynext.config.py:")
+        print()
+        print("    from pynext import RobotsConfig, RobotsRule")
+        print()
+        print("    robots = RobotsConfig(")
+        print("        rules=[")
+        print('            RobotsRule(user_agent="*", allow=["/"], disallow=["/admin"]),')
+        print("        ],")
+        print("        sitemap=True,")
+        print("    )")
+        print()
+        return 0
+
+
 def main() -> int:
     """Main CLI entry point."""
     parser = argparse.ArgumentParser(
@@ -1084,6 +1331,43 @@ def main() -> int:
     reg_subparsers.add_parser("init", help="Create registry template for publishing")
     
     # ========================================
+    # pynext sitemap
+    # ========================================
+    sitemap_parser = subparsers.add_parser("sitemap", help="Sitemap generation")
+    sitemap_parser.add_argument("--dir", default=".", help="Project directory")
+    sitemap_parser.add_argument("--base-url", help="Base URL (e.g., https://example.com)")
+    sitemap_subparsers = sitemap_parser.add_subparsers(dest="sitemap_command", help="Sitemap commands")
+    
+    # sitemap generate
+    sitemap_gen = sitemap_subparsers.add_parser("generate", help="Generate sitemap.xml")
+    sitemap_gen.add_argument("--output", "-o", help="Output directory (default: public/)")
+    
+    # sitemap validate
+    sitemap_subparsers.add_parser("validate", help="Validate existing sitemap")
+    
+    # sitemap preview
+    sitemap_preview = sitemap_subparsers.add_parser("preview", help="Preview URLs without generating")
+    sitemap_preview.add_argument("--limit", "-n", type=int, default=20, help="Number of URLs to show")
+    
+    # ========================================
+    # pynext robots
+    # ========================================
+    robots_parser = subparsers.add_parser("robots", help="Robots.txt management")
+    robots_parser.add_argument("--dir", default=".", help="Project directory")
+    robots_parser.add_argument("--base-url", help="Base URL for sitemap reference")
+    robots_subparsers = robots_parser.add_subparsers(dest="robots_command", help="Robots commands")
+    
+    # robots generate
+    robots_gen = robots_subparsers.add_parser("generate", help="Generate robots.txt")
+    robots_gen.add_argument("--output", "-o", help="Output file path")
+    
+    # robots preview
+    robots_subparsers.add_parser("preview", help="Preview without generating")
+    
+    # robots validate
+    robots_subparsers.add_parser("validate", help="Validate existing file")
+    
+    # ========================================
     # pynext env
     # ========================================
     env_parser = subparsers.add_parser("env", help="Environment variable management")
@@ -1135,6 +1419,10 @@ def main() -> int:
         return cmd_registry(args)
     elif args.command == "env":
         return cmd_env(args)
+    elif args.command == "sitemap":
+        return cmd_sitemap(args)
+    elif args.command == "robots":
+        return cmd_robots(args)
     else:
         parser.print_help()
         return 0

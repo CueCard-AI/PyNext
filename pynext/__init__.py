@@ -338,6 +338,21 @@ from pynext.router.groups import (
     scan_groups,
 )
 
+# SEO (Sitemap & Robots)
+from pynext.seo import (
+    SitemapEntry,
+    SitemapConfig,
+    sitemap,
+    get_sitemap_config,
+    has_sitemap_config,
+    SitemapGenerator,
+    RobotsRule,
+    RobotsConfig,
+    robots_allow_all,
+    robots_disallow_all,
+    RobotsGenerator,
+)
+
 # Route Configuration
 from pynext.core.route_config import (
     RouteConfig,
@@ -665,6 +680,18 @@ __all__ = [
     "RouteGroup",
     "GroupRegistry",
     "scan_groups",
+    # SEO (Sitemap & Robots)
+    "SitemapEntry",
+    "SitemapConfig",
+    "sitemap",
+    "get_sitemap_config",
+    "has_sitemap_config",
+    "SitemapGenerator",
+    "RobotsRule",
+    "RobotsConfig",
+    "robots_allow_all",
+    "robots_disallow_all",
+    "RobotsGenerator",
     # Route Configuration
     "RouteConfig",
     "Dynamic",

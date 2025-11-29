@@ -124,7 +124,8 @@ docs/
 │   ├── ERROR_PAGES.md           Custom 401/403/404
 │   ├── PROJECT_STRUCTURE.md     src/ folder support
 │   ├── ENVIRONMENT.md           Environment variables
-│   └── ROUTE_CONFIG.md          Route segment configuration (NEW)
+│   ├── ROUTE_CONFIG.md          Route segment configuration
+│   └── SITEMAP.md               SEO: Sitemap & robots.txt (NEW)
 │
 ├── integrations/                🔌 External Tools
 │   ├── NPM_PACKAGES.md          Using npm
@@ -270,6 +271,7 @@ Environment and route configuration management.
 |----------|-------------|------------|
 | [Environment Variables](features/ENVIRONMENT.md) | Type-safe `.env` files with schema validation | 🟢 Beginner |
 | [Route Config](features/ROUTE_CONFIG.md) | Per-route rendering, caching, and runtime | 🟡 Intermediate |
+| [Sitemap & Robots.txt](features/SITEMAP.md) | SEO: sitemap generation and robots.txt | 🟢 Beginner |
 
 ---
 
@@ -439,6 +441,10 @@ Static Gen ──► ISR ──► Draft Mode ──► i18n
 | **@route_config** | Decorator for route configuration | [Route Config](features/ROUTE_CONFIG.md) |
 | **Dynamic** | Enum for rendering mode (auto/force/static) | [Route Config](features/ROUTE_CONFIG.md) |
 | **revalidate** | ISR timing in seconds | [Route Config](features/ROUTE_CONFIG.md) |
+| **@sitemap** | Decorator to include page in sitemap | [Sitemap](features/SITEMAP.md) |
+| **SitemapGenerator** | Class to generate sitemap XML | [Sitemap](features/SITEMAP.md) |
+| **RobotsConfig** | Configuration for robots.txt | [Sitemap](features/SITEMAP.md) |
+| **get_sitemap_params** | Function to provide dynamic route params | [Sitemap](features/SITEMAP.md) |
 
 ---
 
@@ -481,7 +487,7 @@ Found an error or want to improve the docs?
 | Rendering Strategies | 5 | `rendering/` |
 | Advanced Features | 3 | `advanced/` |
 | Optimization | 4 | `optimization/` |
-| Client Runtime & File Conventions | 14 | `features/` |
+| Client Runtime & File Conventions | 15 | `features/` |
 | Integrations | 2 | `integrations/` |
 | Production | 2 | `production/` |
 | Reference | 1 | `reference/` |

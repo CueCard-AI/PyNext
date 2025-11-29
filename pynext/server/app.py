@@ -278,6 +278,101 @@ p, h1, h2, h3, h4, h5, h6 {
                     status_code=200,  # Return empty obj, not error
                 )
         
+        # ========================================
+        # SEO: Sitemap endpoint
+        # ========================================
+        @app.get("/sitemap.xml", include_in_schema=False)
+        async def serve_sitemap() -> Response:
+            """
+            Serve sitemap.xml.
+            
+            Checks for static file first, then generates dynamically if configured.
+            """
+            # Check for pre-generated static file
+            static_path = pynext_app.static_dir / "sitemap.xml"
+            if static_path.exists():
+                return Response(
+                    content=static_path.read_text(encoding="utf-8"),
+                    media_type="application/xml",
+                    headers={"Cache-Control": "public, max-age=3600"},
+                )
+            
+            # Try to generate dynamically
+            if pynext_app.config.get("dynamic_sitemap", False):
+                from pynext.seo.sitemap import SitemapGenerator
+                
+                base_url = pynext_app.config.get("base_url", "")
+                if not base_url:
+                    # Try to construct from request
+                    base_url = str(request.base_url).rstrip("/")
+                
+                generator = SitemapGenerator(pynext_app.router, base_url)
+                xml = generator.generate()
+                
+                return Response(
+                    content=xml,
+                    media_type="application/xml",
+                    headers={"Cache-Control": "public, max-age=3600"},
+                )
+            
+            # No sitemap available
+            return Response(status_code=404)
+        
+        # ========================================
+        # SEO: Robots.txt endpoint
+        # ========================================
+        @app.get("/robots.txt", include_in_schema=False)
+        async def serve_robots(request: Request) -> Response:
+            """
+            Serve robots.txt.
+            
+            Checks for static file first, then generates from config.
+            """
+            # Check for pre-generated static file
+            static_path = pynext_app.static_dir / "robots.txt"
+            if static_path.exists():
+                return Response(
+                    content=static_path.read_text(encoding="utf-8"),
+                    media_type="text/plain",
+                    headers={"Cache-Control": "public, max-age=3600"},
+                )
+            
+            # Try to load config and generate
+            robots_config = pynext_app.config.get("robots", None)
+            
+            if robots_config:
+                from pynext.seo.robots import RobotsConfig
+                
+                if isinstance(robots_config, dict):
+                    config = RobotsConfig.from_dict(robots_config)
+                elif isinstance(robots_config, RobotsConfig):
+                    config = robots_config
+                else:
+                    config = None
+                
+                if config:
+                    base_url = pynext_app.config.get("base_url", str(request.base_url).rstrip("/"))
+                    content = config.generate(base_url)
+                    
+                    return Response(
+                        content=content,
+                        media_type="text/plain",
+                        headers={"Cache-Control": "public, max-age=3600"},
+                    )
+            
+            # Default robots.txt (allow all)
+            base_url = str(request.base_url).rstrip("/")
+            default_robots = f"""User-agent: *
+Allow: /
+
+Sitemap: {base_url}/sitemap.xml
+"""
+            return Response(
+                content=default_robots,
+                media_type="text/plain",
+                headers={"Cache-Control": "public, max-age=3600"},
+            )
+        
         # Mount static files if directory exists (before catch-all)
         if self.static_dir.exists():
             app.mount("/static", StaticFiles(directory=str(self.static_dir)), name="static")
