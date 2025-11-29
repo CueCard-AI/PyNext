@@ -128,7 +128,8 @@ docs/
 │   ├── SITEMAP.md               SEO: Sitemap & robots.txt
 │   ├── PWA.md                   PWA: Icons & manifest
 │   ├── OG_IMAGES.md             Dynamic OG images
-│   └── DEV_SERVER.md            Fast hot reload (NEW)
+│   ├── DEV_SERVER.md            Fast hot reload
+│   └── GENERATOR.md             Component generator CLI (NEW)
 │
 ├── integrations/                🔌 External Tools
 │   ├── NPM_PACKAGES.md          Using npm

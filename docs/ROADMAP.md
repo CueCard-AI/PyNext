@@ -13,8 +13,20 @@ Achieving complete feature parity with Next.js while maintaining SolidJS princip
 **Already Implemented**: `loading.py`, `error.py`, `not-found.py`, `layout.py`, `page.py`, `route.py`, dynamic routes, parallel routes, intercepting routes, `@island`, `Link()`, server actions, ISR, streaming, middleware, `Image()`, `Font()`, `Metadata` API, Tailwind utilities
 
 
-- [ ] **Component Generator CLI** — Scaffold pages/components/APIs
-  - Commands: `pynext generate page`, `pynext g component`, `pynext g api`
+- [x] **Component Generator CLI** — Scaffold pages/components/APIs ✅ COMPLETED
+  - Files: `pynext/generator/` (core.py, templates.py, prompts.py, ai.py, validators.py)
+  - Commands: `pynext generate page`, `pynext g component`, `pynext g api`, etc.
+  - All 11 types: page, component, island, api, layout, template, loading, error, middleware, action, hook
+  - Modes: Interactive (default), Non-interactive (--yes), AI-assisted (--ai)
+  - Templates: Minimal (--minimal) and Full (--full)
+  - AI Features: Leading questions, completeness evaluation, follow-up questions
+  - Tests: **106 comprehensive tests** including:
+    - Unit tests: validators, templates, core logic, prompts, CLI
+    - **19 real API integration tests** with Anthropic Claude:
+      - Page, component, island, API, action, hook generation
+      - Completeness evaluation (sufficient/needs-more scenarios)
+      - Code quality checks (Tailwind, docstrings, syntax validation)
+  - Docs: [docs/features/GENERATOR.md](./features/GENERATOR.md)
 
 - [ ] **PyTest Utilities** — Testing helpers
   - Files: `pynext/testing/` module

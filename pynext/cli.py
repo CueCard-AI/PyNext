@@ -533,6 +533,129 @@ def cmd_routes(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_generate(args: argparse.Namespace) -> int:
+    """
+    Generate components, pages, APIs, and more.
+    
+    Supports:
+    - Interactive mode (default): prompts for options
+    - AI mode (--ai): uses Anthropic Claude with leading questions
+    - Non-interactive (--yes): uses defaults without prompts
+    
+    Example:
+        pynext g page blog            # Interactive
+        pynext g page blog --yes      # Non-interactive
+        pynext g page blog --ai       # AI-assisted
+    """
+    from pathlib import Path
+    from pynext.generator import Generator
+    from pynext.generator.prompts import prompt_for_type
+    from pynext.generator.ai import ai_interview, generate_with_ai, generate_quick
+    from pynext.generator.validators import ValidationError
+    
+    gen = Generator(Path.cwd())
+    
+    try:
+        # AI mode with direct prompt
+        if args.ai and args.prompt:
+            print(f"\n🤖 Generating {args.type}: {args.name}")
+            print(f"   Prompt: {args.prompt}\n")
+            
+            content = generate_quick(
+                args.type,
+                args.name,
+                args.prompt,
+                api_key=args.api_key,
+            )
+            path = gen.create_from_content(
+                args.type,
+                args.name,
+                content,
+                force=args.force,
+            )
+            
+        # AI mode with interview
+        elif args.ai:
+            answers = ai_interview(
+                args.type,
+                args.name,
+                api_key=args.api_key,
+            )
+            
+            if not answers:
+                print("\n❌ No answers provided. Aborting.")
+                return 1
+            
+            content = generate_with_ai(
+                args.type,
+                args.name,
+                answers,
+                api_key=args.api_key,
+            )
+            path = gen.create_from_content(
+                args.type,
+                args.name,
+                content,
+                force=args.force,
+            )
+            
+        # Interactive mode (default)
+        elif not args.yes:
+            props = prompt_for_type(args.type, args.name)
+            path = gen.create(
+                args.type,
+                args.name,
+                template_style=args.template_style,
+                props=props,
+                force=args.force,
+            )
+            
+        # Non-interactive mode
+        else:
+            path = gen.create(
+                args.type,
+                args.name,
+                template_style=args.template_style,
+                force=args.force,
+            )
+        
+        # Show result
+        relative_path = path.relative_to(Path.cwd())
+        print(f"\n✅ Created: {relative_path}\n")
+        
+        # Show helpful next steps
+        if args.type == "page":
+            route = args.name.replace("_", "-")
+            print(f"   → View at: http://localhost:3000/{route}")
+        elif args.type in ("component", "island"):
+            print(f"   → Import: from components.{args.name} import {args.name}")
+        elif args.type == "api":
+            route = args.name.replace("_", "-")
+            print(f"   → Endpoint: http://localhost:3000/api/{route}")
+        elif args.type == "action":
+            print(f"   → Import: from actions.{args.name} import {args.name}")
+        elif args.type == "hook":
+            print(f"   → Import: from hooks.{args.name} import {args.name}")
+        
+        return 0
+        
+    except ValidationError as e:
+        print(f"\n❌ Validation error: {e}")
+        return 1
+    except FileExistsError as e:
+        print(f"\n❌ {e}")
+        return 1
+    except ValueError as e:
+        print(f"\n❌ {e}")
+        return 1
+    except ImportError as e:
+        print(f"\n❌ {e}")
+        return 1
+    except Exception as e:
+        print(f"\n❌ Error: {e}")
+        return 1
+
+
 def cmd_ui(args: argparse.Namespace) -> int:
     """Manage UI components (Tier 2: Official components)."""
     from pynext.registry import (
@@ -1702,6 +1825,60 @@ def main() -> int:
     routes_parser = subparsers.add_parser("routes", help="List all routes")
     routes_parser.add_argument("--pages", default="pages", help="Pages directory")
     
+    # ========================================
+    # pynext generate / pynext g
+    # ========================================
+    gen_parser = subparsers.add_parser(
+        "generate",
+        aliases=["g"],
+        help="Generate components, pages, APIs, etc."
+    )
+    gen_parser.add_argument(
+        "type",
+        choices=["page", "component", "api", "layout", "template", 
+                 "loading", "error", "middleware", "island", "action", "hook"],
+        help="Type of component to generate"
+    )
+    gen_parser.add_argument("name", help="Component name (can include path: blog/posts)")
+    gen_parser.add_argument(
+        "--minimal",
+        dest="template_style",
+        action="store_const",
+        const="minimal",
+        default="full",
+        help="Use minimal template (less boilerplate)"
+    )
+    gen_parser.add_argument(
+        "--full",
+        dest="template_style",
+        action="store_const",
+        const="full",
+        help="Use full template with examples (default)"
+    )
+    gen_parser.add_argument(
+        "--yes", "-y",
+        action="store_true",
+        help="Skip interactive prompts"
+    )
+    gen_parser.add_argument(
+        "--force", "-f",
+        action="store_true",
+        help="Overwrite existing files"
+    )
+    gen_parser.add_argument(
+        "--ai",
+        action="store_true",
+        help="Use AI-assisted generation (requires ANTHROPIC_API_KEY)"
+    )
+    gen_parser.add_argument(
+        "--prompt", "-p",
+        help="Direct prompt for AI generation (skips interview)"
+    )
+    gen_parser.add_argument(
+        "--api-key",
+        help="Anthropic API key (or set ANTHROPIC_API_KEY env var)"
+    )
+    
     # deps command
     deps_parser = subparsers.add_parser("deps", help="Manage dependencies")
     deps_subparsers = deps_parser.add_subparsers(dest="deps_command", help="Dependency commands")
@@ -1894,6 +2071,8 @@ def main() -> int:
         return cmd_init(args)
     elif args.command == "routes":
         return cmd_routes(args)
+    elif args.command in ("generate", "g"):
+        return cmd_generate(args)
     elif args.command == "deps":
         return cmd_deps(args)
     elif args.command == "ui":
