@@ -1235,6 +1235,274 @@ def cmd_robots(args: argparse.Namespace) -> int:
         return 0
 
 
+# ========================================
+# cmd_icons - Icon detection
+# ========================================
+
+def cmd_icons(args: argparse.Namespace) -> int:
+    """Handle icons subcommands."""
+    from pathlib import Path
+    from pynext.pwa.icons import IconDetector
+    
+    root = Path(args.dir).resolve() if hasattr(args, "dir") else Path.cwd()
+    public_dir = root / "public"
+    
+    if args.icons_command == "detect":
+        if not public_dir.exists():
+            print(f"[PyNext] No public/ directory found at {public_dir}")
+            return 1
+        
+        detector = IconDetector(public_dir)
+        icons = detector.detect()
+        
+        print("\n[PyNext] Detected Icons:\n")
+        
+        if icons.favicon:
+            print(f"  ✓ Favicon: {icons.favicon}")
+        else:
+            print("  ✗ Favicon: Not found")
+        
+        if icons.icons:
+            print(f"  ✓ App Icons: {len(icons.icons)}")
+            for icon in icons.icons:
+                size_str = f"{icon.size}x{icon.size}" if icon.size else "any"
+                print(f"      - {icon.path} ({size_str})")
+        else:
+            print("  ✗ App Icons: Not found")
+        
+        if icons.apple_icon:
+            print(f"  ✓ Apple Icon: {icons.apple_icon}")
+        else:
+            print("  ✗ Apple Icon: Not found")
+        
+        if icons.og_image:
+            print(f"  ✓ OG Image: {icons.og_image}")
+        else:
+            print("  ✗ OG Image: Not found")
+        
+        # Show missing icons
+        missing = detector.get_missing_icons()
+        if missing:
+            print("\n  ⚠ Missing (recommended):")
+            for m in missing:
+                print(f"    - {m}")
+        
+        print()
+        return 0
+    
+    elif args.icons_command == "validate":
+        if not public_dir.exists():
+            print(f"[PyNext] No public/ directory found")
+            return 1
+        
+        detector = IconDetector(public_dir)
+        warnings = detector.validate()
+        
+        if not warnings:
+            print("[PyNext] ✓ All icon requirements met")
+            return 0
+        
+        print("[PyNext] ⚠ Icon validation warnings:\n")
+        for w in warnings:
+            print(f"  - {w}")
+        print()
+        return 0
+    
+    else:
+        # No subcommand - show help
+        print("\n[PyNext] Icon Commands:\n")
+        print("  pynext icons detect      Detect icons from public/")
+        print("  pynext icons validate    Validate PWA icon requirements")
+        print()
+        return 0
+
+
+# ========================================
+# cmd_manifest - PWA manifest
+# ========================================
+
+def cmd_manifest(args: argparse.Namespace) -> int:
+    """Handle manifest subcommands."""
+    from pathlib import Path
+    from pynext.pwa.icons import IconDetector
+    from pynext.pwa.manifest import PWAManifest, ManifestGenerator
+    
+    root = Path(args.dir).resolve() if hasattr(args, "dir") else Path.cwd()
+    public_dir = root / "public"
+    
+    def load_manifest_config() -> PWAManifest:
+        """Load manifest config from pynext.config.py or default."""
+        config_path = root / "pynext.config.py"
+        
+        if config_path.exists():
+            import importlib.util
+            spec = importlib.util.spec_from_file_location("pynext_config", config_path)
+            if spec and spec.loader:
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+                
+                if hasattr(module, "manifest"):
+                    return module.manifest
+        
+        # Default manifest
+        return PWAManifest(name="PyNext App")
+    
+    if args.manifest_command == "generate":
+        config = load_manifest_config()
+        
+        # Detect icons if available
+        icons = None
+        if public_dir.exists():
+            detector = IconDetector(public_dir)
+            icons = detector.detect()
+        
+        # Generate manifest
+        if icons:
+            from pynext.pwa.manifest import ManifestGenerator
+            generator = ManifestGenerator(config, icons)
+            content = generator.generate()
+        else:
+            content = config.to_json()
+        
+        # Write to file
+        output_path = Path(getattr(args, "output", None) or public_dir / "manifest.json")
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(content, encoding="utf-8")
+        
+        print(f"[PyNext] ✓ Generated manifest.json")
+        print(f"  → {output_path.relative_to(root)}")
+        return 0
+    
+    elif args.manifest_command == "preview":
+        config = load_manifest_config()
+        
+        # Detect icons
+        icons = None
+        if public_dir.exists():
+            detector = IconDetector(public_dir)
+            icons = detector.detect()
+        
+        # Generate and display
+        if icons and not config.icons:
+            from pynext.pwa.manifest import ManifestGenerator
+            generator = ManifestGenerator(config, icons)
+            content = generator.generate()
+        else:
+            content = config.to_json()
+        
+        print("[PyNext] Manifest Preview:\n")
+        print(content)
+        print()
+        return 0
+    
+    else:
+        # No subcommand - show help
+        print("\n[PyNext] Manifest Commands:\n")
+        print("  pynext manifest generate   Generate manifest.json")
+        print("  pynext manifest preview    Preview without generating")
+        print()
+        print("  Configure in pynext.config.py:")
+        print()
+        print("    from pynext import PWAManifest")
+        print()
+        print("    manifest = PWAManifest(")
+        print('        name="My App",')
+        print('        theme_color="#3b82f6",')
+        print("    )")
+        print()
+        return 0
+
+
+# ========================================
+# cmd_pwa - PWA validation
+# ========================================
+
+def cmd_pwa(args: argparse.Namespace) -> int:
+    """Handle pwa subcommands."""
+    from pathlib import Path
+    from pynext.pwa.icons import IconDetector
+    
+    root = Path(args.dir).resolve() if hasattr(args, "dir") else Path.cwd()
+    public_dir = root / "public"
+    
+    if args.pwa_command == "validate":
+        print("\n[PyNext] PWA Validation:\n")
+        
+        issues = []
+        passed = []
+        
+        # Check for manifest
+        manifest_path = public_dir / "manifest.json"
+        config_path = root / "pynext.config.py"
+        
+        has_manifest = manifest_path.exists()
+        has_config = False
+        
+        if config_path.exists():
+            import importlib.util
+            spec = importlib.util.spec_from_file_location("pynext_config", config_path)
+            if spec and spec.loader:
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+                has_config = hasattr(module, "manifest")
+        
+        if has_manifest or has_config:
+            passed.append("Manifest: Found")
+        else:
+            issues.append("Manifest: Not found. Run 'pynext manifest generate' or add to pynext.config.py")
+        
+        # Check icons
+        if public_dir.exists():
+            detector = IconDetector(public_dir)
+            icons = detector.detect()
+            icon_warnings = detector.validate()
+            
+            if icons.favicon:
+                passed.append(f"Favicon: {icons.favicon}")
+            else:
+                issues.append("Favicon: Not found")
+            
+            sizes = {i.size for i in icons.icons if i.size}
+            if 192 in sizes:
+                passed.append("Icon 192x192: Found")
+            else:
+                issues.append("Icon 192x192: Required for PWA")
+            
+            if 512 in sizes:
+                passed.append("Icon 512x512: Found")
+            else:
+                issues.append("Icon 512x512: Required for splash screen")
+        else:
+            issues.append("public/ directory: Not found")
+        
+        # Print results
+        for p in passed:
+            print(f"  ✓ {p}")
+        
+        for i in issues:
+            print(f"  ✗ {i}")
+        
+        print()
+        
+        if issues:
+            print(f"  {len(issues)} issue(s) found")
+            return 1
+        else:
+            print("  ✓ PWA requirements met!")
+            return 0
+    
+    else:
+        # No subcommand - show help
+        print("\n[PyNext] PWA Commands:\n")
+        print("  pynext pwa validate    Validate PWA requirements")
+        print()
+        print("  Related commands:")
+        print("    pynext icons detect       Detect icons")
+        print("    pynext manifest generate  Generate manifest.json")
+        print()
+        return 0
+
+
 def main() -> int:
     """Main CLI entry point."""
     parser = argparse.ArgumentParser(
@@ -1331,6 +1599,43 @@ def main() -> int:
     reg_subparsers.add_parser("init", help="Create registry template for publishing")
     
     # ========================================
+    # pynext icons
+    # ========================================
+    icons_parser = subparsers.add_parser("icons", help="Icon detection and validation")
+    icons_parser.add_argument("--dir", default=".", help="Project directory")
+    icons_subparsers = icons_parser.add_subparsers(dest="icons_command", help="Icon commands")
+    
+    # icons detect
+    icons_subparsers.add_parser("detect", help="Detect icons from public/")
+    
+    # icons validate
+    icons_subparsers.add_parser("validate", help="Validate PWA icon requirements")
+    
+    # ========================================
+    # pynext manifest
+    # ========================================
+    manifest_parser = subparsers.add_parser("manifest", help="PWA manifest generation")
+    manifest_parser.add_argument("--dir", default=".", help="Project directory")
+    manifest_subparsers = manifest_parser.add_subparsers(dest="manifest_command", help="Manifest commands")
+    
+    # manifest generate
+    manifest_gen = manifest_subparsers.add_parser("generate", help="Generate manifest.json")
+    manifest_gen.add_argument("--output", "-o", help="Output file path")
+    
+    # manifest preview
+    manifest_subparsers.add_parser("preview", help="Preview without generating")
+    
+    # ========================================
+    # pynext pwa
+    # ========================================
+    pwa_parser = subparsers.add_parser("pwa", help="PWA validation")
+    pwa_parser.add_argument("--dir", default=".", help="Project directory")
+    pwa_subparsers = pwa_parser.add_subparsers(dest="pwa_command", help="PWA commands")
+    
+    # pwa validate
+    pwa_subparsers.add_parser("validate", help="Validate PWA requirements")
+    
+    # ========================================
     # pynext sitemap
     # ========================================
     sitemap_parser = subparsers.add_parser("sitemap", help="Sitemap generation")
@@ -1423,6 +1728,12 @@ def main() -> int:
         return cmd_sitemap(args)
     elif args.command == "robots":
         return cmd_robots(args)
+    elif args.command == "icons":
+        return cmd_icons(args)
+    elif args.command == "manifest":
+        return cmd_manifest(args)
+    elif args.command == "pwa":
+        return cmd_pwa(args)
     else:
         parser.print_help()
         return 0

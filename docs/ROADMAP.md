@@ -12,14 +12,6 @@ Achieving complete feature parity with Next.js while maintaining SolidJS princip
 
 **Already Implemented**: `loading.py`, `error.py`, `not-found.py`, `layout.py`, `page.py`, `route.py`, dynamic routes, parallel routes, intercepting routes, `@island`, `Link()`, server actions, ISR, streaming, middleware, `Image()`, `Font()`, `Metadata` API, Tailwind utilities
 
-
-- [ ] **App Icons Convention** — Auto-detect favicon, icon.png, apple-icon.png
-  - Files: Update `pynext/core/metadata.py`
-
-- [ ] **PWA Manifest** — `manifest.json` generation
-  - Files: `pynext/pwa/manifest.py`
-  - APIs: `PWAManifest`, `ManifestIcon`
-
 - [ ] **Dynamic OG Images** — Generate OG images at request time
   - Files: `pynext/seo/og_image.py`
   - APIs: `@og_image`, `generate_og_image()`
@@ -247,6 +239,21 @@ Making components easier to test:
   - APIs: `RobotsConfig`, `RobotsRule`, `robots_allow_all()`, `robots_disallow_all()`
   - CLI: `pynext robots generate/preview/validate`
   - Features: Auto sitemap URL, host directive, crawl-delay support
+
+- [x] **App Icons Convention** — Auto-detect favicon, icon.png, apple-icon.png ✅ COMPLETED
+  - Files: `pynext/pwa/icons.py`
+  - APIs: `Icon`, `AppIcons`, `IconDetector`, `detect_icons()`, `create_icons()`
+  - Features: Auto-detect from public/, size from filename, MIME type detection
+  - CLI: `pynext icons detect/validate`
+  - Tests: 74 unit tests
+  - Docs: [docs/features/PWA.md](./features/PWA.md)
+
+- [x] **PWA Manifest** — `manifest.json` generation ✅ COMPLETED
+  - Files: `pynext/pwa/manifest.py`
+  - APIs: `PWAManifest`, `ManifestIcon`, `Shortcut`, `pwa_minimal()`, `pwa_full()`
+  - Features: Auto-merge with detected icons, shortcuts, categories
+  - CLI: `pynext manifest generate/preview`, `pynext pwa validate`
+  - Server: `/manifest.json` endpoint
 
 #### Phase 2: Environment & Config (P0) ✅ COMPLETED
 

@@ -279,6 +279,56 @@ p, h1, h2, h3, h4, h5, h6 {
                 )
         
         # ========================================
+        # PWA: Manifest endpoint
+        # ========================================
+        @app.get("/manifest.json", include_in_schema=False)
+        async def serve_manifest() -> Response:
+            """
+            Serve PWA manifest.json.
+            
+            Checks for static file first, then generates from config.
+            """
+            # Check for pre-generated static file
+            static_path = pynext_app.static_dir / "manifest.json"
+            if static_path.exists():
+                return Response(
+                    content=static_path.read_text(encoding="utf-8"),
+                    media_type="application/manifest+json",
+                    headers={"Cache-Control": "public, max-age=86400"},
+                )
+            
+            # Try to generate from config
+            manifest_config = pynext_app.config.get("manifest", None)
+            
+            if manifest_config:
+                from pynext.pwa.manifest import PWAManifest
+                
+                if isinstance(manifest_config, dict):
+                    config = PWAManifest(**manifest_config)
+                elif isinstance(manifest_config, PWAManifest):
+                    config = manifest_config
+                else:
+                    config = None
+                
+                if config:
+                    # Detect icons for manifest
+                    from pynext.pwa.icons import IconDetector
+                    icons = IconDetector(pynext_app.static_dir).detect()
+                    
+                    from pynext.pwa.manifest import ManifestGenerator
+                    generator = ManifestGenerator(config, icons)
+                    content = generator.generate()
+                    
+                    return Response(
+                        content=content,
+                        media_type="application/manifest+json",
+                        headers={"Cache-Control": "public, max-age=86400"},
+                    )
+            
+            # No manifest available
+            return Response(status_code=404)
+        
+        # ========================================
         # SEO: Sitemap endpoint
         # ========================================
         @app.get("/sitemap.xml", include_in_schema=False)

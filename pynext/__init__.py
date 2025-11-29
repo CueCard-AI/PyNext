@@ -338,6 +338,19 @@ from pynext.router.groups import (
     scan_groups,
 )
 
+# PWA (Icons & Manifest)
+from pynext.pwa import (
+    Icon,
+    AppIcons,
+    IconDetector,
+    ManifestIcon,
+    Shortcut,
+    PWAManifest,
+    ManifestGenerator,
+    pwa_minimal,
+    pwa_full,
+)
+
 # SEO (Sitemap & Robots)
 from pynext.seo import (
     SitemapEntry,
@@ -680,6 +693,16 @@ __all__ = [
     "RouteGroup",
     "GroupRegistry",
     "scan_groups",
+    # PWA (Icons & Manifest)
+    "Icon",
+    "AppIcons",
+    "IconDetector",
+    "ManifestIcon",
+    "Shortcut",
+    "PWAManifest",
+    "ManifestGenerator",
+    "pwa_minimal",
+    "pwa_full",
     # SEO (Sitemap & Robots)
     "SitemapEntry",
     "SitemapConfig",

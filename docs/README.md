@@ -125,7 +125,8 @@ docs/
 │   ├── PROJECT_STRUCTURE.md     src/ folder support
 │   ├── ENVIRONMENT.md           Environment variables
 │   ├── ROUTE_CONFIG.md          Route segment configuration
-│   └── SITEMAP.md               SEO: Sitemap & robots.txt (NEW)
+│   ├── SITEMAP.md               SEO: Sitemap & robots.txt
+│   └── PWA.md                   PWA: Icons & manifest (NEW)
 │
 ├── integrations/                🔌 External Tools
 │   ├── NPM_PACKAGES.md          Using npm
@@ -272,6 +273,7 @@ Environment and route configuration management.
 | [Environment Variables](features/ENVIRONMENT.md) | Type-safe `.env` files with schema validation | 🟢 Beginner |
 | [Route Config](features/ROUTE_CONFIG.md) | Per-route rendering, caching, and runtime | 🟡 Intermediate |
 | [Sitemap & Robots.txt](features/SITEMAP.md) | SEO: sitemap generation and robots.txt | 🟢 Beginner |
+| [PWA: Icons & Manifest](features/PWA.md) | Make your app installable | 🟢 Beginner |
 
 ---
 
@@ -445,6 +447,10 @@ Static Gen ──► ISR ──► Draft Mode ──► i18n
 | **SitemapGenerator** | Class to generate sitemap XML | [Sitemap](features/SITEMAP.md) |
 | **RobotsConfig** | Configuration for robots.txt | [Sitemap](features/SITEMAP.md) |
 | **get_sitemap_params** | Function to provide dynamic route params | [Sitemap](features/SITEMAP.md) |
+| **PWAManifest** | Configuration for manifest.json | [PWA](features/PWA.md) |
+| **Icon** | App icon configuration | [PWA](features/PWA.md) |
+| **IconDetector** | Auto-detect icons from public/ | [PWA](features/PWA.md) |
+| **Shortcut** | PWA app shortcuts | [PWA](features/PWA.md) |
 
 ---
 
@@ -487,7 +493,7 @@ Found an error or want to improve the docs?
 | Rendering Strategies | 5 | `rendering/` |
 | Advanced Features | 3 | `advanced/` |
 | Optimization | 4 | `optimization/` |
-| Client Runtime & File Conventions | 15 | `features/` |
+| Client Runtime & File Conventions | 16 | `features/` |
 | Integrations | 2 | `integrations/` |
 | Production | 2 | `production/` |
 | Reference | 1 | `reference/` |
