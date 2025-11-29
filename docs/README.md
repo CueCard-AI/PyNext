@@ -127,7 +127,8 @@ docs/
 │   ├── ROUTE_CONFIG.md          Route segment configuration
 │   ├── SITEMAP.md               SEO: Sitemap & robots.txt
 │   ├── PWA.md                   PWA: Icons & manifest
-│   └── OG_IMAGES.md             Dynamic OG images (NEW)
+│   ├── OG_IMAGES.md             Dynamic OG images
+│   └── DEV_SERVER.md            Fast hot reload (NEW)
 │
 ├── integrations/                🔌 External Tools
 │   ├── NPM_PACKAGES.md          Using npm
@@ -276,6 +277,7 @@ Environment and route configuration management.
 | [Sitemap & Robots.txt](features/SITEMAP.md) | SEO: sitemap generation and robots.txt | 🟢 Beginner |
 | [PWA: Icons & Manifest](features/PWA.md) | Make your app installable | 🟢 Beginner |
 | [Dynamic OG Images](features/OG_IMAGES.md) | Generate social preview images | 🟡 Intermediate |
+| [Development Server](features/DEV_SERVER.md) | <50ms hot reload | 🟢 Beginner |
 
 ---
 
@@ -457,6 +459,9 @@ Static Gen ──► ISR ──► Draft Mode ──► i18n
 | **OGTemplate** | Pre-defined OG image template | [OG Images](features/OG_IMAGES.md) |
 | **@og_image** | Decorator for OG image generation | [OG Images](features/OG_IMAGES.md) |
 | **OGRenderer** | Pillow-based image renderer | [OG Images](features/OG_IMAGES.md) |
+| **FileWatcher** | Rust-based file change detection | [Dev Server](features/DEV_SERVER.md) |
+| **DevServer** | Development server with hot reload | [Dev Server](features/DEV_SERVER.md) |
+| **FileChange** | File change event with reload type | [Dev Server](features/DEV_SERVER.md) |
 
 ---
 
@@ -499,7 +504,7 @@ Found an error or want to improve the docs?
 | Rendering Strategies | 5 | `rendering/` |
 | Advanced Features | 3 | `advanced/` |
 | Optimization | 4 | `optimization/` |
-| Client Runtime & File Conventions | 17 | `features/` |
+| Client Runtime & File Conventions | 18 | `features/` |
 | Integrations | 2 | `integrations/` |
 | Production | 2 | `production/` |
 | Reference | 1 | `reference/` |

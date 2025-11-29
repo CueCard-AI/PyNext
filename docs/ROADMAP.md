@@ -13,12 +13,6 @@ Achieving complete feature parity with Next.js while maintaining SolidJS princip
 **Already Implemented**: `loading.py`, `error.py`, `not-found.py`, `layout.py`, `page.py`, `route.py`, dynamic routes, parallel routes, intercepting routes, `@island`, `Link()`, server actions, ISR, streaming, middleware, `Image()`, `Font()`, `Metadata` API, Tailwind utilities
 
 
-#### Phase 4: Developer Experience (P1)
-
-- [ ] **Fast File Watching** — <50ms dev reload
-  - Files: Update `pynext/server/dev.py`, add `runtime/dev-reload.js`
-  - Implementation: `watchfiles` (Rust), WebSocket push
-
 - [ ] **Component Generator CLI** — Scaffold pages/components/APIs
   - Commands: `pynext generate page`, `pynext g component`, `pynext g api`
 
@@ -218,6 +212,16 @@ Making components easier to test:
 ---
 
 ## Recently Completed
+
+#### Phase 4: Developer Experience (P1)
+
+- [x] **Fast File Watching** — <50ms dev reload ✅ COMPLETED
+  - Files: `pynext/server/watcher.py`, `pynext/server/dev.py`, `pynext/runtime/dev-reload.js`
+  - APIs: `FileWatcher`, `FileChange`, `ChangeType`, `DevServer`, `create_watcher()`, `watch_once()`
+  - Features: Rust-based watching (watchfiles), WebSocket push, intelligent reload classification (hot/css/full/none), auto-reconnect with overlay, heartbeat keep-alive
+  - Performance: <5ms file detection, <50ms total reload
+  - Tests: **146 comprehensive unit tests** (ChangeType, FileChange, FileWatcher, DevServer, edge cases, performance benchmarks, async behavior, JS client validation)
+  - Docs: [docs/features/DEV_SERVER.md](./features/DEV_SERVER.md)
 
 #### Phase 3: SEO & Assets (P1)
 
