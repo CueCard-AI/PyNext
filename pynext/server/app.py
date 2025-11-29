@@ -279,6 +279,94 @@ p, h1, h2, h3, h4, h5, h6 {
                 )
         
         # ========================================
+        # OG Images: Dynamic generation endpoint
+        # ========================================
+        @app.get("/og/{path:path}.png", include_in_schema=False)
+        @app.get("/og/{path:path}.jpg", include_in_schema=False)
+        @app.get("/og/{path:path}.webp", include_in_schema=False)
+        async def serve_og_image(path: str, request: Request) -> Response:
+            """
+            Serve dynamically generated OG image for a page.
+            
+            /og/blog/my-post.png -> generates OG for /blog/my-post
+            """
+            # Determine format from URL
+            url_path = str(request.url.path)
+            if url_path.endswith(".jpg"):
+                format = "jpeg"
+                media_type = "image/jpeg"
+            elif url_path.endswith(".webp"):
+                format = "webp"
+                media_type = "image/webp"
+            else:
+                format = "png"
+                media_type = "image/png"
+            
+            # Find route handler
+            route_match = pynext_app.router.match(f"/{path}")
+            if not route_match:
+                return Response(status_code=404)
+            
+            handler = route_match[0] if isinstance(route_match, tuple) else route_match.handler
+            params = route_match[1] if isinstance(route_match, tuple) else {}
+            
+            # Check if handler has OG config
+            from pynext.og.decorator import get_og_config, get_og_handler
+            
+            config = get_og_config(handler)
+            if not config:
+                return Response(status_code=404)
+            
+            # Check ISR cache
+            cache_key = f"og:{path}:{format}"
+            if hasattr(pynext_app, "_og_cache"):
+                cached = pynext_app._og_cache.get(cache_key)
+                if cached:
+                    return Response(
+                        content=cached,
+                        media_type=media_type,
+                        headers={"Cache-Control": f"public, max-age={config.cache_seconds}"},
+                    )
+            
+            try:
+                from pynext.og import OGRenderer
+                
+                # Get custom handler or use template
+                og_handler = get_og_handler(handler)
+                
+                if og_handler:
+                    # Custom OG generator
+                    canvas = og_handler(**params)
+                else:
+                    # Template-based generation
+                    # Extract context from page metadata
+                    context = {"title": path.replace("-", " ").replace("/", " - ").title()}
+                    context.update(params)
+                    canvas = config.template.render(context)
+                
+                # Render image
+                renderer = OGRenderer()
+                image_bytes = renderer.render(canvas, format)
+                
+                # Cache if enabled
+                if config.cache and config.cache_seconds > 0:
+                    if not hasattr(pynext_app, "_og_cache"):
+                        pynext_app._og_cache = {}
+                    pynext_app._og_cache[cache_key] = image_bytes
+                
+                return Response(
+                    content=image_bytes,
+                    media_type=media_type,
+                    headers={"Cache-Control": f"public, max-age={config.cache_seconds}"},
+                )
+                
+            except ImportError:
+                # Pillow not installed
+                return Response(status_code=500, content="Pillow required for OG images")
+            except Exception as e:
+                return Response(status_code=500, content=str(e))
+        
+        # ========================================
         # PWA: Manifest endpoint
         # ========================================
         @app.get("/manifest.json", include_in_schema=False)

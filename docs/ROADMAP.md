@@ -12,10 +12,6 @@ Achieving complete feature parity with Next.js while maintaining SolidJS princip
 
 **Already Implemented**: `loading.py`, `error.py`, `not-found.py`, `layout.py`, `page.py`, `route.py`, dynamic routes, parallel routes, intercepting routes, `@island`, `Link()`, server actions, ISR, streaming, middleware, `Image()`, `Font()`, `Metadata` API, Tailwind utilities
 
-- [ ] **Dynamic OG Images** — Generate OG images at request time
-  - Files: `pynext/seo/og_image.py`
-  - APIs: `@og_image`, `generate_og_image()`
-  - Implementation: Pillow-based, ISR-cached
 
 #### Phase 4: Developer Experience (P1)
 
@@ -254,6 +250,15 @@ Making components easier to test:
   - Features: Auto-merge with detected icons, shortcuts, categories
   - CLI: `pynext manifest generate/preview`, `pynext pwa validate`
   - Server: `/manifest.json` endpoint
+
+- [x] **Dynamic OG Images** — Generate OG images at request time ✅ COMPLETED
+  - Files: `pynext/og/canvas.py`, `pynext/og/templates.py`, `pynext/og/decorator.py`, `pynext/og/renderer.py`
+  - APIs: `@og_image`, `OGCanvas`, `OGTemplate`, `OGRenderer`
+  - Features: Chainable canvas API, 25+ gradient presets, 8 pre-built templates, ISR caching
+  - CLI: `pynext og preview/generate/validate`
+  - Server: `/og/{path}.png` endpoint with auto-caching
+  - Tests: 64 unit tests
+  - Docs: [docs/features/OG_IMAGES.md](./features/OG_IMAGES.md)
 
 #### Phase 2: Environment & Config (P0) ✅ COMPLETED
 

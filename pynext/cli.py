@@ -1236,6 +1236,165 @@ def cmd_robots(args: argparse.Namespace) -> int:
 
 
 # ========================================
+# cmd_og - OG Image commands
+# ========================================
+
+def cmd_og(args: argparse.Namespace) -> int:
+    """Handle OG image subcommands."""
+    from pathlib import Path
+    
+    root = Path(args.dir).resolve() if hasattr(args, "dir") else Path.cwd()
+    
+    if args.og_command == "preview":
+        # Preview OG image for a route
+        route_path = getattr(args, "route", "/")
+        output = getattr(args, "output", None)
+        
+        print(f"\n[PyNext] Generating OG preview for: {route_path}\n")
+        
+        # Try to find the page and its OG config
+        pages_dir = root / "pages"
+        if not pages_dir.exists():
+            pages_dir = root / "src" / "pages"
+        
+        if not pages_dir.exists():
+            print("[PyNext] No pages directory found.")
+            return 1
+        
+        # For preview, create a sample OG image
+        try:
+            from pynext.og import OGCanvas, OGRenderer
+            from pynext.og.templates import minimal
+            
+            # Create sample canvas
+            canvas = minimal.render({
+                "title": f"Preview: {route_path}",
+            })
+            
+            # Render
+            renderer = OGRenderer()
+            image_bytes = renderer.render(canvas)
+            
+            if output:
+                output_path = Path(output)
+                output_path.write_bytes(image_bytes)
+                print(f"[PyNext] ✓ Saved preview to {output_path}")
+            else:
+                # Save to temp location
+                output_path = root / ".pynext" / "og-preview.png"
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                output_path.write_bytes(image_bytes)
+                print(f"[PyNext] ✓ Saved preview to {output_path}")
+            
+            return 0
+            
+        except ImportError:
+            print("[PyNext] Pillow is required for OG image generation.")
+            print("  Install with: pip install Pillow")
+            return 1
+    
+    elif args.og_command == "generate":
+        # Generate all OG images
+        output_dir = Path(getattr(args, "output_dir", root / "public" / "og"))
+        
+        print(f"\n[PyNext] Generating OG images to: {output_dir}\n")
+        output_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Scan for pages with @og_image decorator
+        from pynext.router.file_router import FileRouter
+        
+        pages_dir = root / "pages"
+        if not pages_dir.exists():
+            pages_dir = root / "src" / "pages"
+        
+        if not pages_dir.exists():
+            print("[PyNext] No pages directory found.")
+            return 1
+        
+        router = FileRouter(str(pages_dir))
+        router.scan()
+        
+        generated = 0
+        for route in router.routes:
+            if hasattr(route.handler, "_og_config"):
+                try:
+                    from pynext.og import OGRenderer
+                    from pynext.og.decorator import get_og_handler, get_og_config
+                    
+                    config = get_og_config(route.handler)
+                    handler = get_og_handler(route.handler)
+                    
+                    # Generate canvas
+                    if handler:
+                        canvas = handler()
+                    else:
+                        canvas = config.template.render({"title": route.pattern.path})
+                    
+                    # Render
+                    renderer = OGRenderer()
+                    image_bytes = renderer.render(canvas, config.format)
+                    
+                    # Save
+                    path_name = route.pattern.path.strip("/").replace("/", "-") or "index"
+                    output_path = output_dir / f"{path_name}.{config.format}"
+                    output_path.write_bytes(image_bytes)
+                    
+                    print(f"  ✓ {output_path.name}")
+                    generated += 1
+                    
+                except Exception as e:
+                    print(f"  ✗ {route.pattern.path}: {e}")
+        
+        print(f"\n[PyNext] Generated {generated} OG images\n")
+        return 0
+    
+    elif args.og_command == "validate":
+        # Validate OG configuration
+        print("\n[PyNext] Validating OG configuration...\n")
+        
+        from pynext.router.file_router import FileRouter
+        
+        pages_dir = root / "pages"
+        if not pages_dir.exists():
+            pages_dir = root / "src" / "pages"
+        
+        if not pages_dir.exists():
+            print("[PyNext] No pages directory found.")
+            return 1
+        
+        router = FileRouter(str(pages_dir))
+        router.scan()
+        
+        og_pages = []
+        for route in router.routes:
+            if hasattr(route.handler, "_og_config"):
+                og_pages.append(route.pattern.path)
+        
+        if og_pages:
+            print(f"  ✓ Found {len(og_pages)} pages with @og_image:\n")
+            for path in og_pages:
+                print(f"    - {path}")
+        else:
+            print("  ⚠ No pages with @og_image decorator found.")
+        
+        print()
+        return 0
+    
+    else:
+        # No subcommand - show help
+        print("\n[PyNext] OG Image Commands:\n")
+        print("  pynext og preview [route]    Preview OG image for a route")
+        print("  pynext og generate           Generate all OG images")
+        print("  pynext og validate           Validate OG configuration")
+        print()
+        print("  Example:")
+        print("    pynext og preview /blog/my-post --output preview.png")
+        print("    pynext og generate --output-dir public/og")
+        print()
+        return 0
+
+
+# ========================================
 # cmd_icons - Icon detection
 # ========================================
 
@@ -1599,6 +1758,25 @@ def main() -> int:
     reg_subparsers.add_parser("init", help="Create registry template for publishing")
     
     # ========================================
+    # pynext og
+    # ========================================
+    og_parser = subparsers.add_parser("og", help="OG image generation")
+    og_parser.add_argument("--dir", default=".", help="Project directory")
+    og_subparsers = og_parser.add_subparsers(dest="og_command", help="OG commands")
+    
+    # og preview
+    og_preview = og_subparsers.add_parser("preview", help="Preview OG image for a route")
+    og_preview.add_argument("route", nargs="?", default="/", help="Route path to preview")
+    og_preview.add_argument("--output", "-o", help="Output file path")
+    
+    # og generate
+    og_generate = og_subparsers.add_parser("generate", help="Generate all OG images")
+    og_generate.add_argument("--output-dir", help="Output directory for OG images")
+    
+    # og validate
+    og_subparsers.add_parser("validate", help="Validate OG configuration")
+    
+    # ========================================
     # pynext icons
     # ========================================
     icons_parser = subparsers.add_parser("icons", help="Icon detection and validation")
@@ -1728,6 +1906,8 @@ def main() -> int:
         return cmd_sitemap(args)
     elif args.command == "robots":
         return cmd_robots(args)
+    elif args.command == "og":
+        return cmd_og(args)
     elif args.command == "icons":
         return cmd_icons(args)
     elif args.command == "manifest":

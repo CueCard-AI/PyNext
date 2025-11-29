@@ -126,7 +126,8 @@ docs/
 │   ├── ENVIRONMENT.md           Environment variables
 │   ├── ROUTE_CONFIG.md          Route segment configuration
 │   ├── SITEMAP.md               SEO: Sitemap & robots.txt
-│   └── PWA.md                   PWA: Icons & manifest (NEW)
+│   ├── PWA.md                   PWA: Icons & manifest
+│   └── OG_IMAGES.md             Dynamic OG images (NEW)
 │
 ├── integrations/                🔌 External Tools
 │   ├── NPM_PACKAGES.md          Using npm
@@ -274,6 +275,7 @@ Environment and route configuration management.
 | [Route Config](features/ROUTE_CONFIG.md) | Per-route rendering, caching, and runtime | 🟡 Intermediate |
 | [Sitemap & Robots.txt](features/SITEMAP.md) | SEO: sitemap generation and robots.txt | 🟢 Beginner |
 | [PWA: Icons & Manifest](features/PWA.md) | Make your app installable | 🟢 Beginner |
+| [Dynamic OG Images](features/OG_IMAGES.md) | Generate social preview images | 🟡 Intermediate |
 
 ---
 
@@ -451,6 +453,10 @@ Static Gen ──► ISR ──► Draft Mode ──► i18n
 | **Icon** | App icon configuration | [PWA](features/PWA.md) |
 | **IconDetector** | Auto-detect icons from public/ | [PWA](features/PWA.md) |
 | **Shortcut** | PWA app shortcuts | [PWA](features/PWA.md) |
+| **OGCanvas** | Canvas for building OG images | [OG Images](features/OG_IMAGES.md) |
+| **OGTemplate** | Pre-defined OG image template | [OG Images](features/OG_IMAGES.md) |
+| **@og_image** | Decorator for OG image generation | [OG Images](features/OG_IMAGES.md) |
+| **OGRenderer** | Pillow-based image renderer | [OG Images](features/OG_IMAGES.md) |
 
 ---
 
@@ -493,7 +499,7 @@ Found an error or want to improve the docs?
 | Rendering Strategies | 5 | `rendering/` |
 | Advanced Features | 3 | `advanced/` |
 | Optimization | 4 | `optimization/` |
-| Client Runtime & File Conventions | 16 | `features/` |
+| Client Runtime & File Conventions | 17 | `features/` |
 | Integrations | 2 | `integrations/` |
 | Production | 2 | `production/` |
 | Reference | 1 | `reference/` |
