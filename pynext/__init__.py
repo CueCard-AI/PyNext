@@ -338,6 +338,26 @@ from pynext.router.groups import (
     scan_groups,
 )
 
+# Environment Variables
+from pynext.env_module import env, Env
+from pynext.env import (
+    load_env_files,
+    parse_env_file,
+    expand_variables,
+    get_env_files_info,
+    Var,
+    ValidationError,
+    ValidationResult,
+    EnvSchema,
+    EnvConfig,
+    load_schema,
+    get_public_vars,
+    generate_inline_script,
+    generate_runtime_script,
+    inline_env_in_js,
+    get_client_env_accessor,
+)
+
 # Client-Side Primitives
 from pynext.core.client import (
     on_keydown,
@@ -626,5 +646,23 @@ __all__ = [
     "RouteGroup",
     "GroupRegistry",
     "scan_groups",
+    # Environment Variables
+    "env",
+    "Env",
+    "load_env_files",
+    "parse_env_file",
+    "expand_variables",
+    "get_env_files_info",
+    "Var",
+    "ValidationError",
+    "ValidationResult",
+    "EnvSchema",
+    "EnvConfig",
+    "load_schema",
+    "get_public_vars",
+    "generate_inline_script",
+    "generate_runtime_script",
+    "inline_env_in_js",
+    "get_client_env_accessor",
 ]
 

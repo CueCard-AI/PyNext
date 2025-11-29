@@ -122,7 +122,8 @@ docs/
 │   ├── ROUTE_GROUPS.md          (folder) URL organization
 │   ├── TEMPLATE.md              Remounting layouts
 │   ├── ERROR_PAGES.md           Custom 401/403/404
-│   └── PROJECT_STRUCTURE.md     src/ folder support
+│   ├── PROJECT_STRUCTURE.md     src/ folder support
+│   └── ENVIRONMENT.md           Environment variables (NEW)
 │
 ├── integrations/                🔌 External Tools
 │   ├── NPM_PACKAGES.md          Using npm
@@ -247,7 +248,7 @@ Browser interactivity with Python — no JavaScript required!
 
 ---
 
-### 🗂️ File Conventions (NEW)
+### 🗂️ File Conventions
 
 Next.js-style file conventions for organizing your project.
 
@@ -257,6 +258,16 @@ Next.js-style file conventions for organizing your project.
 | [Template](features/TEMPLATE.md) | Layouts that remount on navigation (page transitions) | 🟡 Intermediate |
 | [Error Pages](features/ERROR_PAGES.md) | Custom 401/403/404/500 pages with zero JS | 🟢 Beginner |
 | [Project Structure](features/PROJECT_STRUCTURE.md) | Auto-detect `src/` folder, path resolution | 🟢 Beginner |
+
+---
+
+### ⚙️ Configuration (NEW)
+
+Environment and configuration management.
+
+| Document | Description | Difficulty |
+|----------|-------------|------------|
+| [Environment Variables](features/ENVIRONMENT.md) | Type-safe `.env` files with schema validation | 🟢 Beginner |
 
 ---
 
@@ -390,6 +401,8 @@ Static Gen ──► ISR ──► Draft Mode ──► i18n
 | Add page transitions | [Template](features/TEMPLATE.md) | Animation Config |
 | Create custom error pages | [Error Pages](features/ERROR_PAGES.md) | Error Decorators |
 | Use `src/` folder structure | [Project Structure](features/PROJECT_STRUCTURE.md) | Auto-Detection |
+| Configure environment variables | [Environment](features/ENVIRONMENT.md) | Quick Start |
+| Validate env in production | [Environment](features/ENVIRONMENT.md) | Schema Validation |
 
 ### Key Concepts Glossary
 
@@ -414,6 +427,9 @@ Static Gen ──► ISR ──► Draft Mode ──► i18n
 | **UnauthorizedError** | 401 error for unauthenticated users | [Error Pages](features/ERROR_PAGES.md) |
 | **ForbiddenError** | 403 error for unauthorized users | [Error Pages](features/ERROR_PAGES.md) |
 | **ProjectPaths** | Resolved paths for pages/components/lib | [Project Structure](features/PROJECT_STRUCTURE.md) |
+| **env** | Singleton for environment variable access | [Environment](features/ENVIRONMENT.md) |
+| **EnvSchema** | Schema validator for environment vars | [Environment](features/ENVIRONMENT.md) |
+| **PYNEXT_PUBLIC_*** | Prefix for client-exposed env vars | [Environment](features/ENVIRONMENT.md) |
 
 ---
 
@@ -456,7 +472,7 @@ Found an error or want to improve the docs?
 | Rendering Strategies | 5 | `rendering/` |
 | Advanced Features | 3 | `advanced/` |
 | Optimization | 4 | `optimization/` |
-| Client Runtime & File Conventions | 12 | `features/` |
+| Client Runtime & File Conventions | 13 | `features/` |
 | Integrations | 2 | `integrations/` |
 | Production | 2 | `production/` |
 | Reference | 1 | `reference/` |

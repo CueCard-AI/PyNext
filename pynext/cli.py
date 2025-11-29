@@ -791,6 +791,203 @@ def cmd_deps(args: argparse.Namespace) -> int:
         return 0
 
 
+def cmd_env(args: argparse.Namespace) -> int:
+    """Handle env subcommands."""
+    from pathlib import Path
+    from pynext.env.loader import load_env_files, get_env_files_info
+    from pynext.env.schema import load_schema
+    from pynext.env.client import get_public_vars
+    
+    root = Path(getattr(args, "dir", ".")).resolve()
+    
+    if args.env_command == "list":
+        mode = getattr(args, "mode", "development")
+        env_vars = load_env_files(root, mode)
+        schema = load_schema(root)
+        
+        if getattr(args, "public", False):
+            # Filter to only public vars
+            public = get_public_vars(env_vars)
+            env_vars = {f"PYNEXT_PUBLIC_{k}": v for k, v in public.items()}
+        
+        print(f"\n[PyNext] Environment Variables ({len(env_vars)} loaded, mode={mode}):\n")
+        
+        for key in sorted(env_vars.keys()):
+            value = env_vars[key]
+            
+            # Mask secrets
+            is_secret = False
+            if schema and key in schema.vars:
+                is_secret = schema.vars[key].secret
+            elif any(s in key.lower() for s in ["secret", "password", "key", "token", "api_key"]):
+                is_secret = True
+            
+            if getattr(args, "show_values", False):
+                display_value = "***" if is_secret else value
+                # Truncate long values
+                if len(display_value) > 60:
+                    display_value = display_value[:57] + "..."
+                print(f"  {key}={display_value}")
+            else:
+                print(f"  {key}")
+        
+        print()
+        return 0
+    
+    elif args.env_command == "check":
+        mode = getattr(args, "mode", "development")
+        files_info = get_env_files_info(root, mode)
+        
+        print(f"\n[PyNext] Environment Files (mode={mode}):\n")
+        for info in files_info:
+            status = "✓" if info["exists"] else "✗"
+            vars_info = f"({info['vars']} vars)" if info["exists"] else "(not found)"
+            print(f"  {status} {info['name']} {vars_info}")
+        
+        # Check for schema
+        schema = load_schema(root)
+        if schema:
+            print(f"\n  ✓ env.schema.py found")
+            print(f"    → {len(schema.get_required_vars())} required vars")
+            print(f"    → {len(schema.get_optional_vars())} optional vars")
+        else:
+            print(f"\n  ✗ env.schema.py (not found, validation disabled)")
+        
+        print()
+        return 0
+    
+    elif args.env_command == "validate":
+        schema = load_schema(root)
+        if not schema:
+            print("[PyNext] No env.schema.py found.")
+            print("  Create one to enable validation:")
+            print()
+            print("  # env.schema.py")
+            print("  from pynext.env import EnvSchema, Var")
+            print()
+            print("  schema = EnvSchema(")
+            print("      DATABASE_URL=Var(str, required=True),")
+            print("      PORT=Var(int, default=8000),")
+            print("  )")
+            print()
+            return 1
+        
+        mode = getattr(args, "mode", "production")
+        env_vars = load_env_files(root, mode)
+        result = schema.validate(env_vars)
+        
+        if result.valid:
+            print(f"[PyNext] ✓ Environment valid for {mode}")
+            required = len(schema.get_required_vars())
+            optional = len(schema.get_optional_vars())
+            print(f"  → {required} required vars present")
+            print(f"  → {optional} optional vars configured")
+            
+            if result.warnings:
+                print("\n  Warnings:")
+                for w in result.warnings:
+                    print(f"    - {w}")
+            return 0
+        else:
+            print(f"[PyNext] ✗ Environment validation failed for {mode}:\n")
+            for err in result.errors:
+                print(f"  {err.key}: {err.message}")
+            print()
+            print("  Fix these issues in your .env file or environment.")
+            return 1
+    
+    elif args.env_command == "init":
+        schema = load_schema(root)
+        if not schema:
+            print("[PyNext] No env.schema.py found. Create one first.")
+            print()
+            print("  # env.schema.py")
+            print("  from pynext.env import EnvSchema, Var")
+            print()
+            print("  schema = EnvSchema(")
+            print("      DATABASE_URL=Var(str, required=True),")
+            print("      PORT=Var(int, default=8000),")
+            print("      DEBUG=Var(bool, default=False),")
+            print("  )")
+            return 1
+        
+        template = schema.generate_template()
+        force = getattr(args, "force", False)
+        
+        # Create .env.example
+        env_example = root / ".env.example"
+        if env_example.exists() and not force:
+            print(f"[PyNext] .env.example already exists. Use --force to overwrite.")
+            return 1
+        
+        env_example.write_text(template)
+        print(f"[PyNext] ✓ Created .env.example")
+        
+        # Optionally create .env if it doesn't exist
+        env_file = root / ".env"
+        if not env_file.exists():
+            env_file.write_text(template)
+            print(f"[PyNext] ✓ Created .env (fill in your values)")
+        else:
+            print(f"[PyNext] ℹ .env already exists (not modified)")
+        
+        print()
+        print("  Next steps:")
+        print("  1. Edit .env with your actual values")
+        print("  2. Run: pynext env validate")
+        return 0
+    
+    elif args.env_command == "generate":
+        # Generate TypeScript types for public vars
+        schema = load_schema(root)
+        if not schema:
+            print("[PyNext] No env.schema.py found.")
+            return 1
+        
+        from pynext.build.env import generate_env_types
+        
+        output = getattr(args, "output", None)
+        output_path = Path(output) if output else root / "env.d.ts"
+        
+        types = generate_env_types(root, output_path)
+        if types:
+            print(f"[PyNext] ✓ Generated {output_path}")
+        else:
+            print("[PyNext] No PYNEXT_PUBLIC_* vars found in schema")
+        return 0
+    
+    else:
+        # No subcommand - show current env status
+        mode = "development"
+        env_vars = load_env_files(root, mode)
+        schema = load_schema(root)
+        public_vars = get_public_vars(env_vars)
+        
+        print(f"\n[PyNext] Environment Status:\n")
+        print(f"  Mode: {mode}")
+        print(f"  Total vars: {len(env_vars)}")
+        print(f"  Public vars (client): {len(public_vars)}")
+        print(f"  Schema: {'✓' if schema else '✗ (no validation)'}")
+        
+        if schema:
+            missing = []
+            for key, var in schema.vars.items():
+                if var.required and key not in env_vars:
+                    missing.append(key)
+            if missing:
+                print(f"\n  ⚠ Missing required vars:")
+                for m in missing:
+                    print(f"    - {m}")
+        
+        print(f"\n  Commands:")
+        print(f"    pynext env list        List all variables")
+        print(f"    pynext env check       Check env files")
+        print(f"    pynext env validate    Validate against schema")
+        print(f"    pynext env init        Create .env from schema")
+        print()
+        return 0
+
+
 def main() -> int:
     """Main CLI entry point."""
     parser = argparse.ArgumentParser(
@@ -886,6 +1083,35 @@ def main() -> int:
     # registry init
     reg_subparsers.add_parser("init", help="Create registry template for publishing")
     
+    # ========================================
+    # pynext env
+    # ========================================
+    env_parser = subparsers.add_parser("env", help="Environment variable management")
+    env_parser.add_argument("--dir", default=".", help="Project directory")
+    env_subparsers = env_parser.add_subparsers(dest="env_command", help="Environment commands")
+    
+    # env list
+    env_list = env_subparsers.add_parser("list", help="List all environment variables")
+    env_list.add_argument("--show-values", "-v", action="store_true", help="Show values (secrets masked)")
+    env_list.add_argument("--public", "-p", action="store_true", help="Show only PYNEXT_PUBLIC_* vars")
+    env_list.add_argument("--mode", "-m", default="development", help="Mode (development/production/test)")
+    
+    # env check
+    env_check = env_subparsers.add_parser("check", help="Check which env files exist")
+    env_check.add_argument("--mode", "-m", default="development", help="Mode to check")
+    
+    # env validate
+    env_validate = env_subparsers.add_parser("validate", help="Validate env against schema")
+    env_validate.add_argument("--mode", "-m", default="production", help="Mode to validate")
+    
+    # env init
+    env_init = env_subparsers.add_parser("init", help="Create .env from schema template")
+    env_init.add_argument("--force", "-f", action="store_true", help="Overwrite existing files")
+    
+    # env generate
+    env_generate = env_subparsers.add_parser("generate", help="Generate TypeScript types")
+    env_generate.add_argument("--output", "-o", help="Output file path (default: env.d.ts)")
+    
     args = parser.parse_args()
     
     if args.version:
@@ -907,6 +1133,8 @@ def main() -> int:
         return cmd_ui(args)
     elif args.command == "registry":
         return cmd_registry(args)
+    elif args.command == "env":
+        return cmd_env(args)
     else:
         parser.print_help()
         return 0

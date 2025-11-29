@@ -248,6 +248,36 @@ p, h1, h2, h3, h4, h5, h6 {
                 "timestamp": datetime.now().isoformat(),
             }
         
+        @app.get("/_pynext/env.json", include_in_schema=False)
+        async def get_client_env() -> Response:
+            """
+            Serve public environment variables for client.
+            
+            Only variables prefixed with PYNEXT_PUBLIC_ are exposed.
+            Used by runtime mode when env vars need to be dynamic.
+            """
+            try:
+                from pynext.env_module import env
+                from pynext.env.client import get_public_vars
+                import json
+                
+                public_vars = get_public_vars(env.all())
+                
+                return Response(
+                    content=json.dumps(public_vars, indent=2 if pynext_app.debug else None),
+                    media_type="application/json",
+                    headers={
+                        "Cache-Control": "no-cache" if pynext_app.debug else "public, max-age=300",
+                        "Content-Type": "application/json; charset=utf-8",
+                    },
+                )
+            except Exception as e:
+                return Response(
+                    content="{}",
+                    media_type="application/json",
+                    status_code=200,  # Return empty obj, not error
+                )
+        
         # Mount static files if directory exists (before catch-all)
         if self.static_dir.exists():
             app.mount("/static", StaticFiles(directory=str(self.static_dir)), name="static")

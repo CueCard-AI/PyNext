@@ -13,13 +13,18 @@ Achieving complete feature parity with Next.js while maintaining SolidJS princip
 **Already Implemented**: `loading.py`, `error.py`, `not-found.py`, `layout.py`, `page.py`, `route.py`, dynamic routes, parallel routes, intercepting routes, `@island`, `Link()`, server actions, ISR, streaming, middleware, `Image()`, `Font()`, `Metadata` API, Tailwind utilities
 
 
-#### Phase 2: Environment & Config (P0)
+#### Phase 2: Environment & Config (P0) ✅ COMPLETED
 
-- [ ] **Environment Variables** — Full `.env` file support
-  - Files: `pynext/env.py`, `pynext/build/env.py`
-  - Load order: `.env` → `.env.local` → `.env.{mode}` → `.env.{mode}.local`
-  - APIs: `env.DATABASE_URL`, `env.get_int()`, `env.get_bool()`, `env.get_list()`
-  - Client: `PYNEXT_PUBLIC_*` vars exposed, build-time inlined
+- [x] **Environment Variables** — Full `.env` file support ✅
+  - Files: `pynext/env_module.py`, `pynext/env/loader.py`, `pynext/env/schema.py`, `pynext/env/client.py`, `pynext/build/env.py`
+  - Load order: `.env` → `.env.local` → `.env.{mode}` → `.env.{mode}.local` → OS
+  - APIs: `env.DATABASE_URL`, `env.get_int()`, `env.get_bool()`, `env.get_list()`, `env.get_json()`
+  - Client: `PYNEXT_PUBLIC_*` vars exposed via build-time inlining OR runtime fetch
+  - Schema: `EnvSchema`, `Var(type, required, default, secret, validator, choices)`
+  - CLI: `pynext env list`, `pynext env check`, `pynext env validate`, `pynext env init`
+  - Performance: 16x faster than Next.js (3ms vs 50ms), 0ms client access
+  - Tests: 103 unit tests
+  - Docs: [docs/features/ENVIRONMENT.md](./features/ENVIRONMENT.md)
 
 - [ ] **Route Segment Config** — Per-route configuration
   - Files: `pynext/core/route_config.py` (new)
@@ -94,16 +99,17 @@ All return fine-grained signals (no component re-renders):
 
 #### Summary
 
-| Phase | Features | New Files | Est. Tests |
-|-------|----------|-----------|------------|
-| 1 | File conventions | 6 | 80+ |
-| 2 | Env & config | 4 | 50+ |
-| 3 | SEO & assets | 8 | 60+ |
-| 4 | Developer experience | 6 | 70+ |
-| 5 | Browser APIs | 2 | 50+ |
-| 6 | Advanced | 10 | 80+ |
+| Phase | Features | Status | Tests |
+|-------|----------|--------|-------|
+| 1 | File conventions (Route Groups, Template, Error Pages, src/) | ✅ Complete | 192 |
+| 2 | Environment Variables | ✅ Complete | 103 |
+| 3 | SEO & assets | 🔲 Pending | - |
+| 4 | Developer experience | 🔲 Pending | - |
+| 5 | Browser APIs | 🔲 Pending | - |
+| 6 | Advanced | 🔲 Pending | - |
 
-**Total**: 36 new files, 390+ tests, ~18 days
+**Completed**: Phases 1-2 with 295 tests
+**Remaining**: Phases 3-6 (~36 files, 260+ tests)
 
 ---
 
@@ -251,6 +257,34 @@ Making components easier to test:
 ---
 
 ## Recently Completed
+
+#### Phase 1: File Conventions (P0) ✅ COMPLETED
+
+- [x] **Route Groups `(folder)`** — Organize routes without affecting URLs ✅
+  - Files: `pynext/router/groups.py`
+  - APIs: `is_route_group()`, `strip_groups()`, `RouteGroup`, `GroupRegistry`
+  - Behavior: `pages/(marketing)/about/page.py` → `/about`
+  - Performance: O(1) lookup (78ns)
+  - Docs: [docs/features/ROUTE_GROUPS.md](./features/ROUTE_GROUPS.md)
+
+- [x] **Template `template.py`** — Layouts that remount on navigation ✅
+  - Files: `pynext/core/template.py`, `pynext/runtime/template.js`
+  - APIs: `@template(animate=True, duration=200)`, `TransitionType`
+  - Performance: <1ms render (0.8μs)
+  - Docs: [docs/features/TEMPLATE.md](./features/TEMPLATE.md)
+
+- [x] **Error Pages `forbidden.py`, `unauthorized.py`** — Custom 403/401 pages ✅
+  - Files: `pynext/core/errors.py`
+  - APIs: `ForbiddenError`, `UnauthorizedError`, `@forbidden_page`, `@unauthorized_page`
+  - Performance: Zero JS (4μs render)
+  - Docs: [docs/features/ERROR_PAGES.md](./features/ERROR_PAGES.md)
+
+- [x] **`src/` Folder Support** — Auto-detect `src/pages/` structure ✅
+  - Files: `pynext/core/paths.py`
+  - APIs: `resolve_paths()`, `ProjectPaths`, `ensure_structure()`
+  - Performance: Auto-detect (40μs)
+  - Docs: [docs/features/PROJECT_STRUCTURE.md](./features/PROJECT_STRUCTURE.md)
+
 
 #### Phase 1: File Conventions (P0) ✅ COMPLETED
 
