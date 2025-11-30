@@ -138,6 +138,13 @@ from pynext.db.adapters import (
     Adapter,
     MemoryAdapter,
     MockAdapter,
+    # PostgreSQL (optional - requires asyncpg)
+    PostgresAdapter,
+    PostgresConfig,
+    PostgresConfigError,
+    AutoScalingPool,
+    PoolStats,
+    StatementCache,
 )
 
 # Exceptions
@@ -151,6 +158,14 @@ from pynext.db.exceptions import (
     RelationshipError,
     ConfigurationError,
 )
+
+# Migrations (lazy import to avoid circular dependencies)
+def __getattr__(name):
+    """Lazy import migrations module."""
+    if name == "migrations":
+        from pynext.db import migrations
+        return migrations
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 __all__ = [
     # Core
@@ -228,6 +243,13 @@ __all__ = [
     "Adapter",
     "MemoryAdapter",
     "MockAdapter",
+    # PostgreSQL
+    "PostgresAdapter",
+    "PostgresConfig",
+    "PostgresConfigError",
+    "AutoScalingPool",
+    "PoolStats",
+    "StatementCache",
     
     # Exceptions
     "DatabaseError",
@@ -238,5 +260,8 @@ __all__ = [
     "TransactionError",
     "RelationshipError",
     "ConfigurationError",
+    
+    # Migrations (lazy import)
+    "migrations",
 ]
 

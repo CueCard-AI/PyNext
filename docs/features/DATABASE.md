@@ -823,12 +823,27 @@ async def sql_db():
 │                                                            │
 │   MockAdapter ──→ Pure Python (dict storage)               │
 │   MemoryAdapter ──→ SQLite (in-memory)                     │
-│   PostgresAdapter ──→ PostgreSQL (coming soon)             │
+│   PostgresAdapter ──→ PostgreSQL (Phase 5 - see ROADMAP)   │
+│   SupabaseAdapter ──→ Supabase (Phase 5 - see ROADMAP)     │
 └─────────────────────────────┬──────────────────────────────┘
                               │
                               ▼
                      [ Database ]
 ```
+
+---
+
+## Coming Soon: Phase 5 Database Adapters
+
+The next phase of the database layer includes production-ready PostgreSQL and Supabase adapters with:
+
+- **High-Performance Pooling**: asyncpg pool with auto-scaling, idle recycling, and connection warmup
+- **Production Reliability**: Circuit breakers, retries with exponential backoff, health checks
+- **High-Load Scalability**: Request queuing, load shedding, connection multiplexing
+- **Error Logging**: Structured logs, slow query detection, pool exhaustion warnings
+- **Supabase Integration**: Auth, Storage, Realtime subscriptions, Edge Functions, RLS helpers
+
+See [ROADMAP.md](../ROADMAP.md#phase-5-database-adapters-postgresql--supabase) for the full implementation plan.
 
 ---
 

@@ -1784,6 +1784,388 @@ def cmd_lint(args: argparse.Namespace) -> int:
         return 1 if result.has_errors else 0
 
 
+def cmd_db(args: argparse.Namespace) -> int:
+    """Handle database migration subcommands."""
+    import asyncio
+    from pathlib import Path
+    
+    root = Path(args.dir).resolve() if hasattr(args, "dir") else Path.cwd()
+    migrations_dir = root / "migrations"
+    
+    # Get dialect from config or default
+    dialect = getattr(args, "dialect", "sqlite")
+    
+    if args.db_command == "init":
+        # Initialize migrations
+        from pynext.db.migrations import MigrationEngine, MigrationEngineConfig
+        from pynext.db import _model_registry, configure_db, MemoryAdapter
+        
+        print("[PyNext] Initializing migrations...")
+        
+        # Ensure migrations directory exists
+        migrations_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Create __init__.py
+        init_file = migrations_dir / "__init__.py"
+        if not init_file.exists():
+            init_file.write_text('"""PyNext migrations."""\n')
+        
+        # Create .gitkeep if empty
+        if not any(migrations_dir.glob("*.py")) or len(list(migrations_dir.glob("*.py"))) == 1:
+            (migrations_dir / ".gitkeep").touch()
+        
+        print(f"[PyNext] ✓ Created migrations directory: {migrations_dir}")
+        print()
+        print("  Next steps:")
+        print("    1. Define your models in pynext/db")
+        print("    2. Run: pynext db migrate -m 'initial'")
+        print("    3. Run: pynext db upgrade")
+        return 0
+    
+    elif args.db_command == "migrate":
+        # Generate migration from model changes
+        from pynext.db.migrations import (
+            MigrationEngine, MigrationEngineConfig, MigrationFormatter,
+            InteractivePrompt, NonInteractivePrompt,
+        )
+        from pynext.db import _model_registry, get_adapter
+        
+        message = getattr(args, "message", None)
+        if not message:
+            print("[PyNext] Error: Migration message required (-m 'message')")
+            return 1
+        
+        # Check if models exist
+        if not _model_registry:
+            print("[PyNext] No models found. Define models first.")
+            print()
+            print("  Example:")
+            print("    from pynext.db import Table")
+            print()
+            print("    class User(Table):")
+            print("        name: str")
+            print("        email: str")
+            return 1
+        
+        print(f"[PyNext] Generating migration: {message}")
+        
+        async def run():
+            try:
+                adapter = get_adapter()
+            except Exception:
+                # Use memory adapter for schema comparison
+                from pynext.db import MemoryAdapter, configure_db
+                adapter = MemoryAdapter()
+                await adapter.connect()
+                configure_db(adapter)
+            
+            config = MigrationEngineConfig(
+                migrations_dir=migrations_dir,
+                dialect=dialect,
+                interactive=not getattr(args, "yes", False),
+            )
+            
+            engine = MigrationEngine(_model_registry, adapter, config)
+            
+            # Detect changes
+            result = await engine.detect()
+            
+            if not result.has_changes:
+                if getattr(args, "empty", False):
+                    path = engine.generator.generate_empty(message)
+                    print(f"[PyNext] ✓ Created empty migration: {path.name}")
+                    return 0
+                else:
+                    print("[PyNext] No changes detected.")
+                    print("  Use --empty to create an empty migration.")
+                    return 0
+            
+            # Show changes
+            formatter = MigrationFormatter(use_color=True)
+            print()
+            print(formatter.format_detection(result))
+            print()
+            
+            # Resolve ambiguous
+            all_changes = list(result.changes)
+            
+            if result.ambiguous:
+                if config.interactive:
+                    prompt = InteractivePrompt()
+                    prompt_result = prompt.resolve_all(result.ambiguous)
+                    all_changes.extend(prompt_result.resolved_changes)
+                else:
+                    # Use defaults
+                    prompt = NonInteractivePrompt()
+                    prompt_result = prompt.resolve_all(result.ambiguous)
+                    all_changes.extend(prompt_result.resolved_changes)
+            
+            # Generate migration
+            if all_changes:
+                path = engine.generator.generate_declarative(all_changes, message)
+                print(f"[PyNext] ✓ Created migration: {path.name}")
+                
+                if getattr(args, "sql", False):
+                    print()
+                    print("[PyNext] SQL Preview:")
+                    for change in all_changes:
+                        for stmt in change.up_sql(dialect):
+                            print(f"  {stmt}")
+            
+            return 0
+        
+        return asyncio.run(run())
+    
+    elif args.db_command == "upgrade":
+        # Apply pending migrations
+        from pynext.db.migrations import MigrationExecutor
+        from pynext.db import get_adapter
+        
+        target = getattr(args, "target", None)
+        dry_run = getattr(args, "sql", False)
+        
+        async def run():
+            try:
+                adapter = get_adapter()
+            except Exception:
+                print("[PyNext] Error: No database configured.")
+                print("  Configure a database adapter first.")
+                return 1
+            
+            executor = MigrationExecutor(adapter, migrations_dir, dialect)
+            
+            if dry_run:
+                print("[PyNext] SQL Preview (not applying):")
+                sql = await executor.preview_sql("up", target)
+                for stmt in sql:
+                    print(f"  {stmt}")
+                return 0
+            
+            result = await executor.upgrade(target=target)
+            
+            if result.success:
+                if result.applied:
+                    print(f"[PyNext] ✓ Applied {len(result.applied)} migration(s):")
+                    for version in result.applied:
+                        print(f"    • {version}")
+                else:
+                    print("[PyNext] No pending migrations.")
+            else:
+                print("[PyNext] ✗ Migration failed:")
+                for error in result.errors:
+                    print(f"    • {error}")
+                return 1
+            
+            print(f"\n  Elapsed: {result.elapsed_ms:.1f}ms")
+            return 0
+        
+        return asyncio.run(run())
+    
+    elif args.db_command == "downgrade":
+        # Rollback migrations
+        from pynext.db.migrations import MigrationExecutor
+        from pynext.db import get_adapter
+        
+        target = getattr(args, "target", None)
+        steps = getattr(args, "steps", 1)
+        dry_run = getattr(args, "sql", False)
+        
+        async def run():
+            try:
+                adapter = get_adapter()
+            except Exception:
+                print("[PyNext] Error: No database configured.")
+                return 1
+            
+            executor = MigrationExecutor(adapter, migrations_dir, dialect)
+            
+            if dry_run:
+                print("[PyNext] SQL Preview (not applying):")
+                sql = await executor.preview_sql("down", target)
+                for stmt in sql:
+                    print(f"  {stmt}")
+                return 0
+            
+            result = await executor.downgrade(target=target, steps=steps)
+            
+            if result.success:
+                if result.applied:
+                    print(f"[PyNext] ✓ Rolled back {len(result.applied)} migration(s):")
+                    for version in result.applied:
+                        print(f"    • {version}")
+                else:
+                    print("[PyNext] No migrations to rollback.")
+            else:
+                print("[PyNext] ✗ Rollback failed:")
+                for error in result.errors:
+                    print(f"    • {error}")
+                return 1
+            
+            print(f"\n  Elapsed: {result.elapsed_ms:.1f}ms")
+            return 0
+        
+        return asyncio.run(run())
+    
+    elif args.db_command == "status":
+        # Show migration status
+        from pynext.db.migrations import MigrationHistory, MigrationFormatter
+        from pynext.db import get_adapter
+        
+        async def run():
+            try:
+                adapter = get_adapter()
+                history = MigrationHistory(adapter)
+                status = await history.get_status(migrations_dir)
+                
+                formatter = MigrationFormatter(use_color=True)
+                print()
+                print(formatter.format_status(
+                    applied=status["applied_count"],
+                    pending=status["pending_count"],
+                    current=status["current"],
+                ))
+                
+                if status["pending"]:
+                    print("\n  Pending migrations:")
+                    for mig in status["pending"]:
+                        print(f"    ○ {mig['version']} - {mig['name']}")
+                
+                print()
+            except Exception:
+                # No database, just show files
+                files = list(migrations_dir.glob("*.py"))
+                files = [f for f in files if not f.name.startswith("_")]
+                
+                print()
+                print("[PyNext] Migration Status (no database connection)")
+                print()
+                print(f"  Migration files: {len(files)}")
+                if files:
+                    print("\n  Files:")
+                    for f in sorted(files)[:10]:
+                        print(f"    • {f.name}")
+                    if len(files) > 10:
+                        print(f"    ... and {len(files) - 10} more")
+                print()
+            
+            return 0
+        
+        return asyncio.run(run())
+    
+    elif args.db_command == "history":
+        # Show migration history
+        from pynext.db.migrations import MigrationHistory, MigrationFormatter
+        from pynext.db import get_adapter
+        
+        async def run():
+            try:
+                adapter = get_adapter()
+                history = MigrationHistory(adapter)
+                applied = await history.get_applied()
+                
+                formatter = MigrationFormatter(use_color=True)
+                
+                if not applied:
+                    print("[PyNext] No migrations applied yet.")
+                    return 0
+                
+                print()
+                print(formatter.format_history([
+                    {
+                        "version": m.version,
+                        "name": m.name,
+                        "applied_at": m.applied_at.strftime("%Y-%m-%d %H:%M:%S"),
+                    }
+                    for m in applied
+                ], current=applied[-1].version if applied else None))
+                print()
+            except Exception as e:
+                print(f"[PyNext] Error: {e}")
+                return 1
+            
+            return 0
+        
+        return asyncio.run(run())
+    
+    elif args.db_command == "reset":
+        # Reset database (down all, up all)
+        from pynext.db.migrations import MigrationExecutor
+        from pynext.db import get_adapter
+        
+        force = getattr(args, "force", False)
+        
+        if not force:
+            print("[PyNext] ⚠ This will rollback all migrations and reapply them.")
+            print("  All data will be lost!")
+            print()
+            try:
+                response = input("Continue? [y/N]: ").strip().lower()
+                if response not in ("y", "yes"):
+                    print("[PyNext] Aborted.")
+                    return 0
+            except (EOFError, KeyboardInterrupt):
+                print("\n[PyNext] Aborted.")
+                return 0
+        
+        async def run():
+            try:
+                adapter = get_adapter()
+            except Exception:
+                print("[PyNext] Error: No database configured.")
+                return 1
+            
+            executor = MigrationExecutor(adapter, migrations_dir, dialect)
+            
+            # Rollback all
+            print("[PyNext] Rolling back all migrations...")
+            down_result = await executor.downgrade(steps=9999)
+            
+            if down_result.applied:
+                for version in down_result.applied:
+                    print(f"  ↓ {version}")
+            
+            # Apply all
+            print("\n[PyNext] Applying all migrations...")
+            up_result = await executor.upgrade()
+            
+            if up_result.applied:
+                for version in up_result.applied:
+                    print(f"  ↑ {version}")
+            
+            if up_result.success:
+                total = len(down_result.applied) + len(up_result.applied)
+                print(f"\n[PyNext] ✓ Reset complete ({total} operations)")
+            else:
+                print("\n[PyNext] ✗ Reset failed")
+                for error in up_result.errors:
+                    print(f"    • {error}")
+                return 1
+            
+            return 0
+        
+        return asyncio.run(run())
+    
+    else:
+        # No subcommand - show help
+        print("\n[PyNext] Database Migration Commands:\n")
+        print("  pynext db init                    Initialize migrations")
+        print("  pynext db migrate -m 'message'    Generate migration from models")
+        print("  pynext db upgrade                 Apply pending migrations")
+        print("  pynext db upgrade --sql           Preview SQL without applying")
+        print("  pynext db downgrade               Rollback last migration")
+        print("  pynext db status                  Show current status")
+        print("  pynext db history                 Show migration history")
+        print("  pynext db reset                   Reset database (down + up)")
+        print()
+        print("  Quick start:")
+        print("    1. pynext db init")
+        print("    2. Define models (class User(Table): ...)")
+        print("    3. pynext db migrate -m 'create users'")
+        print("    4. pynext db upgrade")
+        print()
+        return 0
+
+
 def cmd_pwa(args: argparse.Namespace) -> int:
     """Handle pwa subcommands."""
     from pathlib import Path
@@ -2170,6 +2552,46 @@ def main() -> int:
     env_generate = env_subparsers.add_parser("generate", help="Generate TypeScript types")
     env_generate.add_argument("--output", "-o", help="Output file path (default: env.d.ts)")
     
+    # ========================================
+    # pynext db (database migrations)
+    # ========================================
+    db_parser = subparsers.add_parser("db", help="Database migration management")
+    db_parser.add_argument("--dir", default=".", help="Project directory")
+    db_parser.add_argument("--dialect", default="sqlite", 
+                           choices=["sqlite", "postgresql"], help="SQL dialect")
+    db_subparsers = db_parser.add_subparsers(dest="db_command", help="Database commands")
+    
+    # db init
+    db_subparsers.add_parser("init", help="Initialize migrations directory")
+    
+    # db migrate
+    db_migrate = db_subparsers.add_parser("migrate", help="Generate migration from model changes")
+    db_migrate.add_argument("-m", "--message", required=True, help="Migration message")
+    db_migrate.add_argument("--yes", "-y", action="store_true", help="Skip interactive prompts")
+    db_migrate.add_argument("--empty", action="store_true", help="Create empty migration")
+    db_migrate.add_argument("--sql", action="store_true", help="Show SQL preview")
+    
+    # db upgrade
+    db_upgrade = db_subparsers.add_parser("upgrade", help="Apply pending migrations")
+    db_upgrade.add_argument("target", nargs="?", help="Target version (optional)")
+    db_upgrade.add_argument("--sql", action="store_true", help="Preview SQL without applying")
+    
+    # db downgrade
+    db_downgrade = db_subparsers.add_parser("downgrade", help="Rollback migrations")
+    db_downgrade.add_argument("target", nargs="?", help="Target version (optional)")
+    db_downgrade.add_argument("--steps", "-n", type=int, default=1, help="Number of migrations to rollback")
+    db_downgrade.add_argument("--sql", action="store_true", help="Preview SQL without applying")
+    
+    # db status
+    db_subparsers.add_parser("status", help="Show migration status")
+    
+    # db history
+    db_subparsers.add_parser("history", help="Show migration history")
+    
+    # db reset
+    db_reset = db_subparsers.add_parser("reset", help="Reset database (rollback all, apply all)")
+    db_reset.add_argument("--force", "-f", action="store_true", help="Skip confirmation prompt")
+    
     args = parser.parse_args()
     
     if args.version:
@@ -2209,6 +2631,8 @@ def main() -> int:
         return cmd_manifest(args)
     elif args.command == "pwa":
         return cmd_pwa(args)
+    elif args.command == "db":
+        return cmd_db(args)
     else:
         parser.print_help()
         return 0

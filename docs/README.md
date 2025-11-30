@@ -200,6 +200,7 @@ Fetching data, handling forms, and server communication.
 | Document | Description | Difficulty |
 |----------|-------------|------------|
 | [Database ORM](features/DATABASE.md) | Type-safe ORM with simple Python types | 🟢 Beginner |
+| [Database Migrations](features/MIGRATIONS.md) | Alembic-wrapped migration system | 🟡 Intermediate |
 | [Server Actions](data-server/SERVER_ACTIONS.md) | Call Python from browser events | 🟡 Intermediate |
 | [API Routes](data-server/API_ROUTES.md) | REST endpoints alongside pages | 🟡 Intermediate |
 | [State Patterns](data-server/STATE_PATTERNS.md) | Forms, async state, optimistic updates | 🟡 Intermediate |

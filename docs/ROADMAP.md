@@ -34,7 +34,7 @@ Achieving complete feature parity with Next.js while maintaining SolidJS princip
 | 6 | Advanced (CSS Modules, MDX, Proxy, Instrumentation, Edge) | ✅ Complete | 541 |
 
 **Completed**: All 6 Phases with 1,948+ tests
-**Total Test Suite**: 3,036 tests
+**Total Test Suite**: 4,653 tests
 **Status**: Next.js Feature Parity Achieved 🎉
 
 ---
@@ -225,14 +225,192 @@ This eliminates the need for:
   )
   ```
 
-##### Phase 4: Migrations (Alembic Integration)
-- [ ] `pynext db init` — Initialize migrations folder
-- [ ] `pynext db migrate -m "message"` — Auto-generate from model changes
-- [ ] `pynext db upgrade` — Apply pending migrations
-- [ ] `pynext db downgrade` — Rollback last migration
-- [ ] `pynext db history` — Show migration history
+##### Phase 4: Migrations (Alembic Integration) ✅
 
-##### Phase 5: Reactive Frontend Integration
+**Status:** Complete (500 tests, 500 passing, comprehensive docs complete)
+
+- [x] `pynext db init` — Initialize migrations folder
+- [x] `pynext db migrate -m "message"` — Auto-generate from model changes
+- [x] `pynext db upgrade` — Apply pending migrations
+- [x] `pynext db downgrade` — Rollback last migration
+- [x] `pynext db history` — Show migration history
+
+**Features Implemented:**
+- **Smart Change Detection**: Auto-detect new tables, columns, types, indexes
+- **Interactive Prompts**: "Did you rename 'name' to 'full_name'?" for ambiguous changes
+- **Declarative Format**: Simple dict-based migrations for 90% of use cases
+- **Python Format**: Full async Python for complex data migrations
+- **Preview Mode**: `--sql` flag to see exact SQL before applying
+- **Rollback Support**: Single, multiple, or to-version rollback
+
+**Documentation:** [MIGRATIONS.md](./features/MIGRATIONS.md)
+
+##### Phase 5: Database Adapters (PostgreSQL & Supabase)
+
+**Status:** Planned (620 tests planned)
+
+**Design Philosophy:**
+- PyNext > asyncpg: Simpler API, same performance
+- Zero Config: Works out of the box with sensible defaults
+- Production Ready: Circuit breakers, retries, health checks built-in
+- Supabase Native: First-class citizen, not an afterthought
+- Hyper-Efficient: Connection reuse, prepared statements, minimal overhead
+
+**5.1 PostgreSQL Core Adapter:**
+- [ ] `pynext/db/adapters/postgres.py` - asyncpg-based adapter
+- [ ] Connection URL and individual param configuration
+- [ ] Statement caching for performance (LRU cache, configurable size)
+- [ ] Binary protocol for maximum throughput
+- [ ] Pipelining support for batch operations
+
+**5.2 Connection Pooling (High-Performance):**
+- [ ] Built-in asyncpg pool with intelligent sizing
+  - Auto-scale: min_size=5, max_size=100 (configurable)
+  - Idle connection recycling (prevent stale connections)
+  - Connection warmup on startup
+- [ ] External pooler support (PgBouncer, pgpool)
+  - Transaction pooling mode (recommended for high concurrency)
+  - Session pooling mode (for prepared statements)
+- [ ] Pool overflow handling with queuing
+  - Max wait time before rejection
+  - Queue depth monitoring
+- [ ] Connection lifetime limits (prevent memory leaks)
+
+**5.3 Production Reliability:**
+- [ ] Health checks with configurable intervals
+- [ ] Retry with exponential backoff (1s, 2s, 4s, max 30s)
+- [ ] Circuit breaker (failure threshold, recovery timeout)
+- [ ] Read replica routing with weighted distribution
+- [ ] Graceful degradation under load
+
+**5.4 High-Load Scalability:**
+- [ ] Request queuing with backpressure
+  - Max queue size before rejection
+  - Fair queuing (FIFO)
+- [ ] Load shedding when overwhelmed
+  - Configurable thresholds
+  - Graceful rejection with retry-after headers
+- [ ] Connection multiplexing
+- [ ] Async connection acquisition (non-blocking)
+- [ ] Pool statistics and metrics
+  - Active/idle/waiting connections
+  - Queries per second
+  - Average query time
+
+**5.5 Error Logging & Debugging:**
+- [ ] Structured logging with context
+  ```python
+  {
+    "level": "ERROR",
+    "query_id": "abc123",
+    "query": "SELECT * FROM users WHERE...",
+    "duration_ms": 5234,
+    "pool_stats": {"active": 95, "idle": 5, "waiting": 150},
+    "error": "connection_timeout",
+    "client_ip": "10.0.0.1",
+    "trace_id": "xyz789"
+  }
+  ```
+- [ ] Slow query logging (configurable threshold)
+- [ ] Query explain on timeout (auto-analyze slow queries)
+- [ ] Pool exhaustion warnings (before failure)
+- [ ] Connection leak detection
+- [ ] Dead connection detection and cleanup
+- [ ] Metrics export (Prometheus/OpenTelemetry)
+  - `pynext_db_connections_active`
+  - `pynext_db_connections_waiting`
+  - `pynext_db_query_duration_seconds`
+  - `pynext_db_pool_exhausted_total`
+  - `pynext_db_errors_total{type="timeout|connection|query"}`
+
+**5.6 Supabase Full Integration:**
+- [ ] Supabase adapter with URL/key configuration
+- [ ] Auth: sign_up, sign_in, sign_out, session management
+- [ ] Storage: upload, download, delete, signed URLs
+- [ ] Realtime: table subscriptions with decorators
+- [ ] Edge Functions: invoke remote functions
+- [ ] RLS helpers: policy decorators
+
+**5.7 Advanced Query Features:**
+- [ ] Per-query `.timeout(seconds)` with statement_timeout
+- [ ] `.explain()` and `.analyze()` for query plans
+- [ ] Cursor-based pagination for large datasets
+- [ ] Prepared statement support with auto-invalidation
+- [ ] Query cancellation on client disconnect
+
+**Configuration Example:**
+```python
+from pynext.db import configure, PostgresAdapter
+from pynext.db.pool import Pool
+from pynext.db.reliability import CircuitBreaker, RetryPolicy
+
+configure(
+    adapter=PostgresAdapter(
+        url="postgresql://user:pass@localhost/db",
+        
+        # High-performance pooling
+        pool=Pool(
+            min_size=10,
+            max_size=100,
+            max_idle_time=300,
+            max_queries=50000,
+            max_lifetime=3600,
+            overflow_max_wait=30,
+        ),
+        
+        # Statement caching
+        statement_cache_size=1000,
+        
+        # Reliability
+        retry=RetryPolicy(max_attempts=3, backoff="exponential"),
+        circuit_breaker=CircuitBreaker(failure_threshold=10),
+        
+        # Logging & debugging
+        log_queries=True,
+        slow_query_threshold=1.0,  # seconds
+        log_pool_stats_interval=60,
+        
+        # Metrics
+        metrics_enabled=True,
+        metrics_prefix="myapp",
+    )
+)
+```
+
+**Files to Create:**
+```
+pynext/db/
+├── adapters/
+│   ├── postgres.py         # PostgreSQL adapter (~400 lines)
+│   └── supabase.py         # Supabase adapter (~300 lines)
+├── pool/
+│   ├── __init__.py         # Pool manager
+│   ├── asyncpg_pool.py     # Built-in pool (~150 lines)
+│   └── external.py         # PgBouncer support (~100 lines)
+├── reliability/
+│   ├── health.py           # Health checks (~100 lines)
+│   ├── retry.py            # Retry logic (~150 lines)
+│   ├── circuit.py          # Circuit breaker (~200 lines)
+│   └── replicas.py         # Read replicas (~150 lines)
+└── supabase/
+    ├── __init__.py         # Supabase exports
+    ├── auth.py             # Auth integration (~250 lines)
+    ├── storage.py          # Storage API (~200 lines)
+    ├── realtime.py         # Realtime subs (~250 lines)
+    ├── edge.py             # Edge Functions (~100 lines)
+    └── rls.py              # RLS helpers (~150 lines)
+```
+
+**Dependencies:**
+| Package | Purpose | Why This One |
+|---------|---------|--------------|
+| `asyncpg>=0.29.0` | PostgreSQL driver | Fastest async driver, binary protocol |
+| `supabase>=2.0.0` | Supabase client | Official SDK |
+| `gotrue>=2.0.0` | Auth client | Supabase Auth |
+| `storage3>=0.7.0` | Storage client | Supabase Storage |
+| `realtime>=2.0.0` | Realtime client | Supabase Realtime |
+
+##### Phase 6: Reactive Frontend Integration
 - [ ] **Model.live()** — Queries that auto-update when data changes
   ```python
   def Dashboard():
@@ -252,67 +430,7 @@ This eliminates the need for:
       )
   ```
 
-##### Phase 6: Supabase Native Integration
-- [ ] **Direct Client Access**
-  ```python
-  from pynext.db import supabase
-  client = supabase.client()
-  ```
-
-- [ ] **Realtime Subscriptions** — Live updates from database
-  ```python
-  @on_change(User)
-  async def user_changed(event, record):
-      print(f"User {event}: {record.name}")
-  ```
-
-- [ ] **Auth Integration** — Supabase Auth with PyNext
-  ```python
-  user = await supabase.auth.sign_in(email="j@example.com", password="...")
-  session = supabase.auth.session()
-  ```
-
-- [ ] **Storage** — File uploads with Supabase Storage
-  ```python
-  url = await supabase.storage.upload("avatars", file)
-  ```
-
-- [ ] **Row Level Security** — RLS policy helpers
-  ```python
-  class Post(Table):
-      class Config:
-          rls = "auth.uid() = author_id"
-  ```
-
 ---
-
-#### Dependencies
-
-| Package | Purpose | Why This One |
-|---------|---------|--------------|
-| `sqlmodel` | ORM base | Pydantic + SQLAlchemy, FastAPI-native |
-| `alembic` | Migrations | Industry standard, battle-tested |
-| `asyncpg` | PostgreSQL driver | Fastest async driver |
-| `supabase` | Supabase client | Official SDK |
-
-#### Files to Create
-
-```
-pynext/
-├── db/
-│   ├── __init__.py         # Public API: Table, db, supabase
-│   ├── table.py            # Table base class
-│   ├── query.py            # Chainable query builder
-│   ├── connection.py       # Connection pool
-│   ├── live.py             # .live() reactive queries
-│   ├── migrations/
-│   │   ├── __init__.py
-│   │   ├── generator.py    # Auto-generate from models
-│   │   └── runner.py       # Apply/rollback
-│   └── adapters/
-│       ├── postgres.py     # PostgreSQL adapter
-│       └── supabase.py     # Supabase adapter + realtime
-```
 
 #### Success Criteria
 
@@ -323,6 +441,8 @@ pynext/
 | Time to set up database | < 5 minutes |
 | Learning curve | 0 for Python devs |
 | Frontend state sync | Automatic |
+| Connection pool efficiency | < 5ms acquisition |
+| Query timeout precision | Per-query control |
 
 ---
 
