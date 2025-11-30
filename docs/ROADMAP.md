@@ -39,6 +39,246 @@ Achieving complete feature parity with Next.js while maintaining SolidJS princip
 
 ---
 
+### Data Layer (Full-Stack ORM)
+
+A complete database integration that makes PyNext a true full-stack framework with the simplest possible API.
+
+#### Problem Statement
+
+Currently, PyNext handles UI beautifully but has no built-in database story. Developers must:
+- Manually set up SQLAlchemy/Alembic
+- Write boilerplate for connections, sessions, migrations
+- Manually sync frontend state when data changes
+- Handle loading/error states for every query
+- Manage cache invalidation themselves
+
+**Goal**: Make database work as simple as the rest of PyNext - just Python, no ceremony.
+
+#### Design Philosophy
+
+| Principle | Why | How |
+|-----------|-----|-----|
+| **Pure Python** | Python devs shouldn't learn web concepts | No hooks, no reducers, just method calls |
+| **Type-first** | Modern Python uses type hints | Classes with annotations, that's it |
+| **Simple by default** | 80% of queries are simple CRUD | One-liners: `User.get(1)`, `user.save()` |
+| **Powerful when needed** | Complex queries happen | Chainable: `.where().order_by().limit()` |
+| **Reactive automatically** | UI should stay in sync | `.live()` queries auto-update the frontend |
+| **Escape hatches** | ORMs can't do everything | Raw SQL always available |
+
+#### Why This Approach (vs Alternatives)
+
+| Alternative | Problem | Our Solution |
+|-------------|---------|--------------|
+| **SQLAlchemy** | Verbose, Django-era API | Pure type hints, no `Column()` |
+| **Django ORM** | Requires Django, not async | Async-first, standalone |
+| **Prisma** | TypeScript-only | Native Python with same DX |
+| **React Query** | Complex hooks, JS concepts | `.live()` - just works |
+| **Apollo Client** | GraphQL overhead, complex | Direct model methods |
+
+#### Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         FRONTEND                                 │
+│  ┌─────────────┐    ┌─────────────┐    ┌─────────────────────┐  │
+│  │ User.live() │    │ Signal("")  │    │ Computed(lambda: )  │  │
+│  │ (server)    │    │ (UI state)  │    │ (derived)           │  │
+│  └──────┬──────┘    └──────┬──────┘    └──────────┬──────────┘  │
+│         │                  │                      │              │
+│         └──────────────────┼──────────────────────┘              │
+│                            │                                     │
+│                    ┌───────▼───────┐                            │
+│                    │   Component   │                            │
+│                    └───────┬───────┘                            │
+└────────────────────────────┼────────────────────────────────────┘
+                             │
+                    ┌────────▼────────┐
+                    │  Server Action  │  ← User.insert(), user.update()
+                    └────────┬────────┘
+                             │
+┌────────────────────────────┼────────────────────────────────────┐
+│                         BACKEND                                  │
+│                    ┌───────▼───────┐                            │
+│                    │  pynext.db    │                            │
+│                    │  ┌─────────┐  │                            │
+│                    │  │  Table  │  │  ← Model base class        │
+│                    │  └────┬────┘  │                            │
+│                    │       │       │                            │
+│                    │  ┌────▼────┐  │                            │
+│                    │  │ Query   │  │  ← Chainable builder       │
+│                    │  └────┬────┘  │                            │
+│                    │       │       │                            │
+│                    │  ┌────▼────┐  │                            │
+│                    │  │Adapter  │  │  ← PostgreSQL/Supabase     │
+│                    │  └────┬────┘  │                            │
+│                    └───────┼───────┘                            │
+└────────────────────────────┼────────────────────────────────────┘
+                             │
+                    ┌────────▼────────┐
+                    │    Database     │  ← PostgreSQL / Supabase
+                    └─────────────────┘
+```
+
+#### State Management Strategy
+
+PyNext separates state into two types that compose naturally:
+
+| State Type | What | How | Example |
+|------------|------|-----|---------|
+| **Server State** | Database data | `.live()` - automatic | `users = User.live()` |
+| **UI State** | Local interactions | `Signal()` - explicit | `search = Signal("")` |
+| **Derived State** | Computed from both | `Computed()` | `filtered = Computed(...)` |
+
+This eliminates the need for:
+- Redux/Zustand for server data
+- React Query/SWR hooks
+- Manual cache invalidation
+- Loading/error state boilerplate
+
+---
+
+#### Implementation Phases
+
+##### Phase 1: Core Model System
+- [ ] `Table` base class with type hint parsing
+- [ ] Auto-generate `id`, `created_at`, `updated_at` fields
+- [ ] Foreign key detection from `*_id` naming
+- [ ] Basic relationship inference
+
+##### Phase 2: CRUD Operations
+- [ ] **Simple Methods** — One-liners for common operations
+  ```python
+  user = await User.insert(name="John", email="j@example.com")
+  user = await User.get(1)
+  users = await User.select()
+  await user.update(name="Jane")
+  await user.delete()
+  ```
+
+- [ ] **Chainable Queries** — For complex operations
+  ```python
+  admins = await User.select().where(role="admin").order_by("-created_at").limit(10)
+  ```
+
+##### Phase 3: Raw SQL Escape Hatch
+- [ ] **Direct SQL** — When ORM isn't enough
+  ```python
+  # Simple query
+  users = await db.sql("SELECT * FROM users WHERE role = $1", "admin")
+  
+  # With model mapping
+  users = await db.sql("SELECT * FROM users WHERE role = $1", "admin", model=User)
+  
+  # Execute (insert/update/delete)
+  await db.execute("UPDATE users SET active = true WHERE last_login > $1", date)
+  
+  # Transactions
+  async with db.transaction():
+      await db.execute("UPDATE accounts SET balance = balance - $1 WHERE id = $2", 100, from_id)
+      await db.execute("UPDATE accounts SET balance = balance + $1 WHERE id = $2", 100, to_id)
+  ```
+
+##### Phase 4: Migrations (Alembic Integration)
+- [ ] `pynext db init` — Initialize migrations folder
+- [ ] `pynext db migrate -m "message"` — Auto-generate from model changes
+- [ ] `pynext db upgrade` — Apply pending migrations
+- [ ] `pynext db downgrade` — Rollback last migration
+- [ ] `pynext db history` — Show migration history
+
+##### Phase 5: Reactive Frontend Integration
+- [ ] **Model.live()** — Queries that auto-update when data changes
+  ```python
+  def Dashboard():
+      # Server state (reactive) - auto-updates when DB changes
+      users = User.live()
+      pending = Order.live().where(status="pending")
+      
+      # UI state (signals)
+      search = Signal("")
+      
+      # Derived
+      filtered = Computed(lambda: [u for u in users if search() in u.name])
+      
+      return div(
+          For(filtered, lambda u: div(u.name)),
+          button("Add", on_click=lambda: User.insert(name="New"))
+      )
+  ```
+
+##### Phase 6: Supabase Native Integration
+- [ ] **Direct Client Access**
+  ```python
+  from pynext.db import supabase
+  client = supabase.client()
+  ```
+
+- [ ] **Realtime Subscriptions** — Live updates from database
+  ```python
+  @on_change(User)
+  async def user_changed(event, record):
+      print(f"User {event}: {record.name}")
+  ```
+
+- [ ] **Auth Integration** — Supabase Auth with PyNext
+  ```python
+  user = await supabase.auth.sign_in(email="j@example.com", password="...")
+  session = supabase.auth.session()
+  ```
+
+- [ ] **Storage** — File uploads with Supabase Storage
+  ```python
+  url = await supabase.storage.upload("avatars", file)
+  ```
+
+- [ ] **Row Level Security** — RLS policy helpers
+  ```python
+  class Post(Table):
+      class Config:
+          rls = "auth.uid() = author_id"
+  ```
+
+---
+
+#### Dependencies
+
+| Package | Purpose | Why This One |
+|---------|---------|--------------|
+| `sqlmodel` | ORM base | Pydantic + SQLAlchemy, FastAPI-native |
+| `alembic` | Migrations | Industry standard, battle-tested |
+| `asyncpg` | PostgreSQL driver | Fastest async driver |
+| `supabase` | Supabase client | Official SDK |
+
+#### Files to Create
+
+```
+pynext/
+├── db/
+│   ├── __init__.py         # Public API: Table, db, supabase
+│   ├── table.py            # Table base class
+│   ├── query.py            # Chainable query builder
+│   ├── connection.py       # Connection pool
+│   ├── live.py             # .live() reactive queries
+│   ├── migrations/
+│   │   ├── __init__.py
+│   │   ├── generator.py    # Auto-generate from models
+│   │   └── runner.py       # Apply/rollback
+│   └── adapters/
+│       ├── postgres.py     # PostgreSQL adapter
+│       └── supabase.py     # Supabase adapter + realtime
+```
+
+#### Success Criteria
+
+| Metric | Target |
+|--------|--------|
+| Lines to define a model | 3-5 (just class + fields) |
+| Lines for basic CRUD | 1 per operation |
+| Time to set up database | < 5 minutes |
+| Learning curve | 0 for Python devs |
+| Frontend state sync | Automatic |
+
+---
+
 ### Figma Integration
 
 Connecting Figma to the component registry would streamline designer-developer collaboration:
