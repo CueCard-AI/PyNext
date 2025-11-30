@@ -139,14 +139,19 @@ This eliminates the need for:
 
 #### Implementation Phases
 
-##### Phase 1: Core Model System
-- [ ] `Table` base class with type hint parsing
-- [ ] Auto-generate `id`, `created_at`, `updated_at` fields
-- [ ] Foreign key detection from `*_id` naming
-- [ ] Basic relationship inference
+##### Phase 1: Core Model System ✅ Complete (634 tests)
+- [x] `Table` base class with type hint parsing
+- [x] Auto-generate `id`, `created_at`, `updated_at` fields
+- [x] Foreign key detection from `*_id` naming
+- [x] Full relationship inference with eager loading (`.with_related()`)
+- [x] Full Pydantic-style validation with error messages
+- [x] MockAdapter (dict-based) for instant testing
+- [x] MemoryAdapter (SQLite) for SQL testing
+- [x] Chainable query builder with all filter types
+- [x] Documentation: `docs/features/DATABASE.md`
 
-##### Phase 2: CRUD Operations
-- [ ] **Simple Methods** — One-liners for common operations
+##### Phase 2: CRUD Operations ✅ Complete (483 tests)
+- [x] **Simple Methods** — One-liners for common operations
   ```python
   user = await User.insert(name="John", email="j@example.com")
   user = await User.get(1)
@@ -155,27 +160,69 @@ This eliminates the need for:
   await user.delete()
   ```
 
-- [ ] **Chainable Queries** — For complex operations
+- [x] **Batch Operations** — Efficient multi-record operations
   ```python
-  admins = await User.select().where(role="admin").order_by("-created_at").limit(10)
+  users = await User.insert_many([{"name": "A"}, {"name": "B"}])
+  count = await User.update_many(where={"role": "user"}, set={"active": True})
+  count = await User.delete_many(where={"active": False})
+  user = await User.upsert(where={"email": "..."}, create={...}, update={...})
   ```
 
-##### Phase 3: Raw SQL Escape Hatch
-- [ ] **Direct SQL** — When ORM isn't enough
+- [x] **Query Execution Methods** — Aggregation and values
   ```python
+  user = await User.select().first()
+  user = await User.select().one()  # Raises if not found
+  total = await User.select().sum("balance")
+  avg = await User.select().avg("age")
+  roles = await User.select().distinct("role")
+  ```
+
+##### Phase 3: Raw SQL Escape Hatch ✅ Complete (517 tests)
+- [x] **Direct SQL** — When ORM isn't enough
+  ```python
+  from pynext.db import db
+  
   # Simple query
   users = await db.sql("SELECT * FROM users WHERE role = $1", "admin")
   
   # With model mapping
   users = await db.sql("SELECT * FROM users WHERE role = $1", "admin", model=User)
   
+  # Single row/value
+  user = await db.sql_one("SELECT * FROM users WHERE id = $1", 1)
+  count = await db.sql_val("SELECT COUNT(*) FROM users")
+  
   # Execute (insert/update/delete)
   await db.execute("UPDATE users SET active = true WHERE last_login > $1", date)
-  
-  # Transactions
+  ```
+
+- [x] **Transactions** — ACID-compliant with savepoints
+  ```python
   async with db.transaction():
-      await db.execute("UPDATE accounts SET balance = balance - $1 WHERE id = $2", 100, from_id)
-      await db.execute("UPDATE accounts SET balance = balance + $1 WHERE id = $2", 100, to_id)
+      await User.insert(name="John")
+      await Post.insert(title="Hello")
+  # Both succeed or both fail
+  
+  # With savepoints for partial rollback
+  async with db.transaction() as tx:
+      await User.insert(name="Safe")
+      async with tx.savepoint():
+          await Post.insert(title="Risky")  # Can rollback just this
+  ```
+
+- [x] **Type-Safe SQL Builder** — Build complex SQL safely
+  ```python
+  from pynext.db import sql
+  
+  users = await (
+      sql.select("users.name", "posts.title")
+      .from_("users")
+      .join("posts", "users.id", "=", "posts.author_id")
+      .where("role", "=", "admin")
+      .order_by("created_at", "DESC")
+      .limit(10)
+      .execute()
+  )
   ```
 
 ##### Phase 4: Migrations (Alembic Integration)
