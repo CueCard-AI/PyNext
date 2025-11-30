@@ -394,6 +394,92 @@ from pynext.core.route_config import (
     get_config_by_path,
 )
 
+# CSS Modules
+from pynext.css import (
+    css,
+    css_module,
+    CSSModule,
+    CSSScoper,
+    generate_hash,
+    CSSExtractor,
+    extract_all_css,
+    CSSBundler,
+    bundle_css,
+)
+
+# MDX Support
+from pynext.mdx import (
+    mdx,
+    mdx_file,
+    MDXParser,
+    parse_mdx,
+    MDXCompiler,
+    compile_mdx,
+    register_components as register_mdx_components,
+    get_component as get_mdx_component,
+    MDXProvider,
+    default_components,
+    TableOfContents,
+    extract_toc,
+    Frontmatter,
+    extract_frontmatter,
+)
+
+# Proxy Configuration
+from pynext.proxy import (
+    proxy,
+    ProxyConfig,
+    ProxyRoute,
+    load_proxy_config,
+    ProxyRouter,
+    match_proxy,
+    ProxyHandler,
+    proxy_request,
+    ProxyMiddleware,
+    create_proxy_middleware,
+)
+
+# Instrumentation
+from pynext.instrumentation import (
+    instrument,
+    InstrumentConfig,
+    configure_instrumentation,
+    get_config as get_instrument_config,
+    trace,
+    Tracer,
+    Span,
+    get_tracer,
+    get_current_span,
+    metric,
+    counter,
+    gauge,
+    histogram,
+    Counter,
+    Gauge,
+    Histogram,
+    get_metrics,
+    log,
+    Logger,
+    get_logger,
+    configure_logging,
+)
+
+# Edge Runtime
+from pynext.edge import (
+    edge,
+    EdgeConfig,
+    detect_platform,
+    EdgePlatform,
+    EdgeAdapter,
+    CloudflareAdapter,
+    VercelAdapter,
+    DenoAdapter,
+    BunAdapter,
+    get_adapter,
+    EdgeBuilder,
+    build_for_edge,
+)
+
 # Environment Variables
 from pynext.env_module import env, Env
 from pynext.env import (
@@ -794,5 +880,76 @@ __all__ = [
     "generate_runtime_script",
     "inline_env_in_js",
     "get_client_env_accessor",
+    # CSS Modules
+    "css",
+    "css_module",
+    "CSSModule",
+    "CSSScoper",
+    "generate_hash",
+    "CSSExtractor",
+    "extract_all_css",
+    "CSSBundler",
+    "bundle_css",
+    # MDX Support
+    "mdx",
+    "mdx_file",
+    "MDXParser",
+    "parse_mdx",
+    "MDXCompiler",
+    "compile_mdx",
+    "register_mdx_components",
+    "get_mdx_component",
+    "MDXProvider",
+    "default_components",
+    "TableOfContents",
+    "extract_toc",
+    "Frontmatter",
+    "extract_frontmatter",
+    # Proxy Configuration
+    "proxy",
+    "ProxyConfig",
+    "ProxyRoute",
+    "load_proxy_config",
+    "ProxyRouter",
+    "match_proxy",
+    "ProxyHandler",
+    "proxy_request",
+    "ProxyMiddleware",
+    "create_proxy_middleware",
+    # Instrumentation
+    "instrument",
+    "InstrumentConfig",
+    "configure_instrumentation",
+    "get_instrument_config",
+    "trace",
+    "Tracer",
+    "Span",
+    "get_tracer",
+    "get_current_span",
+    "metric",
+    "counter",
+    "gauge",
+    "histogram",
+    "Counter",
+    "Gauge",
+    "Histogram",
+    "get_metrics",
+    "log",
+    "Logger",
+    "get_logger",
+    "configure_logging",
+    # Edge Runtime
+    "edge",
+    "EdgeConfig",
+    "detect_platform",
+    "EdgePlatform",
+    "EdgeAdapter",
+    "CloudflareAdapter",
+    "VercelAdapter",
+    "DenoAdapter",
+    "BunAdapter",
+    "get_adapter",
+    "EdgeBuilder",
+    "build_for_edge",
 ]
 

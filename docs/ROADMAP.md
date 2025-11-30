@@ -13,14 +13,6 @@ Achieving complete feature parity with Next.js while maintaining SolidJS princip
 **Already Implemented**: `loading.py`, `error.py`, `not-found.py`, `layout.py`, `page.py`, `route.py`, dynamic routes, parallel routes, intercepting routes, `@island`, `Link()`, server actions, ISR, streaming, middleware, `Image()`, `Font()`, `Metadata` API, Tailwind utilities
 
 
-#### Phase 6: Advanced Features (P2)
-
-- [ ] **MDX Support** — Markdown with components, `mdx-components.py`
-- [ ] **Instrumentation** — `instrumentation.py`, OpenTelemetry
-- [ ] **Proxy Configuration** — `proxy.py` for request rewrites
-- [ ] **Edge Runtime** — Cloudflare, Vercel Edge, Deno adapters
-- [ ] **CSS Modules** — `Component.module.css` with build-time scoping
-
 #### Performance Targets
 
 | Metric | Next.js | PyNext Target |
@@ -36,13 +28,14 @@ Achieving complete feature parity with Next.js while maintaining SolidJS princip
 |-------|----------|--------|-------|
 | 1 | File conventions (Route Groups, Template, Error Pages, src/) | ✅ Complete | 192 |
 | 2 | Environment Variables + Route Segment Config | ✅ Complete | 187 |
-| 3 | SEO & assets (Sitemap, Robots) | ✅ Complete | 82 |
-| 4 | Developer experience (Generator, Testing, Linting) | ✅ Complete | 334 |
-| 5 | Browser APIs (WebSocket, Geolocation, etc.) | ✅ Complete | 328 |
-| 6 | Advanced | 🔲 Pending | - |
+| 3 | SEO & assets (Sitemap, Robots, PWA, OG Images) | ✅ Complete | 220 |
+| 4 | Developer experience (Dev Server, Generator, Testing, Linting) | ✅ Complete | 480 |
+| 5 | Browser APIs (WebSocket, Geolocation, Visibility, etc.) | ✅ Complete | 328 |
+| 6 | Advanced (CSS Modules, MDX, Proxy, Instrumentation, Edge) | ✅ Complete | 541 |
 
-**Completed**: Phases 1-5 with 1,123 tests
-**Remaining**: Phase 6 (Advanced Features)
+**Completed**: All 6 Phases with 1,948+ tests
+**Total Test Suite**: 3,036 tests
+**Status**: Next.js Feature Parity Achieved 🎉
 
 ---
 
@@ -189,6 +182,14 @@ Making components easier to test:
 ---
 
 ## Recently Completed
+
+#### Phase 6: Advanced Features (P2) ✅
+
+- [x] **CSS Modules** — Build-time scoping with unique hash prefixes (docs: [CSS_MODULES.md](features/CSS_MODULES.md))
+- [x] **MDX Support** — Markdown with Python components, frontmatter, TOC extraction (docs: [MDX.md](features/MDX.md))
+- [x] **Proxy Configuration** — Decorator-based API with path rewriting, WebSocket support (docs: [PROXY.md](features/PROXY.md))
+- [x] **Instrumentation** — OpenTelemetry traces, Prometheus metrics, structured logging (docs: [INSTRUMENTATION.md](features/INSTRUMENTATION.md))
+- [x] **Edge Runtime** — Adapters for Cloudflare, Vercel, Deno, Bun (docs: [EDGE.md](features/EDGE.md))
 
 #### Phase 5: Browser APIs (P1) ✅ COMPLETED
 

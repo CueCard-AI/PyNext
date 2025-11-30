@@ -130,7 +130,14 @@ docs/
 │   ├── PWA.md                   PWA: Icons & manifest
 │   ├── OG_IMAGES.md             Dynamic OG images
 │   ├── DEV_SERVER.md            Fast hot reload
-│   └── GENERATOR.md             Component generator CLI (NEW)
+│   ├── GENERATOR.md             Component generator CLI
+│   ├── TESTING.md               PyTest testing utilities
+│   ├── LINTING.md               Ruff + custom rules
+│   ├── CSS_MODULES.md           Scoped CSS (NEW)
+│   ├── MDX.md                   Markdown + components (NEW)
+│   ├── PROXY.md                 API proxy (NEW)
+│   ├── INSTRUMENTATION.md       OpenTelemetry (NEW)
+│   └── EDGE.md                  Edge runtime (NEW)
 │
 ├── integrations/                🔌 External Tools
 │   ├── NPM_PACKAGES.md          Using npm
