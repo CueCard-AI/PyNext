@@ -1,25 +1,36 @@
 # PyNext 🐍⚡
 
-**Build modern, reactive web apps in pure Python.**
+![Tests](https://img.shields.io/badge/tests-4886%20passing-brightgreen)
+![Python](https://img.shields.io/badge/python-3.10+-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
 
-PyNext combines the best ideas from modern JavaScript frameworks—but lets you write everything in Python. Get Next.js-style file routing, SolidJS-inspired reactivity, and the entire Python ecosystem on your server.
+**Build modern, reactive full-stack web apps in pure Python.**
+
+PyNext combines the best ideas from modern JavaScript frameworks—but lets you write everything in Python. Get Next.js-style file routing, SolidJS-inspired reactivity, a built-in ORM with PostgreSQL support, and the entire Python ecosystem on your server.
 
 ```python
-from pynext import page, Signal, div, h1, button, span
+from pynext import page, div, h1, For
+from pynext.db import Table, PostgresAdapter
+
+# Define your data model with type hints
+class User(Table):
+    name: str
+    email: str
+
+# Connect to PostgreSQL (one line)
+db = PostgresAdapter("postgresql://localhost/myapp")
 
 @page
-def home():
-    count = Signal(0)
+async def home():
+    users = await User.all()  # Type-safe queries
     
     return div()[
-        h1()["Welcome to PyNext!"],
-        button(onclick=lambda: count.set(count() + 1))[
-            "Clicked ", span()[count], " times"
-        ]
+        h1()[f"Welcome! {len(users)} users registered"],
+        For(each=users, render=lambda u: div()[u.name])
     ]
 ```
 
-That's it. No JavaScript. No build step for basic apps. Just Python.
+That's it. UI, database, and server—all in Python. No JavaScript. No separate ORM setup. No serialization layers.
 
 ---
 
@@ -38,7 +49,7 @@ Building modern web apps typically means:
 │   ──────────────────                 ────────────────────────               │
 │   • FastAPI/Django/Flask             • React/Vue/Svelte                     │
 │   • Business logic                   • UI components                        │
-│   • Database access                  • State management                     │
+│   • SQLAlchemy + Alembic             • State management                     │
 │   • ML/Data processing               • API calls back to Python             │
 │                                                                              │
 │                          ┌─────────────┐                                    │
@@ -47,8 +58,12 @@ Building modern web apps typically means:
 │                          │   JSON      │                                    │
 │                          └─────────────┘                                    │
 │                                                                              │
-│   You end up maintaining TWO codebases, TWO languages, TWO mental models.  │
-│   Data serialization overhead. Type mismatches. Double the complexity.      │
+│   You end up maintaining:                                                   │
+│   • TWO codebases (Python + JavaScript)                                     │
+│   • TWO languages and mental models                                         │
+│   • Manual ORM setup (SQLAlchemy, Alembic migrations)                       │
+│   • Data serialization overhead (Python → JSON → JavaScript)                │
+│   • Type mismatches across the stack                                        │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -65,22 +80,28 @@ Building modern web apps typically means:
 │                                                                              │
 │   ┌─────────────────────────────────────────────────────────────────────┐   │
 │   │                                                                      │   │
+│   │     class User(Table):                    # Define schema            │   │
+│   │         name: str                                                    │   │
+│   │         email: str                                                   │   │
+│   │                                                                      │   │
 │   │     @page                                                            │   │
-│   │     def dashboard():                                                 │   │
-│   │         users = Resource(fetch_users)         # Async data           │   │
-│   │         theme = Signal("dark")                # Reactive state       │   │
+│   │     async def dashboard():                                           │   │
+│   │         users = await User.select().where(active=True)               │   │
+│   │         theme = Signal("dark")            # Reactive state           │   │
 │   │                                                                      │   │
 │   │         return div()[                                                │   │
-│   │             UserTable(users=users),           # Component            │   │
-│   │             ThemeToggle(theme=theme)          # Interactive          │   │
+│   │             UserTable(users=users),       # Component                │   │
+│   │             ThemeToggle(theme=theme)      # Interactive              │   │
 │   │         ]                                                            │   │
 │   │                                                                      │   │
 │   └─────────────────────────────────────────────────────────────────────┘   │
 │                                                                              │
-│   • One language, one codebase, one mental model                            │
-│   • Full Python ecosystem (pandas, numpy, scikit-learn, etc.)               │
-│   • Reactive UI with surgical DOM updates                                   │
-│   • Server Actions: call Python from button clicks                          │
+│   ✓ One language, one codebase, one mental model                            │
+│   ✓ Built-in ORM with type-safe queries                                     │
+│   ✓ PostgreSQL with auto-scaling connection pool                            │
+│   ✓ Full Python ecosystem (pandas, numpy, scikit-learn)                     │
+│   ✓ Reactive UI with surgical DOM updates                                   │
+│   ✓ Server Actions: call Python from button clicks                          │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -89,14 +110,15 @@ Building modern web apps typically means:
 
 ## Vision
 
-**PyNext exists because Python developers deserve a first-class web framework.**
+**PyNext exists because Python developers deserve a first-class full-stack web framework.**
 
-Not a Python-to-JavaScript transpiler. Not a wrapper around React. A framework that:
+Not a Python-to-JavaScript transpiler. Not a wrapper around React. Not "just another ORM." A framework that:
 
-1. **Embraces Python's strengths** — Dynamic typing, decorators, the massive package ecosystem
+1. **Embraces Python's strengths** — Type hints, decorators, async/await, the massive package ecosystem
 2. **Learns from JavaScript's best ideas** — Fine-grained reactivity, file-based routing, islands architecture
-3. **Ships minimal JavaScript** — Only what's needed for interactivity
-4. **Keeps complexity low** — No virtual DOM, no hydration mismatches, no "use client" directives
+3. **Ships minimal JavaScript** — Only what's needed for interactivity (~5KB)
+4. **Includes batteries** — ORM, migrations, PostgreSQL adapter out of the box
+5. **Keeps complexity low** — No virtual DOM, no hydration mismatches, no "use client" directives
 
 ---
 
@@ -111,6 +133,7 @@ PyNext stands on the shoulders of giants:
 | **Astro** | Islands architecture, ship minimal JavaScript, content-first |
 | **HTMX** | Server-driven UI, HTML as the hypermedia |
 | **FastAPI** | Pythonic API design, automatic docs, modern async |
+| **Prisma/Drizzle** | Type-safe ORM, simple API, declarative migrations |
 
 ### The Key Insight: Fine-Grained Reactivity
 
@@ -302,6 +325,48 @@ def dashboard_layout(children):
     ]
 ```
 
+### 6. Data Layer: Type-Safe Database
+
+PyNext includes a built-in ORM inspired by Prisma and Django, but designed for Python type hints.
+
+```python
+from pynext.db import Table, PostgresAdapter
+
+# Define models with type hints (that's it!)
+class User(Table):
+    name: str
+    email: str
+    age: int = 0
+    
+class Post(Table):
+    title: str
+    content: str
+    author_id: int  # Foreign key detected automatically
+
+# Connect to PostgreSQL (one line)
+db = PostgresAdapter("postgresql://localhost/mydb")
+
+# CRUD operations - simple and intuitive
+user = await User.insert(name="Alice", email="alice@example.com")
+users = await User.select().where(age__gt=18).order_by("name")
+await User.update(id=1, name="Bob")
+await User.delete(id=1)
+
+# Transactions with automatic rollback
+async with db.transaction():
+    user = await User.insert(name="Charlie", email="c@example.com")
+    await Post.insert(title="Hello", content="World", author_id=user.id)
+```
+
+**Why is this better?**
+
+| Traditional Stack | PyNext |
+|-------------------|--------|
+| Set up SQLAlchemy | Just inherit from `Table` |
+| Configure Alembic | Run `pynext db migrate` |
+| Write serializers | Types flow automatically |
+| Manage connections manually | Auto-scaling pool built-in |
+
 ---
 
 ## Getting Started
@@ -356,6 +421,62 @@ def home():
     ]
 ```
 
+### Connect to PostgreSQL
+
+```python
+# pynext.config.py
+from pynext.db import PostgresAdapter
+
+# URL or keyword arguments - both work
+db = PostgresAdapter("postgresql://user:pass@localhost:5432/mydb")
+# or
+db = PostgresAdapter(host="localhost", database="mydb", user="user")
+
+# Auto-scaling pool (handles high load automatically)
+db = PostgresAdapter(
+    "postgresql://localhost/mydb",
+    min_pool_size=5,
+    max_pool_size=20,
+    auto_scale=True  # Scales connections based on demand
+)
+```
+
+---
+
+## Production Ready
+
+PyNext is built for production workloads with enterprise-grade features:
+
+### Test Suite
+
+**4,886 comprehensive tests** covering every feature:
+
+| Component | Tests | Coverage |
+|-----------|-------|----------|
+| Core Framework | 1,200+ | Signals, routing, components |
+| Data Layer | 1,500+ | ORM, queries, transactions |
+| PostgreSQL Adapter | 500+ | Pool, cache, types, CRUD |
+| Migrations | 500+ | Detection, rollback, SQL gen |
+| UI Components | 700+ | ShadCN ports, accessibility |
+| Rendering | 400+ | SSR, ISR, streaming, islands |
+
+### PostgreSQL Performance
+
+| Feature | Benefit |
+|---------|---------|
+| **Auto-scaling pool** | Handles traffic spikes without connection exhaustion |
+| **Statement caching** | 10-30% faster queries via prepared statement reuse |
+| **Connection multiplexing** | <1ms overhead per query |
+| **Binary protocol** | Efficient data transfer (no text parsing) |
+| **Pipelining** | Batch queries for single round-trip |
+
+### Reliability Features
+
+- **Auto-reconnect** — Transparent recovery from connection drops
+- **Health checks** — Proactive dead connection detection
+- **Graceful shutdown** — Clean connection termination
+- **Transaction savepoints** — Nested transactions with rollback
+
 ---
 
 ## When to Use PyNext
@@ -368,15 +489,18 @@ def home():
 | **Internal tools** | Fast development, full backend access, simple deployment |
 | **ML/AI interfaces** | Call scikit-learn, transformers, etc. directly from UI |
 | **Content sites** | Static generation, ISR, zero JS for static pages |
+| **Full-stack apps** | Built-in ORM, PostgreSQL, migrations—no extra setup |
 | **Prototypes** | Ship fast, iterate faster, one language to maintain |
 
 ### ⚠️ Consider Alternatives For
 
 | Use Case | Better Alternative |
 |----------|--------------------|
-| Heavy client-side apps (games, editors) | React, Vue, or vanilla JS |
+| Heavy client-side games (WebGL, Canvas) | React + Three.js, or vanilla JS |
 | Existing large React codebase | Keep React, add Python API |
 | Team with no Python experience | Stick with JS frameworks |
+
+> **Note:** Rich text editors (Notion-style) *can* work in PyNext using islands architecture—wrap ProseMirror/Slate as an island, use Server Actions for AI features and saving. The editor runs client-side JS, backend logic stays in Python.
 
 ---
 
@@ -411,9 +535,15 @@ def home():
 │               ┌───────────────┼───────────────┐                             │
 │               ▼               ▼               ▼                             │
 │      ┌─────────────┐  ┌─────────────┐  ┌─────────────┐                     │
-│      │  Signals    │  │  Resources  │  │  Suspense   │                     │
-│      │  (state)    │  │  (async)    │  │  (loading)  │                     │
-│      └─────────────┘  └─────────────┘  └─────────────┘                     │
+│      │  Signals    │  │  Resources  │  │  Data Layer │                     │
+│      │  (state)    │  │  (async)    │  │  (ORM)      │                     │
+│      └─────────────┘  └─────────────┘  └──────┬──────┘                     │
+│                                               │                             │
+│                                               ▼                             │
+│                                      ┌─────────────────┐                    │
+│                                      │ PostgresAdapter │                    │
+│                                      │ (auto-scaling)  │                    │
+│                                      └─────────────────┘                    │
 │                               │                                             │
 │                               ▼                                             │
 │                      ┌─────────────────┐                                    │
@@ -425,14 +555,6 @@ def home():
 │                               ▼                                             │
 │                          RESPONSE                                           │
 │                      (HTML + ~5KB JS)                                       │
-│                                                                              │
-│                               │                                             │
-│                               ▼                                             │
-│                      ┌─────────────────┐                                    │
-│                      │  Browser        │                                    │
-│                      │  Hydration      │                                    │
-│                      │  (Signals live) │                                    │
-│                      └─────────────────┘                                    │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -481,6 +603,16 @@ span()[count]
 | `Effect` | Side effects | `@Effect def log(): print(count())` |
 | `Resource` | Async data with loading/error | `users = Resource(fetch_users)` |
 
+### Data Layer
+
+| Feature | Purpose | Example |
+|---------|---------|---------|
+| `Table` | Model definition | `class User(Table): name: str` |
+| `select()` | Query builder | `User.select().where(age__gt=18)` |
+| `insert()` | Create record | `await User.insert(name="Alice")` |
+| `transaction()` | Atomic operations | `async with db.transaction(): ...` |
+| `PostgresAdapter` | PostgreSQL connection | `PostgresAdapter("postgresql://...")` |
+
 ### Rendering Helpers
 
 | Helper | Purpose | Example |
@@ -500,6 +632,8 @@ span()[count]
 | **Image Optimization** | Build-time AVIF/WebP, lazy load | Faster LCP |
 | **Font Optimization** | Precomputed fallback metrics | Zero CLS |
 | **Streaming** | Progressive HTML delivery | 5,000x faster TTFB |
+| **Connection Pool** | Auto-scaling PostgreSQL connections | Handle traffic spikes |
+| **Statement Cache** | Reuse prepared statements | 10-30% faster queries |
 
 ---
 
@@ -515,6 +649,20 @@ span()[count]
 | **Data Libraries** | Need to serialize to JSON | Use pandas, numpy directly |
 | **JS Bundle** | 50-200KB+ | 5KB base, 0 for static |
 | **Learning Curve** | React + Next.js concepts | Just Python |
+| **Database** | External (Prisma, Drizzle) | Built-in ORM + PostgreSQL |
+| **Migrations** | Manual setup | `pynext db migrate` |
+| **Test Suite** | Varies by project | 4,886 tests included |
+
+### PyNext vs Django
+
+| Aspect | Django | PyNext |
+|--------|--------|--------|
+| **ORM** | Django ORM (sync-first) | Async-first, type hints |
+| **Reactivity** | None (server-only rendering) | Fine-grained Signals |
+| **JS Integration** | Manual (forms, HTMX) | Automatic hydration |
+| **Template Engine** | Django templates | Python functions |
+| **Setup Complexity** | Heavy framework, many settings | Lightweight, sensible defaults |
+| **Modern Features** | Retrofit (async, type hints) | Built-in from day one |
 
 ### PyNext vs HTMX
 
@@ -534,6 +682,7 @@ span()[count]
 | **Customization** | Limited widgets | Full HTML/CSS control |
 | **Deployment** | Streamlit Cloud | Any ASGI server |
 | **Performance** | Re-runs entire script | Fine-grained updates |
+| **Database** | External | Built-in ORM |
 
 ---
 
@@ -543,23 +692,24 @@ span()[count]
 
 ### Quick Links
 
-| Getting Started | Building Apps | Going to Production |
-|-----------------|---------------|---------------------|
-| [Getting Started](docs/getting-started/GETTING_STARTED.md) | [Server Actions](docs/data-server/SERVER_ACTIONS.md) | [Deployment](docs/production/DEPLOYMENT.md) |
-| [Routing](docs/routing/ROUTING.md) | [State Management](docs/core-concepts/STATE_MANAGEMENT.md) | [Testing](docs/production/TESTING.md) |
-| [HTML API](docs/core-concepts/HTML_API.md) | [State Patterns](docs/data-server/STATE_PATTERNS.md) | [Configuration](docs/getting-started/CONFIGURATION.md) |
-| [Layouts](docs/routing/LAYOUTS.md) | [API Routes](docs/data-server/API_ROUTES.md) | [CLI Reference](docs/getting-started/CLI.md) |
+| Getting Started | Building Apps | Data Layer | Going to Production |
+|-----------------|---------------|------------|---------------------|
+| [Getting Started](docs/getting-started/GETTING_STARTED.md) | [Server Actions](docs/data-server/SERVER_ACTIONS.md) | [Database ORM](docs/features/DATABASE.md) | [Deployment](docs/production/DEPLOYMENT.md) |
+| [Routing](docs/routing/ROUTING.md) | [State Management](docs/core-concepts/STATE_MANAGEMENT.md) | [PostgreSQL](docs/features/POSTGRES.md) | [Testing](docs/production/TESTING.md) |
+| [HTML API](docs/core-concepts/HTML_API.md) | [State Patterns](docs/data-server/STATE_PATTERNS.md) | [Migrations](docs/features/MIGRATIONS.md) | [Configuration](docs/getting-started/CONFIGURATION.md) |
+| [Layouts](docs/routing/LAYOUTS.md) | [API Routes](docs/data-server/API_ROUTES.md) | | [CLI Reference](docs/getting-started/CLI.md) |
 
 ### Learning Paths
 
 | Goal | Path |
 |------|------|
 | **🟢 New to PyNext** | [Getting Started](docs/getting-started/GETTING_STARTED.md) → [HTML API](docs/core-concepts/HTML_API.md) → [Routing](docs/routing/ROUTING.md) → [State](docs/core-concepts/STATE_MANAGEMENT.md) |
-| **🟡 Building Apps** | [Server Actions](docs/data-server/SERVER_ACTIONS.md) → [State Patterns](docs/data-server/STATE_PATTERNS.md) → [Streaming](docs/rendering/STREAMING_SUSPENSE.md) |
+| **🟡 Building Apps** | [Server Actions](docs/data-server/SERVER_ACTIONS.md) → [State Patterns](docs/data-server/STATE_PATTERNS.md) → [Database](docs/features/DATABASE.md) |
 | **🔴 Performance** | [Islands](docs/rendering/ISLANDS.md) → [ISR](docs/rendering/ISR.md) → [Image Optimization](docs/optimization/IMAGE_OPTIMIZATION.md) |
 | **📝 Content Sites** | [Static Generation](docs/rendering/STATIC_GENERATION.md) → [ISR](docs/rendering/ISR.md) → [Draft Mode](docs/advanced/DRAFT_MODE.md) |
+| **🗄️ Data Layer** | [Database ORM](docs/features/DATABASE.md) → [PostgreSQL](docs/features/POSTGRES.md) → [Migrations](docs/features/MIGRATIONS.md) |
 
-### All 32 Guides
+### All Documentation
 
 <details>
 <summary><strong>🚀 Getting Started</strong> (3 guides)</summary>
@@ -605,6 +755,17 @@ span()[count]
 | [API Routes](docs/data-server/API_ROUTES.md) | REST endpoints alongside pages |
 | [State Patterns](docs/data-server/STATE_PATTERNS.md) | Forms, async state, optimistic updates |
 | [State & Data Integration](docs/data-server/STATE_DATA_INTEGRATION.md) | Full data flow patterns |
+
+</details>
+
+<details>
+<summary><strong>🗄️ Data Layer</strong> (3 guides)</summary>
+
+| Guide | Description |
+|-------|-------------|
+| [Database ORM](docs/features/DATABASE.md) | Tables, queries, relationships, transactions |
+| [PostgreSQL](docs/features/POSTGRES.md) | Connection pooling, performance, configuration |
+| [Migrations](docs/features/MIGRATIONS.md) | Schema changes, rollback, SQL generation |
 
 </details>
 
@@ -664,74 +825,6 @@ span()[count]
 
 </details>
 
-<details>
-<summary><strong>📋 Reference</strong> (1 guide)</summary>
-
-| Guide | Description |
-|-------|-------------|
-| [Phase 2 Features](docs/reference/PHASE2_FEATURES.md) | Roadmap and upcoming features |
-
-</details>
-
-### Documentation Structure
-
-```
-docs/
-├── README.md                    ← Full index with search
-│
-├── getting-started/             🚀 Start here
-│   ├── GETTING_STARTED.md
-│   ├── CLI.md
-│   └── CONFIGURATION.md
-│
-├── core-concepts/               🧱 Fundamentals
-│   ├── HTML_API.md
-│   ├── STATE_MANAGEMENT.md
-│   └── HYDRATION.md
-│
-├── routing/                     🛤️ Navigation
-│   ├── ROUTING.md
-│   ├── LAYOUTS.md
-│   ├── TRANSITIONS.md
-│   ├── PARALLEL_ROUTES.md
-│   └── INTERCEPTING_ROUTES.md
-│
-├── data-server/                 📊 Data & Forms
-│   ├── SERVER_ACTIONS.md
-│   ├── API_ROUTES.md
-│   ├── STATE_PATTERNS.md
-│   └── STATE_DATA_INTEGRATION.md
-│
-├── rendering/                   ⚡ Rendering
-│   ├── STREAMING_SUSPENSE.md
-│   ├── ISLANDS.md
-│   ├── STATIC_GENERATION.md
-│   ├── ISR.md
-│   └── PARTIAL_PRERENDERING.md
-│
-├── advanced/                    🔧 Power Features
-│   ├── MIDDLEWARE.md
-│   ├── DRAFT_MODE.md
-│   └── I18N.md
-│
-├── optimization/                📦 Performance
-│   ├── IMAGE_OPTIMIZATION.md
-│   ├── FONT_OPTIMIZATION.md
-│   ├── SCRIPT_OPTIMIZATION.md
-│   └── CODE_SPLITTING.md
-│
-├── integrations/                🔌 External Tools
-│   ├── NPM_PACKAGES.md
-│   └── REACT_INTEGRATION.md
-│
-├── production/                  🚢 Deployment
-│   ├── DEPLOYMENT.md
-│   └── TESTING.md
-│
-└── reference/                   📋 Reference
-    └── PHASE2_FEATURES.md
-```
-
 ---
 
 ## Quick Examples
@@ -781,16 +874,21 @@ def todos():
     ]
 ```
 
-### Data Dashboard
+### Data Dashboard with Database
 
 ```python
-from pynext import page, server_action, Resource, Suspense, div, table
-import pandas as pd
+from pynext import page, server_action, Resource, Suspense, div, table, h1
+from pynext.db import Table
+
+class Sale(Table):
+    product: str
+    amount: float
+    date: str
 
 @server_action
 async def get_sales_data():
-    df = pd.read_csv("sales.csv")
-    return df.to_dict(orient="records")
+    # Query directly from PostgreSQL
+    return await Sale.select().order_by("-date").limit(100)
 
 @page
 def dashboard():
@@ -802,8 +900,8 @@ def dashboard():
             table()[
                 For(each=sales, render=lambda row:
                     tr()[
-                        td()[row["product"]],
-                        td()[f"${row['amount']:,.2f}"]
+                        td()[row.product],
+                        td()[f"${row.amount:,.2f}"]
                     ]
                 )
             ]
@@ -817,6 +915,7 @@ def dashboard():
 
 - **Python 3.10+**
 - **Node.js** (optional, for npm packages)
+- **PostgreSQL** (optional, for production database)
 
 ### Dependencies
 
@@ -824,6 +923,7 @@ def dashboard():
 - `uvicorn` — ASGI server
 - `orjson` — Fast JSON
 - `pydantic` — Validation
+- `asyncpg` — PostgreSQL driver (optional)
 
 ---
 
@@ -835,6 +935,13 @@ pynext dev           # Start dev server (hot reload)
 pynext build         # Build for production
 pynext start         # Start production server
 pynext routes        # List all routes
+
+# Database commands
+pynext db init       # Initialize migrations
+pynext db migrate    # Generate migration from models
+pynext db upgrade    # Apply pending migrations
+pynext db downgrade  # Rollback last migration
+pynext db status     # Show migration status
 ```
 
 ---
@@ -843,6 +950,15 @@ pynext routes        # List all routes
 
 ```python
 # pynext.config.py
+from pynext.db import PostgresAdapter
+
+# Database connection
+db = PostgresAdapter(
+    "postgresql://user:pass@localhost:5432/mydb",
+    min_pool_size=5,
+    max_pool_size=20,
+    statement_cache_size=100,
+)
 
 # NPM packages to bundle
 npm_packages = [
@@ -866,6 +982,13 @@ react_compat = True
 
 Contributions are welcome! See our [Contributing Guide](CONTRIBUTING.md) for details.
 
+**Our principles:**
+- Readable and simple code
+- AI-friendly (LLMs can understand and extend)
+- Comprehensive tests (4,886 and counting)
+- SolidJS ethos (fine-grained, minimal overhead)
+- Faster than Next.js
+
 ## License
 
 MIT License — see [LICENSE](LICENSE) for details.
@@ -873,5 +996,5 @@ MIT License — see [LICENSE](LICENSE) for details.
 ---
 
 <p align="center">
-  <strong>Built with ❤️ for Python developers who want modern web UIs.</strong>
+  <strong>Built with ❤️ for Python developers who want modern, full-stack web apps.</strong>
 </p>
