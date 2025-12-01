@@ -12,7 +12,7 @@ Every contribution to PyNext should align with these core principles:
 |-----------|----------------|---------------|
 | **Readable & Simple** | Python devs shouldn't need web expertise to contribute | Plain English in comments, no jargon, obvious variable names |
 | **AI-Friendly** | LLMs should understand and extend code easily | Clear docstrings, explicit types, self-documenting patterns |
-| **Comprehensive Tests** | 4,886 tests and counting—we don't ship bugs | Every feature needs tests, edge cases covered |
+| **Comprehensive Tests** | 5,946 tests and counting—we don't ship bugs | Every feature needs tests, edge cases covered |
 | **Extensive Documentation** | Docs are how developers and LLMs learn PyNext | Follow our doc templates, explain first principles, real examples |
 | **SolidJS Ethos** | Fine-grained reactivity, minimal overhead | No virtual DOM patterns, surgical updates only |
 | **Faster Than Next.js** | Performance is a feature, not an afterthought | Benchmark before merging, no unnecessary abstractions |

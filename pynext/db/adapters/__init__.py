@@ -43,6 +43,34 @@ Usage:
             mode=PoolerMode.TRANSACTION,
         ),
     )
+    
+    # Production with Phase 5.3 Reliability Features
+    from pynext.db.adapters import (
+        PostgresAdapter,
+        RetryConfig,
+        CircuitBreakerConfig,
+        Replica,
+        DegradationConfig,
+        DegradationTrigger,
+        DegradationLevel,
+        DegradationMetric,
+    )
+    
+    adapter = PostgresAdapter(
+        primary="postgresql://primary/mydb",
+        replicas=[
+            Replica("postgresql://replica1/mydb", weight=3),
+            Replica("postgresql://replica2/mydb", weight=1),
+        ],
+        reliability=True,  # Enable all reliability features
+        retry_config=RetryConfig(max_attempts=3),
+        circuit_breaker=CircuitBreakerConfig(failure_threshold=5),
+        degradation=DegradationConfig(
+            triggers=[
+                DegradationTrigger(DegradationMetric.QUEUE_DEPTH, 100, DegradationLevel.DEGRADED),
+            ],
+        ),
+    )
 """
 
 from pynext.db.adapters.base import Adapter
@@ -109,6 +137,65 @@ try:
         create_pooler_config_for_neon,
     )
     
+    # Phase 5.3: Retry logic
+    from pynext.db.adapters.postgres_retry import (
+        RetryConfig,
+        RetryManager,
+        RetryError,
+        RetryStats,
+        BackoffStrategy,
+        with_retry,
+        quick_retry,
+        standard_retry,
+        aggressive_retry,
+        no_retry,
+    )
+    
+    # Phase 5.3: Circuit breaker
+    from pynext.db.adapters.postgres_circuit import (
+        CircuitBreaker,
+        CircuitBreakerConfig,
+        CircuitBreakerRegistry,
+        CircuitOpenError,
+        CircuitScope,
+        CircuitState,
+        CircuitStats,
+        create_global_breaker,
+        create_sensitive_breaker,
+        create_tolerant_breaker,
+    )
+    
+    # Phase 5.3: Read replica routing
+    from pynext.db.adapters.postgres_replica import (
+        Replica,
+        ReplicaConfig,
+        ReplicaHealth,
+        ReplicaManager,
+        ReplicaStats,
+        ReplicaSetStats,
+        ReplicaUnavailableError,
+        RoutingStrategy,
+        simple_replicas,
+        weighted_replicas,
+    )
+    
+    # Phase 5.3: Graceful degradation
+    from pynext.db.adapters.postgres_degradation import (
+        DegradationAction,
+        DegradationConfig,
+        DegradationError,
+        DegradationLevel,
+        DegradationManager,
+        DegradationMetric,
+        DegradationStats,
+        DegradationTrigger,
+        default_actions,
+        default_triggers,
+        disabled_config,
+        lenient_config,
+        strict_config,
+    )
+    
     _HAS_POSTGRES = True
 except ImportError:
     _HAS_POSTGRES = False
@@ -154,6 +241,50 @@ except ImportError:
     create_pooler_config_for_supabase = None  # type: ignore
     create_pooler_config_for_render = None  # type: ignore
     create_pooler_config_for_neon = None  # type: ignore
+    # Phase 5.3 fallbacks
+    RetryConfig = None  # type: ignore
+    RetryManager = None  # type: ignore
+    RetryError = None  # type: ignore
+    RetryStats = None  # type: ignore
+    BackoffStrategy = None  # type: ignore
+    with_retry = None  # type: ignore
+    quick_retry = None  # type: ignore
+    standard_retry = None  # type: ignore
+    aggressive_retry = None  # type: ignore
+    no_retry = None  # type: ignore
+    CircuitBreaker = None  # type: ignore
+    CircuitBreakerConfig = None  # type: ignore
+    CircuitBreakerRegistry = None  # type: ignore
+    CircuitOpenError = None  # type: ignore
+    CircuitScope = None  # type: ignore
+    CircuitState = None  # type: ignore
+    CircuitStats = None  # type: ignore
+    create_global_breaker = None  # type: ignore
+    create_sensitive_breaker = None  # type: ignore
+    create_tolerant_breaker = None  # type: ignore
+    Replica = None  # type: ignore
+    ReplicaConfig = None  # type: ignore
+    ReplicaHealth = None  # type: ignore
+    ReplicaManager = None  # type: ignore
+    ReplicaStats = None  # type: ignore
+    ReplicaSetStats = None  # type: ignore
+    ReplicaUnavailableError = None  # type: ignore
+    RoutingStrategy = None  # type: ignore
+    simple_replicas = None  # type: ignore
+    weighted_replicas = None  # type: ignore
+    DegradationAction = None  # type: ignore
+    DegradationConfig = None  # type: ignore
+    DegradationError = None  # type: ignore
+    DegradationLevel = None  # type: ignore
+    DegradationManager = None  # type: ignore
+    DegradationMetric = None  # type: ignore
+    DegradationStats = None  # type: ignore
+    DegradationTrigger = None  # type: ignore
+    default_actions = None  # type: ignore
+    default_triggers = None  # type: ignore
+    disabled_config = None  # type: ignore
+    lenient_config = None  # type: ignore
+    strict_config = None  # type: ignore
 
 __all__ = [
     "Adapter",
@@ -205,4 +336,51 @@ __all__ = [
     "create_pooler_config_for_supabase",
     "create_pooler_config_for_render",
     "create_pooler_config_for_neon",
+    # Phase 5.3: Retry logic
+    "RetryConfig",
+    "RetryManager",
+    "RetryError",
+    "RetryStats",
+    "BackoffStrategy",
+    "with_retry",
+    "quick_retry",
+    "standard_retry",
+    "aggressive_retry",
+    "no_retry",
+    # Phase 5.3: Circuit breaker
+    "CircuitBreaker",
+    "CircuitBreakerConfig",
+    "CircuitBreakerRegistry",
+    "CircuitOpenError",
+    "CircuitScope",
+    "CircuitState",
+    "CircuitStats",
+    "create_global_breaker",
+    "create_sensitive_breaker",
+    "create_tolerant_breaker",
+    # Phase 5.3: Read replica routing
+    "Replica",
+    "ReplicaConfig",
+    "ReplicaHealth",
+    "ReplicaManager",
+    "ReplicaStats",
+    "ReplicaSetStats",
+    "ReplicaUnavailableError",
+    "RoutingStrategy",
+    "simple_replicas",
+    "weighted_replicas",
+    # Phase 5.3: Graceful degradation
+    "DegradationAction",
+    "DegradationConfig",
+    "DegradationError",
+    "DegradationLevel",
+    "DegradationManager",
+    "DegradationMetric",
+    "DegradationStats",
+    "DegradationTrigger",
+    "default_actions",
+    "default_triggers",
+    "disabled_config",
+    "lenient_config",
+    "strict_config",
 ]

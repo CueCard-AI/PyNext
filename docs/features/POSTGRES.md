@@ -66,6 +66,102 @@ adapter = PostgresAdapter(
 )
 ```
 
+## Production Reliability
+
+Enable production-grade fault tolerance with a single flag:
+
+### Quick Start
+
+```python
+# Enable all reliability features
+adapter = PostgresAdapter("postgresql://localhost/mydb", reliability=True)
+```
+
+This automatically enables:
+- ✅ Retry with exponential backoff (3 attempts)
+- ✅ Circuit breaker (opens after 5 failures)
+- ✅ Graceful degradation (auto-recovery)
+
+### With Read Replicas
+
+Scale reads by adding replicas:
+
+```python
+adapter = PostgresAdapter(
+    # Primary for writes
+    primary="postgresql://primary.example.com/mydb",
+    
+    # Replicas for reads (2 options)
+    replicas=[
+        # Style 1: URL string
+        "postgresql://replica1.example.com/mydb",
+        
+        # Style 2: Keyword arguments
+        Replica(
+            host="replica2.example.com",
+            port=5432,
+            database="mydb",
+            user="postgres",
+            password="secret",
+            ssl=True,
+            weight=2,  # Gets 2x traffic
+        ),
+    ],
+)
+await adapter.connect()
+
+# Reads go to replicas
+users = await adapter.read("SELECT * FROM users")
+
+# Writes go to primary
+await adapter.write("INSERT INTO users (name) VALUES ($1)", ("John",))
+```
+
+### Full Control
+
+For enterprise configurations:
+
+```python
+from pynext.db.adapters import (
+    PostgresAdapter,
+    Replica, ReplicaConfig,
+    RetryConfig,
+    CircuitBreakerConfig,
+    DegradationConfig,
+)
+
+adapter = PostgresAdapter(
+    host="primary.example.com",
+    port=5432,
+    database="mydb",
+    user="postgres",
+    password="secret",
+    ssl=True,
+    
+    replicas=ReplicaConfig(
+        replicas=[
+            Replica(
+                host="replica1.example.com",
+                database="mydb",
+                user="postgres",
+                password="secret",
+                weight=3,
+                max_lag=5.0,
+            ),
+        ],
+        routing="weighted_random",
+    ),
+    
+    retry=RetryConfig(max_attempts=5),
+    circuit_breaker=CircuitBreakerConfig(failure_threshold=10),
+    degradation=DegradationConfig(auto_recovery=True),
+)
+```
+
+See [RELIABILITY.md](RELIABILITY.md) for comprehensive documentation.
+
+---
+
 ## Auto-Scaling Connection Pool
 
 The adapter automatically manages a connection pool that scales based on demand.

@@ -497,7 +497,12 @@ class TestConvenienceMethods:
         result = await pool.fetchval("SELECT COUNT(*) FROM users")
         
         assert result == 42
-        mock_conn.fetchval.assert_called_once()
+        # Check the actual query was called (not just health check)
+        mock_conn.fetchval.assert_any_call(
+            "SELECT COUNT(*) FROM users",
+            column=0,
+            timeout=None,
+        )
         
         await pool.close()
 

@@ -651,7 +651,7 @@ span()[count]
 | **Learning Curve** | React + Next.js concepts | Just Python |
 | **Database** | External (Prisma, Drizzle) | Built-in ORM + PostgreSQL |
 | **Migrations** | Manual setup | `pynext db migrate` |
-| **Test Suite** | Varies by project | 5,386 tests included |
+| **Test Suite** | Varies by project | 5,946 tests included |
 
 ### PyNext vs Django
 
