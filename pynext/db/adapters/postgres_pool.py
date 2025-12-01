@@ -17,11 +17,18 @@ How Auto-Scaling Works:
    - Close them, but never go below min_size
 4. Connections older than `max_lifetime` are closed and replaced
 
+Phase 5.2 Features:
+- Connection Queue: Fair FIFO queuing with backpressure
+- Lifecycle Management: Soft/hard limits, graceful replacement
+- Connection Warmup: Pre-warm connections for instant use
+- External Pooler Support: PgBouncer, pgpool compatibility
+
 Why This Matters:
 - Small apps: Use minimal resources (1-2 connections)
 - Traffic spikes: Instantly scale up to handle load
 - After spike: Scale back down, free memory
 - No wasted connections sitting idle
+- Production-ready: Handles PgBouncer, health checks, warmup
 
 AI-Friendly Design:
 - Clear state machine (idle, busy, closed)
@@ -37,9 +44,37 @@ import time
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, AsyncIterator, Callable, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, AsyncIterator, Callable, Dict, List, Optional, Set, TYPE_CHECKING
 
 from .postgres_url import PostgresConfig
+from .postgres_queue import (
+    ConnectionQueue,
+    QueueConfig,
+    QueueFullError,
+    QueueTimeoutError,
+    QueueStats,
+)
+from .postgres_lifecycle import (
+    LifecycleManager,
+    LifecycleConfig,
+    ConnectionLifecycle,
+    LifecycleStats,
+    RetirementReason,
+    ConnectionHealth,
+)
+from .postgres_warmup import (
+    ConnectionWarmer,
+    WarmupConfig,
+    WarmupResult,
+    WarmupStats,
+)
+from .postgres_external import (
+    ExternalPoolerManager,
+    ExternalPoolerConfig,
+    PoolerType,
+    PoolerMode,
+    PoolerInfo,
+)
 
 if TYPE_CHECKING:
     import asyncpg
@@ -71,12 +106,14 @@ class PooledConnection:
     
     Attributes:
         connection: The asyncpg connection
+        connection_id: Unique identifier for this connection
         state: Current state (idle, busy, closed)
         created_at: When the connection was created
         last_used: When the connection was last used
         use_count: Number of times this connection was used
     """
     connection: "asyncpg.Connection"
+    connection_id: str = ""
     state: ConnectionState = ConnectionState.IDLE
     created_at: float = field(default_factory=time.monotonic)
     last_used: float = field(default_factory=time.monotonic)
@@ -140,6 +177,11 @@ class PoolStats:
         total_timeouts: Number of acquire timeouts
         created: Total connections created
         closed: Total connections closed
+        queue_depth: Current queue depth (Phase 5.2)
+        queue_wait_avg_ms: Average queue wait time (Phase 5.2)
+        queue_wait_p99_ms: 99th percentile queue wait time (Phase 5.2)
+        warmup_success_rate: Warmup success rate (Phase 5.2)
+        health_check_failures: Number of health check failures (Phase 5.2)
     """
     size: int = 0
     idle: int = 0
@@ -152,6 +194,13 @@ class PoolStats:
     total_timeouts: int = 0
     created: int = 0
     closed: int = 0
+    # Phase 5.2 additions
+    queue_depth: int = 0
+    queue_wait_avg_ms: float = 0
+    queue_wait_p99_ms: float = 0
+    warmup_success_rate: float = 1.0
+    health_check_failures: int = 0
+    is_under_pressure: bool = False
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for logging/metrics."""
@@ -166,6 +215,13 @@ class PoolStats:
             "total_releases": self.total_releases,
             "total_timeouts": self.total_timeouts,
             "utilization": self.busy / self.size if self.size > 0 else 0,
+            # Phase 5.2 additions
+            "queue_depth": self.queue_depth,
+            "queue_wait_avg_ms": self.queue_wait_avg_ms,
+            "queue_wait_p99_ms": self.queue_wait_p99_ms,
+            "warmup_success_rate": self.warmup_success_rate,
+            "health_check_failures": self.health_check_failures,
+            "is_under_pressure": self.is_under_pressure,
         }
 
 
@@ -178,6 +234,12 @@ class AutoScalingPool:
     2. **Auto-Scaling Up**: When all connections are busy, create more (up to max)
     3. **Auto-Scaling Down**: Close idle connections after timeout (down to min)
     4. **Connection Lifetime**: Replace old connections to prevent staleness
+    
+    Phase 5.2 Features:
+    5. **Fair Queuing**: FIFO queue with backpressure when pool is exhausted
+    6. **Lifecycle Management**: Soft/hard limits, graceful replacement
+    7. **Connection Warmup**: Pre-warm connections for instant use
+    8. **External Pooler Support**: PgBouncer, pgpool compatibility
     
     Basic Usage:
         pool = AutoScalingPool(
@@ -202,6 +264,20 @@ class AutoScalingPool:
             idle_timeout=300,    # Close idle connections after 5 min
             max_lifetime=3600,   # Replace connections after 1 hour
             acquire_timeout=30,  # Wait up to 30s for a connection
+            # Phase 5.2 features
+            queue_config=QueueConfig(max_size=1000),
+            lifecycle_config=LifecycleConfig(soft_lifetime=1800),
+            warmup_config=WarmupConfig(enabled=True),
+        )
+    
+    With External Pooler (PgBouncer):
+        pool = AutoScalingPool(
+            config=config,
+            external_pooler=ExternalPoolerConfig(
+                enabled=True,
+                type=PoolerType.PGBOUNCER,
+                mode=PoolerMode.TRANSACTION,
+            ),
         )
     """
     
@@ -217,6 +293,14 @@ class AutoScalingPool:
         acquire_timeout: float = 30.0,
         connect_timeout: float = 10.0,
         command_timeout: Optional[float] = None,
+        # Phase 5.2: Queue configuration
+        queue_config: Optional[QueueConfig] = None,
+        # Phase 5.2: Lifecycle configuration
+        lifecycle_config: Optional[LifecycleConfig] = None,
+        # Phase 5.2: Warmup configuration
+        warmup_config: Optional[WarmupConfig] = None,
+        # Phase 5.2: External pooler configuration
+        external_pooler: Optional[ExternalPoolerConfig] = None,
     ):
         """Initialize the pool.
         
@@ -230,6 +314,10 @@ class AutoScalingPool:
             acquire_timeout: Max time to wait for a connection (default: 30)
             connect_timeout: Timeout for creating new connections (default: 10)
             command_timeout: Default command timeout (default: None = no timeout)
+            queue_config: Queue configuration for waiting requests (Phase 5.2)
+            lifecycle_config: Lifecycle management configuration (Phase 5.2)
+            warmup_config: Connection warmup configuration (Phase 5.2)
+            external_pooler: External pooler (PgBouncer/pgpool) config (Phase 5.2)
         
         Raises:
             ValueError: If min_size > max_size or invalid values
@@ -261,6 +349,7 @@ class AutoScalingPool:
         # State
         self._state = PoolState.UNINITIALIZED
         self._connections: List[PooledConnection] = []
+        self._busy_connections: Set[str] = set()  # Track which connections are busy
         self._waiters: asyncio.Queue[asyncio.Future] = asyncio.Queue()
         
         # Synchronization
@@ -271,6 +360,29 @@ class AutoScalingPool:
         
         # Background tasks
         self._maintenance_task: Optional[asyncio.Task] = None
+        
+        # Phase 5.2: Advanced queue management
+        self._queue = ConnectionQueue(queue_config or QueueConfig(
+            max_wait_time=acquire_timeout,
+        ))
+        
+        # Phase 5.2: Lifecycle management
+        lifecycle_cfg = lifecycle_config or LifecycleConfig(
+            max_lifetime=max_lifetime,
+            soft_lifetime=max_lifetime / 2,
+        )
+        self._lifecycle_manager = LifecycleManager(lifecycle_cfg)
+        
+        # Phase 5.2: Connection warmup
+        self._warmer = ConnectionWarmer(warmup_config or WarmupConfig())
+        
+        # Phase 5.2: External pooler support
+        self._external_pooler = ExternalPoolerManager(
+            external_pooler or ExternalPoolerConfig()
+        )
+        
+        # Connection ID counter
+        self._connection_id_counter = 0
     
     @property
     def size(self) -> int:
@@ -282,13 +394,40 @@ class AutoScalingPool:
         """Current pool state."""
         return self._state
     
+    @property
+    def is_under_pressure(self) -> bool:
+        """Check if pool is under pressure (queue has waiting requests)."""
+        return self._queue.is_under_pressure
+    
+    @property
+    def queue_depth(self) -> int:
+        """Current number of requests waiting in queue."""
+        return self._queue.depth
+    
+    @property
+    def lifecycle_manager(self) -> LifecycleManager:
+        """Get the lifecycle manager for advanced control."""
+        return self._lifecycle_manager
+    
+    @property
+    def warmer(self) -> ConnectionWarmer:
+        """Get the connection warmer for advanced control."""
+        return self._warmer
+    
+    @property
+    def external_pooler(self) -> ExternalPoolerManager:
+        """Get the external pooler manager."""
+        return self._external_pooler
+    
     async def start(self) -> None:
         """Start the pool and create initial connections.
         
         This method:
         1. Creates min_size initial connections
-        2. Starts the maintenance task (for cleanup)
-        3. Sets pool state to RUNNING
+        2. Warms up connections (if warmup enabled)
+        3. Detects external pooler (if enabled)
+        4. Starts the maintenance task (for cleanup)
+        5. Sets pool state to RUNNING
         
         Example:
             pool = AutoScalingPool(config)
@@ -302,13 +441,30 @@ class AutoScalingPool:
         logger.info(f"Starting pool (min={self._min_size}, max={self._max_size})")
         
         # Create initial connections
+        connections_to_warm = {}
         async with self._lock:
             for _ in range(self._min_size):
                 try:
-                    conn = await self._create_connection()
-                    self._connections.append(conn)
+                    pooled = await self._create_connection()
+                    self._connections.append(pooled)
+                    connections_to_warm[pooled.connection_id] = pooled.connection
                 except Exception as e:
                     logger.error(f"Failed to create initial connection: {e}")
+        
+        # Phase 5.2: Detect external pooler on first connection
+        if self._external_pooler.is_enabled and self._connections:
+            try:
+                await self._external_pooler.detect_pooler(
+                    self._connections[0].connection
+                )
+            except Exception as e:
+                logger.warning(f"Failed to detect external pooler: {e}")
+        
+        # Phase 5.2: Warm up connections
+        if self._warmer.enabled and connections_to_warm:
+            warmup_results = await self._warmer.warmup_all(connections_to_warm)
+            successful = sum(1 for r in warmup_results if r.success)
+            logger.info(f"Warmed {successful}/{len(warmup_results)} connections")
         
         self._state = PoolState.RUNNING
         
@@ -322,9 +478,10 @@ class AutoScalingPool:
         
         This method:
         1. Stops accepting new requests
-        2. Waits for busy connections to be released
-        3. Closes all connections
-        4. Cancels maintenance task
+        2. Cancels all queued requests
+        3. Waits for busy connections to be released
+        4. Closes all connections
+        5. Cancels maintenance task
         
         Example:
             await pool.close()
@@ -335,6 +492,11 @@ class AutoScalingPool:
         
         logger.info("Closing pool...")
         self._state = PoolState.CLOSING
+        
+        # Phase 5.2: Cancel all queued requests
+        cancelled = self._queue.cancel_all()
+        if cancelled:
+            logger.info(f"Cancelled {cancelled} queued requests")
         
         # Cancel maintenance
         if self._maintenance_task:
@@ -349,6 +511,7 @@ class AutoScalingPool:
             for pooled in self._connections:
                 await self._close_connection(pooled)
             self._connections.clear()
+            self._busy_connections.clear()
         
         self._state = PoolState.CLOSED
         logger.info("Pool closed")
@@ -388,7 +551,13 @@ class AutoScalingPool:
             await self._release_connection(connection)
     
     async def _acquire_connection(self) -> PooledConnection:
-        """Internal: Get a connection from the pool."""
+        """Internal: Get a connection from the pool.
+        
+        Phase 5.2 enhancements:
+        - Uses advanced queue with fair FIFO ordering
+        - Respects lifecycle manager for connection health
+        - Warm new connections if warmup is enabled
+        """
         start_time = time.monotonic()
         
         while True:
@@ -406,7 +575,17 @@ class AutoScalingPool:
                 # Try to get an idle connection
                 for pooled in self._connections:
                     if pooled.state == ConnectionState.IDLE:
-                        # Check if connection is too old
+                        # Phase 5.2: Check lifecycle - should we retire this connection?
+                        reason = self._lifecycle_manager.should_retire(pooled.connection_id)
+                        if reason:
+                            logger.debug(
+                                f"Retiring connection {pooled.connection_id}: {reason.value}"
+                            )
+                            await self._close_connection(pooled)
+                            self._connections.remove(pooled)
+                            continue
+                        
+                        # Legacy check: connection too old (for backward compat)
                         if self._max_lifetime > 0 and pooled.age() > self._max_lifetime:
                             await self._close_connection(pooled)
                             self._connections.remove(pooled)
@@ -414,16 +593,32 @@ class AutoScalingPool:
                         
                         # Use this connection
                         pooled.mark_busy()
+                        self._busy_connections.add(pooled.connection_id)
+                        self._lifecycle_manager.mark_used(pooled.connection_id)
                         self._stats.total_acquires += 1
                         self._update_stats()
-                        logger.debug(f"Acquired connection (pool size: {self.size})")
+                        logger.debug(f"Acquired connection {pooled.connection_id}")
                         return pooled
                 
                 # No idle connections - can we create one?
                 if self._auto_scale and len(self._connections) < self._max_size:
                     try:
                         pooled = await self._create_connection()
+                        
+                        # Phase 5.2: Warm new connection if enabled
+                        if self._warmer.enabled:
+                            result = await self._warmer.warmup_connection(
+                                pooled.connection_id,
+                                pooled.connection,
+                            )
+                            if not result.success:
+                                logger.warning(
+                                    f"Warmup failed for {pooled.connection_id}"
+                                )
+                        
                         pooled.mark_busy()
+                        self._busy_connections.add(pooled.connection_id)
+                        self._lifecycle_manager.mark_used(pooled.connection_id)
                         self._connections.append(pooled)
                         self._stats.total_acquires += 1
                         self._update_stats()
@@ -432,17 +627,64 @@ class AutoScalingPool:
                     except Exception as e:
                         logger.error(f"Failed to create connection: {e}")
             
-            # Wait a bit before retrying
-            await asyncio.sleep(0.01)
+            # Phase 5.2: Pool exhausted - enter queue
+            if self._queue.depth < self._queue.config.max_size:
+                try:
+                    remaining_timeout = self._acquire_timeout - elapsed
+                    await self._queue.enqueue(timeout=remaining_timeout)
+                    # Queue returned - a connection should now be available
+                    continue
+                except QueueTimeoutError:
+                    self._stats.total_timeouts += 1
+                    raise PoolExhaustedError(
+                        f"Queue timeout after {elapsed:.1f}s.\n"
+                        f"Pool stats: {self.get_stats().to_dict()}\n"
+                        "Consider increasing pool size or queue timeout."
+                    )
+                except QueueFullError as e:
+                    raise PoolExhaustedError(
+                        f"Queue full with {e.queue_size} waiting.\n"
+                        f"Pool stats: {self.get_stats().to_dict()}\n"
+                        "System is overloaded."
+                    )
+            else:
+                # Wait a bit before retrying
+                await asyncio.sleep(0.01)
     
     async def _release_connection(self, pooled: PooledConnection) -> None:
-        """Internal: Return a connection to the pool."""
+        """Internal: Return a connection to the pool.
+        
+        Phase 5.2 enhancements:
+        - Notify queue when connection is available
+        - Check if connection should be retired
+        """
         async with self._lock:
             if pooled.state == ConnectionState.BUSY:
+                self._busy_connections.discard(pooled.connection_id)
+                
+                # Phase 5.2: Check if connection should be retired on release
+                reason = self._lifecycle_manager.should_prefer_retirement(
+                    pooled.connection_id
+                )
+                if reason:
+                    logger.debug(
+                        f"Retiring connection {pooled.connection_id} on release: "
+                        f"{reason.value}"
+                    )
+                    await self._close_connection(pooled)
+                    self._connections.remove(pooled)
+                    
+                    # Notify queue that capacity freed up
+                    self._queue.notify_available()
+                    return
+                
                 pooled.mark_idle()
                 self._stats.total_releases += 1
                 self._update_stats()
-                logger.debug(f"Released connection (pool size: {self.size})")
+                logger.debug(f"Released connection {pooled.connection_id}")
+                
+                # Phase 5.2: Notify queue that connection is available
+                self._queue.notify_available()
     
     async def _create_connection(self) -> PooledConnection:
         """Internal: Create a new database connection."""
@@ -459,12 +701,27 @@ class AutoScalingPool:
         if self._command_timeout:
             kwargs["command_timeout"] = self._command_timeout
         
+        # Phase 5.2: Apply external pooler connection options
+        if self._external_pooler.is_enabled:
+            pooler_opts = self._external_pooler.get_connection_options()
+            kwargs.update(pooler_opts)
+        
         connection = await asyncpg.connect(**kwargs)
         
-        self._stats.created += 1
-        logger.debug(f"Created new connection (total created: {self._stats.created})")
+        # Generate unique connection ID
+        self._connection_id_counter += 1
+        connection_id = f"conn_{self._connection_id_counter}"
         
-        return PooledConnection(connection=connection)
+        # Phase 5.2: Register with lifecycle manager
+        self._lifecycle_manager.register_connection(connection_id)
+        
+        self._stats.created += 1
+        logger.debug(f"Created connection {connection_id} (total: {self._stats.created})")
+        
+        return PooledConnection(
+            connection=connection,
+            connection_id=connection_id,
+        )
     
     async def _close_connection(self, pooled: PooledConnection) -> None:
         """Internal: Close a connection."""
@@ -473,21 +730,74 @@ class AutoScalingPool:
             try:
                 await pooled.connection.close()
             except Exception as e:
-                logger.warning(f"Error closing connection: {e}")
+                logger.warning(f"Error closing connection {pooled.connection_id}: {e}")
             pooled.state = ConnectionState.CLOSED
+            
+            # Phase 5.2: Unregister from lifecycle manager
+            self._lifecycle_manager.unregister_connection(pooled.connection_id)
+            self._busy_connections.discard(pooled.connection_id)
+            
             self._stats.closed += 1
-            logger.debug(f"Closed connection (total closed: {self._stats.closed})")
+            logger.debug(f"Closed connection {pooled.connection_id}")
     
     async def _maintenance_loop(self) -> None:
-        """Background task to clean up idle connections."""
+        """Background task to clean up idle connections and run health checks.
+        
+        Phase 5.2 enhancements:
+        - Run health checks on connections needing them
+        - Retire connections based on lifecycle rules
+        """
         while self._state == PoolState.RUNNING:
             try:
                 await asyncio.sleep(30)  # Check every 30 seconds
                 await self._cleanup_idle_connections()
+                
+                # Phase 5.2: Run health checks
+                await self._run_health_checks()
+                
+                # Phase 5.2: Retire connections that should be retired
+                await self._retire_old_connections()
+                
             except asyncio.CancelledError:
                 break
             except Exception as e:
                 logger.error(f"Error in maintenance loop: {e}")
+    
+    async def _run_health_checks(self) -> None:
+        """Phase 5.2: Run health checks on connections that need them."""
+        connections_to_check = self._lifecycle_manager.get_connections_needing_health_check()
+        
+        if not connections_to_check:
+            return
+        
+        # Build mapping of connection_id to actual connection
+        conn_map = {}
+        for pooled in self._connections:
+            if (
+                pooled.connection_id in connections_to_check
+                and pooled.state == ConnectionState.IDLE
+            ):
+                conn_map[pooled.connection_id] = pooled.connection
+        
+        if conn_map:
+            unhealthy = await self._lifecycle_manager.check_all_health(conn_map)
+            self._stats.health_check_failures += len(unhealthy)
+    
+    async def _retire_old_connections(self) -> None:
+        """Phase 5.2: Retire connections that should be retired."""
+        to_retire = self._lifecycle_manager.get_connections_to_retire()
+        
+        async with self._lock:
+            for conn_id in to_retire:
+                for pooled in self._connections[:]:  # Copy list to allow modification
+                    if (
+                        pooled.connection_id == conn_id
+                        and pooled.state == ConnectionState.IDLE
+                    ):
+                        await self._close_connection(pooled)
+                        self._connections.remove(pooled)
+                        logger.info(f"Retired connection {conn_id}")
+                        break
     
     async def _cleanup_idle_connections(self) -> None:
         """Close connections that have been idle too long."""
@@ -526,14 +836,57 @@ class AutoScalingPool:
         """Get current pool statistics.
         
         Returns:
-            PoolStats with current values
+            PoolStats with current values including Phase 5.2 metrics
         
         Example:
             stats = pool.get_stats()
             print(f"Pool: {stats.busy}/{stats.size} connections busy")
+            print(f"Queue: {stats.queue_depth} waiting")
         """
         self._update_stats()
+        
+        # Phase 5.2: Add queue statistics
+        queue_stats = self._queue.get_stats()
+        self._stats.queue_depth = queue_stats.depth
+        self._stats.queue_wait_avg_ms = queue_stats.wait_time_avg_ms
+        self._stats.queue_wait_p99_ms = queue_stats.wait_time_p99_ms
+        
+        # Phase 5.2: Add warmup statistics
+        warmup_stats = self._warmer.get_stats()
+        self._stats.warmup_success_rate = warmup_stats.success_rate
+        
+        # Phase 5.2: Add lifecycle statistics
+        lifecycle_stats = self._lifecycle_manager.get_stats()
+        self._stats.health_check_failures = lifecycle_stats.health_checks_failed
+        
+        # Phase 5.2: Pressure indicator
+        self._stats.is_under_pressure = self._queue.is_under_pressure
+        
         return self._stats
+    
+    def get_queue_stats(self) -> QueueStats:
+        """Get detailed queue statistics.
+        
+        Returns:
+            QueueStats with queue-specific metrics
+        """
+        return self._queue.get_stats()
+    
+    def get_lifecycle_stats(self) -> LifecycleStats:
+        """Get detailed lifecycle statistics.
+        
+        Returns:
+            LifecycleStats with lifecycle-specific metrics
+        """
+        return self._lifecycle_manager.get_stats()
+    
+    def get_warmup_stats(self) -> WarmupStats:
+        """Get detailed warmup statistics.
+        
+        Returns:
+            WarmupStats with warmup-specific metrics
+        """
+        return self._warmer.get_stats()
     
     async def execute(
         self,

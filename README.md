@@ -449,7 +449,7 @@ PyNext is built for production workloads with enterprise-grade features:
 
 ### Test Suite
 
-**4,886 comprehensive tests** covering every feature:
+**5,386 comprehensive tests** covering every feature:
 
 | Component | Tests | Coverage |
 |-----------|-------|----------|
@@ -651,7 +651,7 @@ span()[count]
 | **Learning Curve** | React + Next.js concepts | Just Python |
 | **Database** | External (Prisma, Drizzle) | Built-in ORM + PostgreSQL |
 | **Migrations** | Manual setup | `pynext db migrate` |
-| **Test Suite** | Varies by project | 4,886 tests included |
+| **Test Suite** | Varies by project | 5,386 tests included |
 
 ### PyNext vs Django
 
@@ -707,7 +707,7 @@ span()[count]
 | **🟡 Building Apps** | [Server Actions](docs/data-server/SERVER_ACTIONS.md) → [State Patterns](docs/data-server/STATE_PATTERNS.md) → [Database](docs/features/DATABASE.md) |
 | **🔴 Performance** | [Islands](docs/rendering/ISLANDS.md) → [ISR](docs/rendering/ISR.md) → [Image Optimization](docs/optimization/IMAGE_OPTIMIZATION.md) |
 | **📝 Content Sites** | [Static Generation](docs/rendering/STATIC_GENERATION.md) → [ISR](docs/rendering/ISR.md) → [Draft Mode](docs/advanced/DRAFT_MODE.md) |
-| **🗄️ Data Layer** | [Database ORM](docs/features/DATABASE.md) → [PostgreSQL](docs/features/POSTGRES.md) → [Migrations](docs/features/MIGRATIONS.md) |
+| **🗄️ Data Layer** | [Database ORM](docs/features/DATABASE.md) → [PostgreSQL](docs/features/POSTGRES.md) → [Pooling](docs/features/POOLING.md) → [Migrations](docs/features/MIGRATIONS.md) |
 
 ### All Documentation
 
@@ -764,7 +764,8 @@ span()[count]
 | Guide | Description |
 |-------|-------------|
 | [Database ORM](docs/features/DATABASE.md) | Tables, queries, relationships, transactions |
-| [PostgreSQL](docs/features/POSTGRES.md) | Connection pooling, performance, configuration |
+| [PostgreSQL](docs/features/POSTGRES.md) | PostgreSQL adapter, configuration, binary protocol |
+| [Connection Pooling](docs/features/POOLING.md) | Auto-scaling pools, queue management, lifecycle |
 | [Migrations](docs/features/MIGRATIONS.md) | Schema changes, rollback, SQL generation |
 
 </details>
@@ -985,7 +986,7 @@ Contributions are welcome! See our [Contributing Guide](CONTRIBUTING.md) for det
 **Our principles:**
 - Readable and simple code
 - AI-friendly (LLMs can understand and extend)
-- Comprehensive tests (4,886 and counting)
+- Comprehensive tests (5,386 and counting)
 - SolidJS ethos (fine-grained, minimal overhead)
 - Faster than Next.js
 

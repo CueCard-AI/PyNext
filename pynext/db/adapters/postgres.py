@@ -25,12 +25,46 @@ Level 3: Production
         statement_cache_size=1000,
     )
 
+Level 4: Production with Phase 5.2 Features
+    from pynext.db.adapters import (
+        QueueConfig, LifecycleConfig, WarmupConfig,
+        ExternalPoolerConfig, PoolerType, PoolerMode,
+    )
+    
+    adapter = PostgresAdapter(
+        url="postgresql://...",
+        
+        # Pool settings
+        min_connections=10,
+        max_connections=100,
+        
+        # Phase 5.2: Queue management
+        queue_config=QueueConfig(max_size=1000),
+        
+        # Phase 5.2: Lifecycle management
+        lifecycle_config=LifecycleConfig(soft_lifetime=1800),
+        
+        # Phase 5.2: Connection warmup
+        warmup_config=WarmupConfig(enabled=True),
+        
+        # Phase 5.2: External pooler (PgBouncer)
+        external_pooler=ExternalPoolerConfig(
+            enabled=True,
+            type=PoolerType.PGBOUNCER,
+            mode=PoolerMode.TRANSACTION,
+        ),
+    )
+
 Features:
 - Auto-scaling connection pool
 - Statement caching (10-30% faster)
 - Binary protocol (not text)
 - Automatic type conversion
 - Full async support
+- Phase 5.2: Fair queuing with backpressure
+- Phase 5.2: Lifecycle management (soft/hard limits)
+- Phase 5.2: Connection warmup
+- Phase 5.2: External pooler support (PgBouncer, pgpool)
 
 AI-Friendly Design:
 - Every method has clear docstrings
@@ -47,9 +81,25 @@ from typing import Any, AsyncIterator, Dict, List, Optional, Tuple, Type, TYPE_C
 
 from ..adapters.base import Adapter
 from .postgres_url import PostgresConfig, PostgresConfigError
-from .postgres_pool import AutoScalingPool, PoolStats, PoolState
+from .postgres_pool import (
+    AutoScalingPool,
+    PoolStats,
+    PoolState,
+    QueueStats,
+    LifecycleStats,
+    WarmupStats,
+)
 from .postgres_cache import StatementCache, PerConnectionCache
 from .postgres_types import python_to_postgres, postgres_to_python, get_postgres_type
+from .postgres_queue import QueueConfig, QueuePriority, QueueOverflowAction
+from .postgres_lifecycle import LifecycleConfig, ReplacementStrategy
+from .postgres_warmup import WarmupConfig
+from .postgres_external import (
+    ExternalPoolerConfig,
+    ExternalPoolerManager,
+    PoolerType,
+    PoolerMode,
+)
 
 if TYPE_CHECKING:
     from ..query import Query
@@ -134,6 +184,16 @@ class PostgresAdapter(Adapter):
         # Timeout settings
         connect_timeout: float = 10.0,
         command_timeout: Optional[float] = None,
+        
+        # Phase 5.2: Advanced pool configuration
+        queue_config: Optional[QueueConfig] = None,
+        lifecycle_config: Optional[LifecycleConfig] = None,
+        warmup_config: Optional[WarmupConfig] = None,
+        external_pooler: Optional[ExternalPoolerConfig] = None,
+        
+        # Phase 5.2: Simple warmup toggle (convenience)
+        warmup: bool = False,
+        warmup_query: str = "SELECT 1",
     ):
         """Initialize the PostgreSQL adapter.
         
@@ -159,6 +219,12 @@ class PostgresAdapter(Adapter):
             statement_cache_size: Number of statements to cache (default: 1000)
             connect_timeout: Timeout to establish connection (default: 10)
             command_timeout: Default query timeout (default: None)
+            queue_config: Phase 5.2 - Queue configuration for waiting requests
+            lifecycle_config: Phase 5.2 - Lifecycle management configuration
+            warmup_config: Phase 5.2 - Full warmup configuration
+            external_pooler: Phase 5.2 - External pooler (PgBouncer/pgpool) config
+            warmup: Phase 5.2 - Simple toggle to enable warmup (default: False)
+            warmup_query: Phase 5.2 - Query for warmup (default: "SELECT 1")
         
         Raises:
             PostgresConfigError: If configuration is invalid
@@ -178,6 +244,21 @@ class PostgresAdapter(Adapter):
             adapter = PostgresAdapter(
                 url="postgresql://user@localhost/mydb",
                 password=os.environ["DB_PASSWORD"],
+            )
+            
+            # With warmup (Phase 5.2)
+            adapter = PostgresAdapter(
+                url="postgresql://localhost/mydb",
+                warmup=True,  # Enable connection warmup
+            )
+            
+            # With PgBouncer (Phase 5.2)
+            adapter = PostgresAdapter(
+                url="postgresql://localhost:6432/mydb",
+                external_pooler=ExternalPoolerConfig(
+                    enabled=True,
+                    mode=PoolerMode.TRANSACTION,
+                ),
             )
         """
         # Build configuration
@@ -213,6 +294,22 @@ class PostgresAdapter(Adapter):
         self._connect_timeout = connect_timeout
         self._command_timeout = command_timeout
         
+        # Phase 5.2: Advanced configurations
+        self._queue_config = queue_config
+        self._lifecycle_config = lifecycle_config
+        self._external_pooler_config = external_pooler
+        
+        # Phase 5.2: Handle simple warmup toggle
+        if warmup_config:
+            self._warmup_config = warmup_config
+        elif warmup:
+            self._warmup_config = WarmupConfig(
+                enabled=True,
+                query=warmup_query,
+            )
+        else:
+            self._warmup_config = None
+        
         # Pool (created on connect)
         self._pool: Optional[AutoScalingPool] = None
         
@@ -233,7 +330,8 @@ class PostgresAdapter(Adapter):
         This method:
         1. Creates the connection pool
         2. Establishes initial connections
-        3. Validates the connection
+        3. Warms connections (if warmup enabled - Phase 5.2)
+        4. Validates the connection
         
         Call this before using the adapter.
         
@@ -258,6 +356,11 @@ class PostgresAdapter(Adapter):
             acquire_timeout=self._acquire_timeout,
             connect_timeout=self._connect_timeout,
             command_timeout=self._command_timeout,
+            # Phase 5.2: Advanced configurations
+            queue_config=self._queue_config,
+            lifecycle_config=self._lifecycle_config,
+            warmup_config=self._warmup_config,
+            external_pooler=self._external_pooler_config,
         )
         
         await self._pool.start()
@@ -863,10 +966,84 @@ class PostgresAdapter(Adapter):
         Example:
             stats = adapter.get_pool_stats()
             print(f"Connections: {stats.busy}/{stats.size}")
+            # Phase 5.2 metrics
+            print(f"Queue depth: {stats.queue_depth}")
+            print(f"Warmup success: {stats.warmup_success_rate:.1%}")
         """
         if self._pool is None:
             return None
         return self._pool.get_stats()
+    
+    def get_queue_stats(self) -> Optional[QueueStats]:
+        """Get detailed queue statistics (Phase 5.2).
+        
+        Returns:
+            QueueStats or None if not connected
+        
+        Example:
+            stats = adapter.get_queue_stats()
+            print(f"Waiting: {stats.depth}")
+            print(f"Avg wait: {stats.wait_time_avg_ms:.1f}ms")
+        """
+        if self._pool is None:
+            return None
+        return self._pool.get_queue_stats()
+    
+    def get_lifecycle_stats(self) -> Optional[LifecycleStats]:
+        """Get detailed lifecycle statistics (Phase 5.2).
+        
+        Returns:
+            LifecycleStats or None if not connected
+        
+        Example:
+            stats = adapter.get_lifecycle_stats()
+            print(f"Retired: {stats.total_connections_retired}")
+            print(f"Avg lifetime: {stats.avg_connection_lifetime_ms:.0f}ms")
+        """
+        if self._pool is None:
+            return None
+        return self._pool.get_lifecycle_stats()
+    
+    def get_warmup_stats(self) -> Optional[WarmupStats]:
+        """Get detailed warmup statistics (Phase 5.2).
+        
+        Returns:
+            WarmupStats or None if not connected
+        
+        Example:
+            stats = adapter.get_warmup_stats()
+            print(f"Success rate: {stats.success_rate:.1%}")
+            print(f"Avg warmup: {stats.avg_duration_ms:.1f}ms")
+        """
+        if self._pool is None:
+            return None
+        return self._pool.get_warmup_stats()
+    
+    @property
+    def is_under_pressure(self) -> bool:
+        """Check if pool is under pressure (Phase 5.2).
+        
+        Returns True if queue has waiting requests approaching capacity.
+        Use for backpressure signaling in your application.
+        
+        Example:
+            if adapter.is_under_pressure:
+                return Response("System busy, try again", status=503)
+        """
+        if self._pool is None:
+            return False
+        return self._pool.is_under_pressure
+    
+    @property
+    def queue_depth(self) -> int:
+        """Current number of requests waiting for connections (Phase 5.2).
+        
+        Returns:
+            Number of waiting requests, 0 if not connected
+        """
+        if self._pool is None:
+            return 0
+        return self._pool.queue_depth
     
     def __repr__(self) -> str:
         """Return string representation."""
@@ -874,5 +1051,7 @@ class PostgresAdapter(Adapter):
         if self._pool:
             stats = self._pool.get_stats()
             pool_info = f", pool={stats.size}/{self._max_connections}"
+            if stats.queue_depth > 0:
+                pool_info += f", queue={stats.queue_depth}"
         return f"PostgresAdapter({self._config.host}:{self._config.port}/{self._config.database}{pool_info})"
 
