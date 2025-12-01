@@ -247,7 +247,7 @@ This eliminates the need for:
 
 ##### Phase 5: Database Adapters (PostgreSQL & Supabase)
 
-**Status:** Phases 5.1-5.5 Complete ✅ (2,208 tests), Phase 5.6-5.7 Planned
+**Status:** Phases 5.1-5.6 Complete ✅ (2,808 tests), Phase 5.7 Planned
 
 **Design Philosophy:**
 - PyNext > asyncpg: Simpler API, same performance
@@ -376,13 +376,15 @@ This eliminates the need for:
   - `pynext_db_errors_total{type="timeout|connection|query"}`
 - [x] Documentation: [OBSERVABILITY.md](./features/OBSERVABILITY.md)
 
-**5.6 Supabase Full Integration:**
-- [ ] Supabase adapter with URL/key configuration
-- [ ] Auth: sign_up, sign_in, sign_out, session management
-- [ ] Storage: upload, download, delete, signed URLs
-- [ ] Realtime: table subscriptions with decorators
-- [ ] Edge Functions: invoke remote functions
-- [ ] RLS helpers: policy decorators
+**5.6 Supabase Full Integration:** ✅ Complete (600 tests)
+- [x] `pynext/db/supabase/adapter.py` - SupabaseConfig, Supabase main class
+- [x] `pynext/db/supabase/auth.py` - sign_up, sign_in, sign_out, OAuth, sessions
+- [x] `pynext/db/supabase/storage.py` - upload, download, delete, signed URLs, buckets
+- [x] `pynext/db/supabase/realtime.py` - decorators (@on_insert, @on_update, etc.) + signals
+- [x] `pynext/db/supabase/functions.py` - invoke edge functions with retry
+- [x] `pynext/db/supabase/rls.py` - @policy decorator, migration gen, sync
+- [x] `pynext/db/supabase/exceptions.py` - SupabaseError hierarchy
+- [x] Documentation: [SUPABASE.md](./features/SUPABASE.md)
 
 **5.7 Advanced Query Features:**
 - [ ] Per-query `.timeout(seconds)` with statement_timeout
