@@ -351,6 +351,91 @@ try:
         HealthChecker,
     )
     
+    # Phase 5.7: Per-query timeout (chain + context manager)
+    from pynext.db.adapters.postgres_query_timeout import (
+        QueryTimeoutError as ChainQueryTimeoutError,
+        QueryTimeout,
+        TimeoutConfig,
+        TimeoutStats as ChainTimeoutStats,
+        TimeoutContext,
+        timeout_context,
+        TimeoutExecutor,
+        TimeoutMixin,
+        get_timeout_stats,
+        reset_timeout_stats,
+        get_current_timeout,
+        set_current_timeout,
+        create_timeout,
+        create_timeout_executor,
+    )
+    
+    # Phase 5.7: EXPLAIN/ANALYZE with parsing
+    from pynext.db.adapters.postgres_explain import (
+        ExplainFormat,
+        NodeType,
+        SuggestionSeverity,
+        BufferStats,
+        PlanNode,
+        Suggestion,
+        QueryPlan,
+        PlanComparison,
+        ExplainTextParser,
+        PlanAnalyzer,
+        ExplainMixin,
+        ExplainExecutor,
+    )
+    
+    # Phase 5.7: Cursor-based pagination
+    from pynext.db.adapters.postgres_pagination import (
+        PaginationMethod,
+        CursorDirection,
+        PaginationConfig,
+        Cursor,
+        Page,
+        OffsetPage,
+        KeysetPaginator,
+        OffsetPaginator,
+        SmartPaginator,
+        StreamingPaginator,
+        PaginationMixin,
+        get_pagination_config,
+        set_pagination_config,
+    )
+    
+    # Phase 5.7: Prepared statements
+    from pynext.db.adapters.postgres_prepared import (
+        StatementState,
+        PreparedStats,
+        PreparedStatement,
+        PreparedCache,
+        PreparedExecutor,
+        prepared,
+        SchemaWatcher,
+        get_prepared_executor,
+        set_prepared_executor,
+    )
+    
+    # Phase 5.7: Query cancellation
+    from pynext.db.adapters.postgres_cancel import (
+        QueryState,
+        CancelReason,
+        CancellationConfig,
+        RunningQuery,
+        CancellationToken,
+        QueryCancelledError,
+        QueryTracker,
+        QueryRegistry,
+        CancelExecutor,
+        get_current_tracker,
+        set_current_tracker,
+        get_query_registry,
+        set_query_registry,
+        track_query,
+        cancel_queries,
+        cancel,
+        get_running_queries,
+    )
+    
     _HAS_POSTGRES = True
 except ImportError:
     _HAS_POSTGRES = False
@@ -513,6 +598,72 @@ except ImportError:
     MonitorConfig = None  # type: ignore
     LeakDetector = None  # type: ignore
     HealthChecker = None  # type: ignore
+    # Phase 5.7 fallbacks
+    ChainQueryTimeoutError = None  # type: ignore
+    QueryTimeout = None  # type: ignore
+    TimeoutConfig = None  # type: ignore
+    ChainTimeoutStats = None  # type: ignore
+    TimeoutContext = None  # type: ignore
+    timeout_context = None  # type: ignore
+    TimeoutExecutor = None  # type: ignore
+    TimeoutMixin = None  # type: ignore
+    get_timeout_stats = None  # type: ignore
+    reset_timeout_stats = None  # type: ignore
+    get_current_timeout = None  # type: ignore
+    set_current_timeout = None  # type: ignore
+    create_timeout = None  # type: ignore
+    create_timeout_executor = None  # type: ignore
+    ExplainFormat = None  # type: ignore
+    NodeType = None  # type: ignore
+    SuggestionSeverity = None  # type: ignore
+    BufferStats = None  # type: ignore
+    PlanNode = None  # type: ignore
+    Suggestion = None  # type: ignore
+    QueryPlan = None  # type: ignore
+    PlanComparison = None  # type: ignore
+    ExplainTextParser = None  # type: ignore
+    PlanAnalyzer = None  # type: ignore
+    ExplainMixin = None  # type: ignore
+    ExplainExecutor = None  # type: ignore
+    PaginationMethod = None  # type: ignore
+    CursorDirection = None  # type: ignore
+    PaginationConfig = None  # type: ignore
+    Cursor = None  # type: ignore
+    Page = None  # type: ignore
+    OffsetPage = None  # type: ignore
+    KeysetPaginator = None  # type: ignore
+    OffsetPaginator = None  # type: ignore
+    SmartPaginator = None  # type: ignore
+    StreamingPaginator = None  # type: ignore
+    PaginationMixin = None  # type: ignore
+    get_pagination_config = None  # type: ignore
+    set_pagination_config = None  # type: ignore
+    StatementState = None  # type: ignore
+    PreparedStats = None  # type: ignore
+    PreparedStatement = None  # type: ignore
+    PreparedCache = None  # type: ignore
+    PreparedExecutor = None  # type: ignore
+    prepared = None  # type: ignore
+    SchemaWatcher = None  # type: ignore
+    get_prepared_executor = None  # type: ignore
+    set_prepared_executor = None  # type: ignore
+    QueryState = None  # type: ignore
+    CancelReason = None  # type: ignore
+    CancellationConfig = None  # type: ignore
+    RunningQuery = None  # type: ignore
+    CancellationToken = None  # type: ignore
+    QueryCancelledError = None  # type: ignore
+    QueryTracker = None  # type: ignore
+    QueryRegistry = None  # type: ignore
+    CancelExecutor = None  # type: ignore
+    get_current_tracker = None  # type: ignore
+    set_current_tracker = None  # type: ignore
+    get_query_registry = None  # type: ignore
+    set_query_registry = None  # type: ignore
+    track_query = None  # type: ignore
+    cancel_queries = None  # type: ignore
+    cancel = None  # type: ignore
+    get_running_queries = None  # type: ignore
 
 __all__ = [
     "Adapter",
@@ -694,4 +845,74 @@ __all__ = [
     "MonitorConfig",
     "LeakDetector",
     "HealthChecker",
+    # Phase 5.7: Per-query timeout (chain + context manager)
+    "ChainQueryTimeoutError",
+    "QueryTimeout",
+    "TimeoutConfig",
+    "ChainTimeoutStats",
+    "TimeoutContext",
+    "timeout_context",
+    "TimeoutExecutor",
+    "TimeoutMixin",
+    "get_timeout_stats",
+    "reset_timeout_stats",
+    "get_current_timeout",
+    "set_current_timeout",
+    "create_timeout",
+    "create_timeout_executor",
+    # Phase 5.7: EXPLAIN/ANALYZE with parsing
+    "ExplainFormat",
+    "NodeType",
+    "SuggestionSeverity",
+    "BufferStats",
+    "PlanNode",
+    "Suggestion",
+    "QueryPlan",
+    "PlanComparison",
+    "ExplainTextParser",
+    "PlanAnalyzer",
+    "ExplainMixin",
+    "ExplainExecutor",
+    # Phase 5.7: Cursor-based pagination
+    "PaginationMethod",
+    "CursorDirection",
+    "PaginationConfig",
+    "Cursor",
+    "Page",
+    "OffsetPage",
+    "KeysetPaginator",
+    "OffsetPaginator",
+    "SmartPaginator",
+    "StreamingPaginator",
+    "PaginationMixin",
+    "get_pagination_config",
+    "set_pagination_config",
+    # Phase 5.7: Prepared statements
+    "StatementState",
+    "PreparedStats",
+    "PreparedStatement",
+    "PreparedCache",
+    "PreparedExecutor",
+    "prepared",
+    "SchemaWatcher",
+    "get_prepared_executor",
+    "set_prepared_executor",
+    # Phase 5.7: Query cancellation
+    "QueryState",
+    "CancelReason",
+    "CancellationConfig",
+    "RunningQuery",
+    "CancellationToken",
+    "QueryCancelledError",
+    "QueryTracker",
+    "QueryRegistry",
+    "CancelExecutor",
+    "get_current_tracker",
+    "set_current_tracker",
+    "get_query_registry",
+    "set_query_registry",
+    "track_query",
+    "cancel_queries",
+    "cancel",
+    "get_running_queries",
 ]
