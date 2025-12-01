@@ -63,6 +63,16 @@ e2e = [
     "playwright>=1.40.0",
 ]
 
+# PostgreSQL support
+postgres = [
+    "asyncpg>=0.29.0",
+]
+
+# All database features
+db = [
+    "asyncpg>=0.29.0",
+]
+
 [project.scripts]
 pynext = "pynext.cli:main"
 

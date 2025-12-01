@@ -15,9 +15,10 @@
 # pandas>=2.0.0
 # numpy>=1.24.0
 
-# Database
-# sqlalchemy>=2.0.0
-# asyncpg>=0.28.0
+# Database (PostgreSQL)
+# Install with: pip install pynext[postgres]
+# Or uncomment below:
+# asyncpg>=0.29.0
 
 # HTTP Clients
 # httpx>=0.25.0

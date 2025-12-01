@@ -1,647 +1,836 @@
 # PostgreSQL Adapter
 
-The PostgreSQL adapter provides production-ready database connectivity with automatic connection pooling, statement caching, and type-safe operations.
+## Table of Contents
 
-## Quick Start (30 Seconds)
-
-```python
-from pynext.db import PostgresAdapter, configure_db, Table
-
-# 1. Connect (one line)
-adapter = PostgresAdapter("postgresql://user:pass@localhost/mydb")
-await adapter.connect()
-configure_db(adapter)
-
-# 2. Define models
-class User(Table):
-    name: str
-    email: str
-    age: int = 0
-
-# 3. Use them
-user = await User.insert(name="John", email="john@example.com")
-users = await User.all()
-```
-
-## Configuration Options
-
-### Connection URL
-
-The simplest way to configure:
-
-```python
-adapter = PostgresAdapter("postgresql://user:pass@localhost:5432/mydb")
-```
-
-**URL Format:**
-```
-postgresql://[user[:password]@][host][:port]/database[?options]
-```
-
-**Supported schemes:** `postgresql://` and `postgres://`
-
-### Keyword Arguments
-
-For explicit configuration:
-
-```python
-adapter = PostgresAdapter(
-    host="localhost",
-    port=5432,
-    database="mydb",
-    user="postgres",
-    password="secret",
-    ssl=True,
-)
-```
-
-### Mixed (URL + Overrides)
-
-Override specific parts of the URL:
-
-```python
-adapter = PostgresAdapter(
-    url="postgresql://user@localhost/mydb",
-    password=os.environ["DB_PASSWORD"],  # Override password
-)
-```
-
-## Production Reliability
-
-Enable production-grade fault tolerance with a single flag:
-
-### Quick Start
-
-```python
-# Enable all reliability features
-adapter = PostgresAdapter("postgresql://localhost/mydb", reliability=True)
-```
-
-This automatically enables:
-- ✅ Retry with exponential backoff (3 attempts)
-- ✅ Circuit breaker (opens after 5 failures)
-- ✅ Graceful degradation (auto-recovery)
-
-### With Read Replicas
-
-Scale reads by adding replicas:
-
-```python
-adapter = PostgresAdapter(
-    # Primary for writes
-    primary="postgresql://primary.example.com/mydb",
-    
-    # Replicas for reads (2 options)
-    replicas=[
-        # Style 1: URL string
-        "postgresql://replica1.example.com/mydb",
-        
-        # Style 2: Keyword arguments
-        Replica(
-            host="replica2.example.com",
-            port=5432,
-            database="mydb",
-            user="postgres",
-            password="secret",
-            ssl=True,
-            weight=2,  # Gets 2x traffic
-        ),
-    ],
-)
-await adapter.connect()
-
-# Reads go to replicas
-users = await adapter.read("SELECT * FROM users")
-
-# Writes go to primary
-await adapter.write("INSERT INTO users (name) VALUES ($1)", ("John",))
-```
-
-### Full Control
-
-For enterprise configurations:
-
-```python
-from pynext.db.adapters import (
-    PostgresAdapter,
-    Replica, ReplicaConfig,
-    RetryConfig,
-    CircuitBreakerConfig,
-    DegradationConfig,
-)
-
-adapter = PostgresAdapter(
-    host="primary.example.com",
-    port=5432,
-    database="mydb",
-    user="postgres",
-    password="secret",
-    ssl=True,
-    
-    replicas=ReplicaConfig(
-        replicas=[
-            Replica(
-                host="replica1.example.com",
-                database="mydb",
-                user="postgres",
-                password="secret",
-                weight=3,
-                max_lag=5.0,
-            ),
-        ],
-        routing="weighted_random",
-    ),
-    
-    retry=RetryConfig(max_attempts=5),
-    circuit_breaker=CircuitBreakerConfig(failure_threshold=10),
-    degradation=DegradationConfig(auto_recovery=True),
-)
-```
-
-See [RELIABILITY.md](RELIABILITY.md) for comprehensive documentation.
+1. [Introduction: Why PostgreSQL?](#introduction-why-postgresql)
+2. [Chapter 1: What is PostgreSQL?](#chapter-1-what-is-postgresql)
+3. [Chapter 2: Connecting to PostgreSQL](#chapter-2-connecting-to-postgresql)
+4. [Chapter 3: Connection URLs Explained](#chapter-3-connection-urls-explained)
+5. [Chapter 4: Connection Pooling Basics](#chapter-4-connection-pooling-basics)
+6. [Chapter 5: Statement Caching](#chapter-5-statement-caching)
+7. [Chapter 6: Type Mapping](#chapter-6-type-mapping)
+8. [Chapter 7: Production Configuration](#chapter-7-production-configuration)
+9. [Chapter 8: SSL and Security](#chapter-8-ssl-and-security)
+10. [Quick Reference](#quick-reference)
+11. [Related Documentation](#related-documentation)
 
 ---
 
-## Auto-Scaling Connection Pool
+## Introduction: Why PostgreSQL?
 
-The adapter automatically manages a connection pool that scales based on demand.
+### The Database Landscape
 
-### How It Works
+There are many databases. Why does PyNext focus on PostgreSQL?
 
 ```
-                    ┌─────────────────────────────────────┐
-                    │         Auto-Scaling Pool            │
-                    │                                     │
-Requests ──────────►│  min=1 ◄───── Active ─────► max=100│
-                    │         Connections                 │
-                    │                                     │
-                    │  • Grows on demand                  │
-                    │  • Shrinks when idle                │
-                    │  • Never exceeds max                │
-                    └─────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│                      DATABASE OPTIONS                                │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  SQLite         PostgreSQL        MySQL           MongoDB           │
+│  ──────         ──────────        ─────           ───────           │
+│  • File-based   • Full-featured   • Popular       • Document DB     │
+│  • Great for    • Production-     • Good for      • No SQL          │
+│    prototyping    ready             web apps                        │
+│  • No server    • Advanced        • Simpler       • Flexible        │
+│    needed         features          than Postgres   schema          │
+│                                                                      │
+│  PyNext uses:                                                        │
+│  ─────────────                                                       │
+│  • SQLite for development/testing (MemoryAdapter)                   │
+│  • PostgreSQL for production (PostgresAdapter)                      │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
-### Pool Configuration
+### Why PostgreSQL for Production?
+
+| Feature | Why It Matters |
+|---------|----------------|
+| **ACID Compliance** | Data consistency - never lose or corrupt data |
+| **Advanced Types** | JSON, arrays, UUIDs, time ranges, geo types |
+| **Full-Text Search** | Built-in search without external service |
+| **Extensions** | PostGIS (geo), pgvector (AI), TimescaleDB (time-series) |
+| **Reliability** | Battle-tested for 35+ years |
+| **Scalability** | Handles billions of rows, read replicas, sharding |
+| **Free & Open** | No licensing costs, strong community |
+
+### PyNext + PostgreSQL
+
+PyNext's PostgreSQL adapter provides:
+
+- **Simple connection** - One line to connect
+- **Automatic pooling** - Efficient connection management
+- **Statement caching** - Faster repeated queries
+- **Type safety** - Python types ↔ PostgreSQL types
+- **Production features** - Retries, circuit breakers, replicas
+
+---
+
+## Chapter 1: What is PostgreSQL?
+
+### The Basics
+
+**PostgreSQL** (often called "Postgres") is an open-source relational database. It stores data in tables with rows and columns, and you query it with SQL.
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                    HOW POSTGRESQL WORKS                              │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│    Your App                     PostgreSQL Server                    │
+│    ────────                     ─────────────────                    │
+│                                                                      │
+│    Python code     ──────►      Port 5432                           │
+│    (PyNext)          SQL        ├── Databases                       │
+│                      ↓          │   ├── myapp_dev                   │
+│                      │          │   ├── myapp_prod                  │
+│    Results        ◄──┘          │   └── myapp_test                  │
+│    (Python dicts)               │                                   │
+│                                 └── Each database has:               │
+│                                     ├── Tables                       │
+│                                     ├── Indexes                      │
+│                                     ├── Users/Roles                  │
+│                                     └── Extensions                   │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Key Concepts
+
+| Concept | Description | Example |
+|---------|-------------|---------|
+| **Server** | The PostgreSQL process | Running on localhost:5432 |
+| **Database** | A named collection of data | `myapp_production` |
+| **Schema** | Namespace within database | `public` (default) |
+| **Table** | Collection of rows | `users`, `posts` |
+| **Role/User** | Access credentials | `myapp_user` |
+
+### Local vs Cloud PostgreSQL
+
+**Local (Development):**
+```bash
+# Install on macOS
+brew install postgresql@16
+brew services start postgresql@16
+
+# Install on Ubuntu
+sudo apt install postgresql
+
+# Default connection
+postgresql://localhost:5432/postgres
+```
+
+**Cloud (Production):**
+- **Supabase** - Free tier, generous limits
+- **Neon** - Serverless, scales to zero
+- **Railway** - Simple deployment
+- **AWS RDS** - Enterprise scale
+- **Heroku** - Easy setup
+
+---
+
+## Chapter 2: Connecting to PostgreSQL
+
+### The Simplest Connection
 
 ```python
+from pynext.db import configure_db
+from pynext.db.adapters import PostgresAdapter
+
+# One line to connect!
+adapter = PostgresAdapter("postgresql://user:password@localhost:5432/mydb")
+await adapter.connect()
+configure_db(adapter)
+
+# Now use your models
+from myapp.models import User
+users = await User.all()
+```
+
+### Connection Methods
+
+#### Method 1: URL String
+
+```python
+# Full URL with all parts
 adapter = PostgresAdapter(
-    url="postgresql://localhost/mydb",
-    
-    # Pool sizing
-    min_connections=5,      # Keep 5 connections warm
-    max_connections=100,    # Scale up to 100 under load
-    auto_scale=True,        # Enable auto-scaling (default)
-    
-    # Connection lifecycle
-    idle_timeout=300.0,     # Close idle connections after 5 min
-    max_lifetime=3600.0,    # Replace connections after 1 hour
-    
-    # Timeouts
-    connect_timeout=10.0,   # 10s to establish connection
-    command_timeout=30.0,   # 30s per query
-    acquire_timeout=30.0,   # 30s to get a connection from pool
+    "postgresql://myuser:mypassword@db.example.com:5432/mydb?sslmode=require"
 )
 ```
 
-### Scaling Behavior
-
-| Scenario | Behavior |
-|----------|----------|
-| Low traffic | Pool stays at `min_connections` |
-| Spike | Pool grows instantly (up to max) |
-| Sustained load | Pool stays at current size |
-| Traffic drops | Idle connections closed after `idle_timeout` |
-
-## Statement Caching
-
-Prepared statements are cached for 10-30% faster repeated queries.
-
-### How It Works
-
-1. **First execution:** PostgreSQL parses SQL, creates plan
-2. **Cache stores:** Prepared statement with SQL as key
-3. **Subsequent:** Skip parsing, reuse cached statement
-4. **LRU eviction:** When cache is full, oldest statements removed
-
-### Configuration
+#### Method 2: Keyword Arguments
 
 ```python
+# Explicit parameters
 adapter = PostgresAdapter(
-    url="postgresql://localhost/mydb",
-    statement_cache_size=1000,  # Cache 1000 statements (default)
+    host="db.example.com",
+    port=5432,
+    database="mydb",
+    user="myuser",
+    password="mypassword",
+    ssl=True,
 )
 ```
 
-### Memory Usage
-
-- Each statement uses ~1-10KB
-- Default 1000 statements ≈ 1-10MB
-- Adjust based on unique query count
-
-## Type Conversion
-
-Automatic conversion between Python and PostgreSQL types:
-
-| Python Type | PostgreSQL Type | Notes |
-|-------------|-----------------|-------|
-| `int` | `INTEGER` | Auto-detects size |
-| `float` | `DOUBLE PRECISION` | 64-bit |
-| `str` | `TEXT` | Unlimited length |
-| `bool` | `BOOLEAN` | True/False |
-| `datetime` | `TIMESTAMPTZ` | Always timezone-aware |
-| `date` | `DATE` | Date only |
-| `time` | `TIME` | Time only |
-| `bytes` | `BYTEA` | Binary data |
-| `list` | `ARRAY` / `JSONB` | Based on content |
-| `dict` | `JSONB` | JSON with indexing |
-| `Decimal` | `NUMERIC` | Exact decimal |
-| `UUID` | `UUID` | UUID type |
-
-### Timezone Handling
-
-All naive datetimes are automatically converted to UTC:
+#### Method 3: Environment Variable
 
 ```python
-from datetime import datetime
+import os
 
-# Naive datetime (no timezone)
-dt = datetime(2024, 1, 15, 12, 30, 0)
+# Common pattern: use DATABASE_URL env var
+adapter = PostgresAdapter(os.environ["DATABASE_URL"])
 
-# Stored as TIMESTAMPTZ with UTC
-await User.insert(name="John", created_at=dt)
-# Stored as: 2024-01-15 12:30:00+00:00
-```
-
-## Raw SQL
-
-For complex queries, use raw SQL:
-
-```python
-# Execute (returns status)
-await adapter.execute("UPDATE users SET active = true WHERE id = $1", (1,))
-
-# Fetch all rows
-users = await adapter.fetch_all(
-    "SELECT * FROM users WHERE age > $1", 
-    (18,)
-)
-
-# Fetch one row
-user = await adapter.fetch_one(
-    "SELECT * FROM users WHERE id = $1", 
-    (1,)
+# Or with fallback
+adapter = PostgresAdapter(
+    os.environ.get("DATABASE_URL", "postgresql://localhost:5432/mydb")
 )
 ```
 
-**Note:** PostgreSQL uses `$1`, `$2`, etc. for parameters (not `?`).
-
-## Transactions
-
-### Basic Transaction
+#### Method 4: Mixed (URL + Overrides)
 
 ```python
-await adapter.begin_transaction()
-try:
-    await User.insert(name="John")
-    await Post.insert(title="Hello", author_id=1)
-    await adapter.commit_transaction()
-except Exception:
-    await adapter.rollback_transaction()
-    raise
+# Start with URL, override specific parts
+adapter = PostgresAdapter(
+    url="postgresql://user@localhost:5432/mydb",
+    password=os.environ["DB_PASSWORD"],  # Keep password in env
+    ssl=True,  # Force SSL
+)
 ```
 
-### With Context Manager (via Table)
+### Connection Lifecycle
 
 ```python
-from pynext.db import transaction
+from pynext.db.adapters import PostgresAdapter
 
-async with transaction():
-    await User.insert(name="John")
-    await Post.insert(title="Hello")
-    # Auto-commits on success
-    # Auto-rollbacks on exception
+# Create adapter (doesn't connect yet)
+adapter = PostgresAdapter("postgresql://localhost/mydb")
+
+# Connect (establishes connection pool)
+await adapter.connect()
+
+# Use the database...
+# (your app runs)
+
+# Disconnect (closes all connections)
+await adapter.disconnect()
 ```
 
-### Savepoints
-
-For partial rollbacks:
+### Context Manager (Recommended)
 
 ```python
-await adapter.begin_transaction()
-
-await User.insert(name="John")
-await adapter.savepoint("before_post")
-
-try:
-    await Post.insert(title="Hello")
-except Exception:
-    await adapter.rollback_savepoint("before_post")
-    # User still inserted
-
-await adapter.commit_transaction()
+async with PostgresAdapter("postgresql://localhost/mydb") as adapter:
+    configure_db(adapter)
+    
+    # Use database
+    users = await User.all()
+    
+# Automatically disconnects when block exits
 ```
 
-### Isolation Levels
+### Complete Example
 
 ```python
-await adapter.begin_transaction(isolation="serializable")
-# Options: read_committed, repeatable_read, serializable
+import asyncio
+from pynext.db import configure_db, Table
+from pynext.db.adapters import PostgresAdapter
+
+# Define your model
+class User(Table):
+    name: str
+    email: str
+
+async def main():
+    # Connect
+    adapter = PostgresAdapter("postgresql://localhost:5432/myapp")
+    await adapter.connect()
+    configure_db(adapter)
+    
+    try:
+        # Create a user
+        user = await User.insert(name="Alice", email="alice@example.com")
+        print(f"Created user: {user.id}")
+        
+        # Query users
+        all_users = await User.all()
+        print(f"Total users: {len(all_users)}")
+        
+    finally:
+        # Always disconnect
+        await adapter.disconnect()
+
+asyncio.run(main())
 ```
 
-## Monitoring
+---
+
+## Chapter 3: Connection URLs Explained
+
+### URL Anatomy
+
+```
+postgresql://user:password@host:port/database?options
+─────────── ──── ──────── ──── ──── ──────── ───────
+     │        │      │      │    │      │       │
+     │        │      │      │    │      │       └── Query parameters
+     │        │      │      │    │      └── Database name
+     │        │      │      │    └── Port (default: 5432)
+     │        │      │      └── Server hostname or IP
+     │        │      └── Password (URL-encoded if special chars)
+     │        └── Username
+     └── Scheme (postgresql:// or postgres://)
+```
+
+### URL Examples
+
+```python
+# Local development (no auth)
+"postgresql://localhost/mydb"
+
+# Local with user/password
+"postgresql://myuser:mypass@localhost:5432/mydb"
+
+# Cloud database with SSL
+"postgresql://user:pass@db.cloud.com:5432/mydb?sslmode=require"
+
+# Unix socket (local, fast)
+"postgresql:///mydb?host=/var/run/postgresql"
+
+# Multiple hosts (for failover)
+"postgresql://host1,host2,host3/mydb?target_session_attrs=primary"
+```
+
+### Special Characters in Passwords
+
+If your password contains special characters, URL-encode them:
+
+```python
+import urllib.parse
+
+# Password with special characters: my@pass!word
+password = urllib.parse.quote("my@pass!word")
+url = f"postgresql://user:{password}@localhost/mydb"
+# Result: postgresql://user:my%40pass%21word@localhost/mydb
+```
+
+Common encodings:
+| Character | Encoded |
+|-----------|---------|
+| `@` | `%40` |
+| `:` | `%3A` |
+| `/` | `%2F` |
+| `!` | `%21` |
+| `#` | `%23` |
+| `%` | `%25` |
+
+### URL Query Parameters
+
+| Parameter | Values | Description |
+|-----------|--------|-------------|
+| `sslmode` | `disable`, `allow`, `prefer`, `require`, `verify-ca`, `verify-full` | SSL mode |
+| `connect_timeout` | seconds | Connection timeout |
+| `application_name` | string | App name in pg_stat_activity |
+| `options` | string | PostgreSQL options |
+
+```python
+# With multiple parameters
+url = "postgresql://user:pass@host/db?sslmode=require&connect_timeout=10&application_name=myapp"
+```
+
+---
+
+## Chapter 4: Connection Pooling Basics
+
+### Why Pool Connections?
+
+Opening a database connection is **expensive** (50-200ms). Pooling keeps connections open and reuses them:
+
+```
+Without pooling:              With pooling:
+────────────────              ─────────────
+
+Request 1:                    Request 1:
+  Open connection (100ms)       Borrow from pool (0ms)
+  Query (5ms)                   Query (5ms)
+  Close connection              Return to pool
+
+Request 2:                    Request 2:
+  Open connection (100ms)       Borrow from pool (0ms)
+  Query (5ms)                   Query (5ms)
+  Close connection              Return to pool
+
+Total: 210ms                  Total: 10ms (21x faster!)
+```
+
+### Default Pool Configuration
+
+PyNext creates a connection pool automatically:
+
+```python
+# Default pool settings
+adapter = PostgresAdapter(
+    "postgresql://localhost/mydb",
+    min_connections=5,   # Keep at least 5 connections ready
+    max_connections=20,  # Allow up to 20 concurrent connections
+)
+```
+
+### Pool Sizing Guidelines
+
+| Application Size | Min | Max | Notes |
+|------------------|-----|-----|-------|
+| Development | 1 | 5 | Low traffic |
+| Small app | 5 | 20 | < 100 req/sec |
+| Medium app | 10 | 50 | 100-1000 req/sec |
+| Large app | 20 | 100+ | > 1000 req/sec |
+
+**Formula for max_connections:**
+```
+max_connections = (CPU cores × 2) + effective_spindle_count
+
+For a 4-core machine with SSD:
+max_connections = (4 × 2) + 1 = 9
+
+But most cloud databases limit to 100-500 total connections.
+```
 
 ### Pool Statistics
 
 ```python
-stats = adapter.get_pool_stats()
-
-print(f"Connections: {stats.busy}/{stats.size}")
-print(f"Idle: {stats.idle}")
-print(f"Waiting: {stats.waiting}")
-print(f"Utilization: {stats.busy / stats.size * 100:.1f}%")
+# Get pool stats
+stats = await adapter.pool_stats()
+print(f"Pool size: {stats['size']}")
+print(f"In use: {stats['in_use']}")
+print(f"Available: {stats['available']}")
+print(f"Waiting: {stats['waiting']}")
 ```
 
-### Available Metrics
+For detailed pooling documentation, see [POOLING.md](./POOLING.md).
 
-| Metric | Description |
-|--------|-------------|
-| `size` | Current pool size |
-| `idle` | Idle connections |
-| `busy` | Active connections |
-| `waiting` | Requests waiting |
-| `total_acquires` | Total connection requests |
-| `total_releases` | Total releases |
-| `total_timeouts` | Acquire timeouts |
+---
 
-## Error Handling
+## Chapter 5: Statement Caching
 
-### Connection Errors
+### What is Statement Caching?
 
-```python
-from pynext.db import ConnectionError
+PostgreSQL can **prepare** SQL statements for reuse. This saves parsing time on repeated queries:
 
-try:
-    await adapter.connect()
-except ConnectionError as e:
-    print(f"Failed to connect: {e}")
+```
+First execution:                 Subsequent executions:
+────────────────                 ──────────────────────
+
+Query: SELECT * FROM users       Query: SELECT * FROM users
+  ↓                               ↓
+Parse SQL (1ms)                  Use cached plan (0ms) ← Skip parsing!
+  ↓                               ↓
+Plan query (1ms)                 Execute (5ms)
+  ↓
+Execute (5ms)
+
+Total: 7ms                       Total: 5ms (30% faster!)
 ```
 
-### Pool Exhausted
+### Automatic Caching
 
-When all connections are busy and max is reached:
+PyNext caches statements automatically:
 
 ```python
-from pynext.db.adapters.postgres_pool import PoolExhaustedError
-
-try:
-    async with adapter.acquire() as conn:
-        await conn.execute("SELECT 1")
-except PoolExhaustedError:
-    print("Pool exhausted - consider increasing max_connections")
+# This query is cached after first execution
+for user_id in range(1000):
+    user = await User.get(user_id)
+    # First time: parse + plan + execute
+    # Subsequent: just execute (cached plan)
 ```
 
-### Query Errors
+### Cache Configuration
 
 ```python
-from pynext.db import QueryError
-
-try:
-    await adapter.execute("INVALID SQL")
-except QueryError as e:
-    print(f"Query failed: {e}")
+adapter = PostgresAdapter(
+    "postgresql://localhost/mydb",
+    statement_cache_size=1000,  # Cache up to 1000 prepared statements
+)
 ```
 
-## Best Practices
+### When Caching Helps
 
-### 1. Connection Lifecycle
+✅ **Great for:**
+- Repeated queries with different parameters
+- CRUD operations (insert, select, update, delete)
+- Hot paths in your application
+
+❌ **Doesn't help:**
+- Dynamic SQL (different structure each time)
+- One-off queries
+- Very complex queries (planning time > cache benefit)
+
+---
+
+## Chapter 6: Type Mapping
+
+### Python to PostgreSQL
+
+PyNext maps Python types to PostgreSQL types automatically:
+
+| Python | PostgreSQL | Example |
+|--------|------------|---------|
+| `str` | `TEXT` | `"hello"` |
+| `int` | `INTEGER` | `42` |
+| `float` | `DOUBLE PRECISION` | `3.14` |
+| `bool` | `BOOLEAN` | `True` |
+| `datetime` | `TIMESTAMPTZ` | `datetime.now()` |
+| `date` | `DATE` | `date.today()` |
+| `time` | `TIME` | `time(12, 30)` |
+| `timedelta` | `INTERVAL` | `timedelta(days=1)` |
+| `Decimal` | `NUMERIC` | `Decimal("99.99")` |
+| `bytes` | `BYTEA` | `b"binary"` |
+| `UUID` | `UUID` | `uuid.uuid4()` |
+| `dict` | `JSONB` | `{"key": "value"}` |
+| `list` | `JSONB` | `[1, 2, 3]` |
+| `list[int]` | `INTEGER[]` | `[1, 2, 3]` |
+| `list[str]` | `TEXT[]` | `["a", "b"]` |
+| `Optional[T]` | `T` (nullable) | `None` |
+
+### PostgreSQL-Specific Types
 
 ```python
-# ✅ Good: Connect once at startup
+from pynext.db import Table
+from pynext.db.types import (
+    UUID,
+    JSONB,
+    Array,
+    DateRange,
+    TSVector,  # Full-text search
+)
+
+class Product(Table):
+    # UUID primary key
+    id: UUID = Field(default_factory=uuid.uuid4)
+    
+    # JSON data
+    metadata: JSONB = {}
+    
+    # Array of tags
+    tags: Array[str] = []
+    
+    # Full-text search vector
+    search_vector: TSVector
+    
+    # Date range for availability
+    available: DateRange
+```
+
+### Custom Type Converters
+
+```python
+from pynext.db.adapters import register_type_converter
+
+# Custom Python class
+class Money:
+    def __init__(self, cents: int):
+        self.cents = cents
+    
+    def __repr__(self):
+        return f"${self.cents / 100:.2f}"
+
+# Register converter
+@register_type_converter(Money)
+def convert_money(value):
+    if isinstance(value, Money):
+        return value.cents  # Python → PostgreSQL
+    else:
+        return Money(value)  # PostgreSQL → Python
+
+# Now use in models
+class Product(Table):
+    price: Money
+```
+
+---
+
+## Chapter 7: Production Configuration
+
+### Basic Production Setup
+
+```python
+from pynext.db.adapters import PostgresAdapter
+
+adapter = PostgresAdapter(
+    # Connection
+    url=os.environ["DATABASE_URL"],
+    
+    # Pool sizing
+    min_connections=10,
+    max_connections=50,
+    
+    # Timeouts
+    connect_timeout=10,
+    command_timeout=30,
+    
+    # SSL (always in production!)
+    ssl=True,
+)
+```
+
+### With Reliability Features
+
+```python
+adapter = PostgresAdapter(
+    url=os.environ["DATABASE_URL"],
+    
+    # Enable all reliability features
+    reliability=True,  # Retries, circuit breaker, graceful degradation
+    
+    # Pool
+    min_connections=10,
+    max_connections=50,
+)
+```
+
+### With Read Replicas
+
+```python
+from pynext.db.adapters import PostgresAdapter, Replica
+
+adapter = PostgresAdapter(
+    # Primary (writes)
+    primary=os.environ["PRIMARY_DATABASE_URL"],
+    
+    # Replicas (reads)
+    replicas=[
+        os.environ["REPLICA_1_URL"],
+        os.environ["REPLICA_2_URL"],
+    ],
+    
+    reliability=True,
+)
+
+# Writes automatically go to primary
+await User.insert(name="Alice")
+
+# Reads automatically go to replicas
+users = await User.all()
+```
+
+### Full Production Example
+
+```python
+from pynext.db.adapters import PostgresAdapter, Replica, ReplicaConfig
+
+adapter = PostgresAdapter(
+    # Primary connection
+    host=os.environ["DB_PRIMARY_HOST"],
+    port=5432,
+    database=os.environ["DB_NAME"],
+    user=os.environ["DB_USER"],
+    password=os.environ["DB_PASSWORD"],
+    ssl=True,
+    
+    # Replicas with weights
+    replicas=ReplicaConfig(
+        replicas=[
+            Replica(
+                host=os.environ["DB_REPLICA_1_HOST"],
+                weight=2,  # Gets 2x traffic
+            ),
+            Replica(
+                host=os.environ["DB_REPLICA_2_HOST"],
+                weight=1,
+            ),
+        ],
+        max_lag_seconds=5,  # Don't use replica if >5s behind
+    ),
+    
+    # Pool configuration
+    min_connections=20,
+    max_connections=100,
+    
+    # Reliability
+    reliability=True,
+    
+    # Timeouts
+    connect_timeout=10,
+    command_timeout=30,
+)
+```
+
+See [RELIABILITY.md](./RELIABILITY.md) for complete reliability documentation.
+
+---
+
+## Chapter 8: SSL and Security
+
+### Why SSL?
+
+Without SSL, data travels in plain text:
+
+```
+Your App ────── Network ────── Database
+           ↑
+        Attacker can see:
+        • Passwords
+        • User data
+        • Queries
+```
+
+With SSL, data is encrypted:
+
+```
+Your App ════════════════════ Database
+           ↑
+        Attacker sees:
+        • Gibberish
+```
+
+### SSL Modes
+
+| Mode | Description | Use Case |
+|------|-------------|----------|
+| `disable` | No SSL | Never (except local dev) |
+| `allow` | Use SSL if available | Legacy systems |
+| `prefer` | Try SSL, fall back to plain | Default |
+| `require` | Require SSL, don't verify cert | Most production |
+| `verify-ca` | Require SSL + verify CA | High security |
+| `verify-full` | Require SSL + verify hostname | Maximum security |
+
+### Configuring SSL
+
+```python
+# URL parameter
+adapter = PostgresAdapter(
+    "postgresql://user:pass@host/db?sslmode=require"
+)
+
+# Keyword argument
+adapter = PostgresAdapter(
+    host="db.example.com",
+    ssl=True,  # Equivalent to sslmode=require
+)
+
+# With certificate verification
+adapter = PostgresAdapter(
+    host="db.example.com",
+    ssl={
+        "sslmode": "verify-full",
+        "sslrootcert": "/path/to/ca-certificate.crt",
+    }
+)
+```
+
+### Security Best Practices
+
+1. **Always use SSL in production**
+   ```python
+   ssl=True  # or sslmode=require
+   ```
+
+2. **Use environment variables for credentials**
+   ```python
+   password=os.environ["DB_PASSWORD"]  # Never hardcode!
+   ```
+
+3. **Use least-privilege database users**
+   ```sql
+   -- Create app user with minimal permissions
+   CREATE USER myapp_user WITH PASSWORD 'secure_password';
+   GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO myapp_user;
+   ```
+
+4. **Use connection limits**
+   ```python
+   max_connections=50  # Don't exhaust database connections
+   ```
+
+5. **Use timeouts**
+   ```python
+   connect_timeout=10,
+   command_timeout=30,
+   ```
+
+---
+
+## Quick Reference
+
+### Minimal Connection
+
+```python
+from pynext.db import configure_db
+from pynext.db.adapters import PostgresAdapter
+
 adapter = PostgresAdapter("postgresql://localhost/mydb")
 await adapter.connect()
 configure_db(adapter)
-
-# Use throughout application...
-
-# Disconnect on shutdown
-await adapter.disconnect()
 ```
 
-### 2. Pool Sizing
+### Production Connection
 
 ```python
-# ✅ Good: Size based on workload
 adapter = PostgresAdapter(
-    url="...",
-    min_connections=5,    # Keep warm connections
-    max_connections=50,   # Don't overwhelm DB
+    url=os.environ["DATABASE_URL"],
+    ssl=True,
+    min_connections=10,
+    max_connections=50,
+    reliability=True,
 )
+await adapter.connect()
+configure_db(adapter)
+```
 
-# ❌ Bad: Oversized pool
+### With Read Replicas
+
+```python
 adapter = PostgresAdapter(
-    url="...",
-    max_connections=1000,  # Too many!
+    primary=os.environ["PRIMARY_URL"],
+    replicas=[
+        os.environ["REPLICA_1_URL"],
+        os.environ["REPLICA_2_URL"],
+    ],
+    reliability=True,
 )
 ```
 
-### 3. Use Models Over Raw SQL
+### All Options
 
 ```python
-# ✅ Preferred: Type-safe, auto-escaping
-users = await User.select().where(role="admin").all()
-
-# ⚠️ Use sparingly: Raw SQL
-users = await adapter.fetch_all(
-    "SELECT * FROM users WHERE role = $1",
-    ("admin",)
+adapter = PostgresAdapter(
+    # Connection (choose one)
+    url: str = None,                    # Full connection URL
+    host: str = "localhost",            # Or individual parts
+    port: int = 5432,
+    database: str = None,
+    user: str = "postgres",
+    password: str = None,
+    
+    # SSL
+    ssl: bool | dict = False,           # True or detailed config
+    
+    # Pool
+    min_connections: int = 5,
+    max_connections: int = 20,
+    
+    # Timeouts
+    connect_timeout: float = 10.0,
+    command_timeout: float = 30.0,
+    
+    # Statement cache
+    statement_cache_size: int = 1000,
+    
+    # Reliability
+    reliability: bool = False,          # Enable all reliability features
+    
+    # Replicas
+    primary: str = None,                # Primary URL (for read replicas)
+    replicas: list | ReplicaConfig = None,
 )
 ```
 
-### 4. Transactions for Related Operations
+---
 
-```python
-# ✅ Good: Atomic operations
-async with transaction():
-    user = await User.insert(name="John")
-    await Profile.insert(user_id=user.id, bio="...")
+## Related Documentation
 
-# ❌ Bad: Non-atomic
-user = await User.insert(name="John")
-await Profile.insert(user_id=user.id, bio="...")  # Could fail!
-```
-
-## Troubleshooting
-
-### "Connection refused"
-
-```
-ConnectionError: Failed to connect to PostgreSQL
-```
-
-**Solutions:**
-1. Check PostgreSQL is running: `pg_isready`
-2. Verify host/port are correct
-3. Check firewall rules
-
-### "Pool exhausted"
-
-```
-PoolExhaustedError: Timeout waiting for connection
-```
-
-**Solutions:**
-1. Increase `max_connections`
-2. Increase `acquire_timeout`
-3. Reduce query time
-4. Check for connection leaks
-
-### "Authentication failed"
-
-```
-ConnectionError: password authentication failed
-```
-
-**Solutions:**
-1. Verify username/password
-2. Check `pg_hba.conf` for auth method
-3. Ensure user has access to database
-
-### Slow Queries
-
-**Solutions:**
-1. Add indexes on filtered columns
-2. Use `EXPLAIN ANALYZE` to debug
-3. Check statement cache hit rate:
-
-```python
-# Get cache stats per connection
-from pynext.db.adapters import StatementCache
-# Check stats.hit_rate
-```
-
-## API Reference
-
-### PostgresAdapter
-
-```python
-class PostgresAdapter:
-    def __init__(
-        self,
-        url: str = None,
-        *,
-        host: str = None,
-        port: int = None,
-        database: str = None,
-        user: str = None,
-        password: str = None,
-        ssl: bool = None,
-        min_connections: int = 1,
-        max_connections: int = 10,
-        auto_scale: bool = True,
-        idle_timeout: float = 300.0,
-        max_lifetime: float = 3600.0,
-        acquire_timeout: float = 30.0,
-        statement_cache_size: int = 1000,
-        connect_timeout: float = 10.0,
-        command_timeout: float = None,
-    ):
-        """Create a PostgreSQL adapter."""
-    
-    async def connect(self) -> None:
-        """Connect to PostgreSQL."""
-    
-    async def disconnect(self) -> None:
-        """Disconnect from PostgreSQL."""
-    
-    async def execute(self, sql: str, params: tuple = None) -> Any:
-        """Execute raw SQL."""
-    
-    async def fetch_all(self, sql: str, params: tuple = None) -> List[Dict]:
-        """Fetch all rows."""
-    
-    async def fetch_one(self, sql: str, params: tuple = None) -> Optional[Dict]:
-        """Fetch one row."""
-    
-    async def begin_transaction(self, isolation: str = None) -> None:
-        """Begin a transaction."""
-    
-    async def commit_transaction(self) -> None:
-        """Commit the transaction."""
-    
-    async def rollback_transaction(self) -> None:
-        """Rollback the transaction."""
-    
-    async def savepoint(self, name: str) -> None:
-        """Create a savepoint."""
-    
-    async def rollback_savepoint(self, name: str) -> None:
-        """Rollback to a savepoint."""
-    
-    def get_pool_stats(self) -> Optional[PoolStats]:
-        """Get pool statistics."""
-```
-
-### PostgresConfig
-
-```python
-@dataclass
-class PostgresConfig:
-    host: str = "localhost"
-    port: int = 5432
-    database: str = "postgres"
-    user: str = "postgres"
-    password: Optional[str] = None
-    ssl: bool = False
-    ssl_mode: str = "prefer"
-    application_name: str = "pynext"
-    
-    @classmethod
-    def from_url(cls, url: str, **overrides) -> "PostgresConfig":
-        """Create config from URL."""
-    
-    def to_dsn(self) -> str:
-        """Convert to DSN string."""
-    
-    def to_asyncpg_kwargs(self) -> Dict[str, Any]:
-        """Convert to asyncpg kwargs."""
-```
-
-### AutoScalingPool
-
-```python
-class AutoScalingPool:
-    async def start(self) -> None:
-        """Start the pool."""
-    
-    async def close(self) -> None:
-        """Close the pool."""
-    
-    @asynccontextmanager
-    async def acquire(self) -> AsyncIterator[Connection]:
-        """Acquire a connection."""
-    
-    def get_stats(self) -> PoolStats:
-        """Get pool statistics."""
-```
-
-### StatementCache
-
-```python
-class StatementCache:
-    async def get_or_prepare(
-        self, 
-        connection: Connection, 
-        sql: str
-    ) -> PreparedStatement:
-        """Get cached or prepare new statement."""
-    
-    async def invalidate(self, sql: str) -> bool:
-        """Invalidate a cached statement."""
-    
-    async def invalidate_all(self) -> int:
-        """Invalidate all statements."""
-    
-    def get_stats(self) -> Dict[str, Any]:
-        """Get cache statistics."""
-```
-
+| Topic | Document | Description |
+|-------|----------|-------------|
+| **Core Concepts** | [DATABASE.md](./DATABASE.md) | ORM basics, models, CRUD |
+| **Schema Changes** | [MIGRATIONS.md](./MIGRATIONS.md) | Version-controlled migrations |
+| **Connection Pool** | [POOLING.md](./POOLING.md) | Advanced pooling configuration |
+| **Fault Tolerance** | [RELIABILITY.md](./RELIABILITY.md) | Retries, circuit breakers, replicas |
+| **Performance** | [HIGH_LOAD.md](./HIGH_LOAD.md) | Caching, pipelining, scaling |

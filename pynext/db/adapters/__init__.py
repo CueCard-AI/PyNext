@@ -71,6 +71,42 @@ Usage:
             ],
         ),
     )
+    
+    # Production with Phase 5.5 Observability Features
+    from pynext.db.adapters import (
+        PostgresAdapter,
+        LogConfig,
+        MetricsConfig,
+        AnalyzerConfig,
+        MonitorConfig,
+    )
+    
+    adapter = PostgresAdapter(
+        "postgresql://...",
+        logging_config=LogConfig(
+            enabled=True,
+            level="INFO",
+            slow_query_ms=200,
+            structlog_enabled=True,  # Use structlog for JSON output
+        ),
+        metrics_config=MetricsConfig(
+            enabled=True,
+            backend="prometheus",  # or "opentelemetry"
+            prefix="myapp_db",
+        ),
+        analyzer_config=AnalyzerConfig(
+            enabled=True,
+            slow_query_threshold_ms=100,
+            auto_explain=True,
+            suggest_indexes=True,
+        ),
+        monitor_config=MonitorConfig(
+            enabled=True,
+            exhaustion_warning_threshold=0.8,
+            leak_detection_timeout=300,
+            health_check_interval=30,
+        ),
+    )
 """
 
 from pynext.db.adapters.base import Adapter
@@ -196,6 +232,125 @@ try:
         strict_config,
     )
     
+    # Phase 5.4: Per-query timeouts
+    from pynext.db.adapters.postgres_timeout import (
+        QueryType,
+        QueryTimeoutConfig,
+        QueryWithTimeout,
+        QueryTimeoutError,
+        TimeoutStats,
+        TimeoutManager,
+        quick_timeout_config,
+        standard_timeout_config,
+        batch_timeout_config,
+        no_timeout_config,
+    )
+    
+    # Phase 5.4: Query cache with smart invalidation
+    from pynext.db.adapters.postgres_query_cache import (
+        InvalidationStrategy,
+        QueryCacheConfig,
+        CacheEntry,
+        CacheStats,
+        QueryCache,
+        simple_cache_config,
+        smart_cache_config,
+        aggressive_cache_config,
+        no_cache_config,
+    )
+    
+    # Phase 5.4: Query coalescing
+    from pynext.db.adapters.postgres_coalesce import (
+        CoalescingConfig,
+        PendingQuery,
+        CoalescingStats,
+        CoalescingLimitError,
+        QueryCoalescer,
+        aggressive_coalescing_config,
+        conservative_coalescing_config,
+        disabled_coalescing_config,
+    )
+    
+    # Phase 5.4: Query pipelining
+    from pynext.db.adapters.postgres_pipeline import (
+        PipelineConfig,
+        PipelinedQuery,
+        PipelineStats,
+        QueryPipeline,
+        high_throughput_config,
+        low_latency_config,
+        disabled_pipeline_config,
+    )
+    
+    # Phase 5.4: Batch optimization
+    from pynext.db.adapters.postgres_batch import (
+        BatchConfig,
+        BatchResult,
+        BatchStats,
+        BatchOptimizer,
+        bulk_load_config,
+        transactional_config,
+        disabled_batch_config,
+    )
+    
+    # Phase 5.4: Adaptive scaling
+    from pynext.db.adapters.postgres_scaling import (
+        AdaptiveScalingConfig,
+        LoadSample,
+        ScaleEvent,
+        ScalingStats,
+        ScalingRecommendation,
+        AdaptiveScaler,
+        aggressive_scaling_config,
+        conservative_scaling_config,
+        disabled_scaling_config,
+    )
+    
+    # Phase 5.5: Structured logging
+    from pynext.db.adapters.postgres_logging import (
+        LogConfig,
+        QueryContext,
+        DBLogger,
+        query_id_var,
+        trace_id_var,
+        client_ip_var,
+    )
+    
+    # Phase 5.5: Metrics collection
+    from pynext.db.adapters.postgres_metrics import (
+        MetricsConfig,
+        MetricsCollector,
+        MetricsBackend,
+    )
+    
+    # Phase 5.5: Prometheus backend
+    from pynext.db.adapters.postgres_prometheus import (
+        PrometheusBackend,
+    )
+    
+    # Phase 5.5: OpenTelemetry backend
+    from pynext.db.adapters.postgres_opentelemetry import (
+        OpenTelemetryBackend,
+        OTLPConfig,
+    )
+    
+    # Phase 5.5: Query analyzer
+    from pynext.db.adapters.postgres_analyzer import (
+        QueryAnalyzer,
+        AnalyzerConfig,
+        ExplainResult,
+        IndexSuggestion,
+        QueryHint,
+    )
+    
+    # Phase 5.5: Pool monitor
+    from pynext.db.adapters.postgres_monitor import (
+        PoolMonitor,
+        MonitorConfig,
+        LeakDetector,
+        HealthChecker,
+    )
+    
     _HAS_POSTGRES = True
 except ImportError:
     _HAS_POSTGRES = False
@@ -285,6 +440,79 @@ except ImportError:
     disabled_config = None  # type: ignore
     lenient_config = None  # type: ignore
     strict_config = None  # type: ignore
+    # Phase 5.4 fallbacks
+    QueryType = None  # type: ignore
+    QueryTimeoutConfig = None  # type: ignore
+    QueryWithTimeout = None  # type: ignore
+    QueryTimeoutError = None  # type: ignore
+    TimeoutStats = None  # type: ignore
+    TimeoutManager = None  # type: ignore
+    quick_timeout_config = None  # type: ignore
+    standard_timeout_config = None  # type: ignore
+    batch_timeout_config = None  # type: ignore
+    no_timeout_config = None  # type: ignore
+    InvalidationStrategy = None  # type: ignore
+    QueryCacheConfig = None  # type: ignore
+    CacheEntry = None  # type: ignore
+    CacheStats = None  # type: ignore
+    QueryCache = None  # type: ignore
+    simple_cache_config = None  # type: ignore
+    smart_cache_config = None  # type: ignore
+    aggressive_cache_config = None  # type: ignore
+    no_cache_config = None  # type: ignore
+    CoalescingConfig = None  # type: ignore
+    PendingQuery = None  # type: ignore
+    CoalescingStats = None  # type: ignore
+    CoalescingLimitError = None  # type: ignore
+    QueryCoalescer = None  # type: ignore
+    aggressive_coalescing_config = None  # type: ignore
+    conservative_coalescing_config = None  # type: ignore
+    disabled_coalescing_config = None  # type: ignore
+    PipelineConfig = None  # type: ignore
+    PipelinedQuery = None  # type: ignore
+    PipelineStats = None  # type: ignore
+    QueryPipeline = None  # type: ignore
+    high_throughput_config = None  # type: ignore
+    low_latency_config = None  # type: ignore
+    disabled_pipeline_config = None  # type: ignore
+    BatchConfig = None  # type: ignore
+    BatchResult = None  # type: ignore
+    BatchStats = None  # type: ignore
+    BatchOptimizer = None  # type: ignore
+    bulk_load_config = None  # type: ignore
+    transactional_config = None  # type: ignore
+    disabled_batch_config = None  # type: ignore
+    AdaptiveScalingConfig = None  # type: ignore
+    LoadSample = None  # type: ignore
+    ScaleEvent = None  # type: ignore
+    ScalingStats = None  # type: ignore
+    ScalingRecommendation = None  # type: ignore
+    AdaptiveScaler = None  # type: ignore
+    aggressive_scaling_config = None  # type: ignore
+    conservative_scaling_config = None  # type: ignore
+    disabled_scaling_config = None  # type: ignore
+    # Phase 5.5 fallbacks
+    LogConfig = None  # type: ignore
+    QueryContext = None  # type: ignore
+    DBLogger = None  # type: ignore
+    query_id_var = None  # type: ignore
+    trace_id_var = None  # type: ignore
+    client_ip_var = None  # type: ignore
+    MetricsConfig = None  # type: ignore
+    MetricsCollector = None  # type: ignore
+    MetricsBackend = None  # type: ignore
+    PrometheusBackend = None  # type: ignore
+    OpenTelemetryBackend = None  # type: ignore
+    OTLPConfig = None  # type: ignore
+    QueryAnalyzer = None  # type: ignore
+    AnalyzerConfig = None  # type: ignore
+    ExplainResult = None  # type: ignore
+    IndexSuggestion = None  # type: ignore
+    QueryHint = None  # type: ignore
+    PoolMonitor = None  # type: ignore
+    MonitorConfig = None  # type: ignore
+    LeakDetector = None  # type: ignore
+    HealthChecker = None  # type: ignore
 
 __all__ = [
     "Adapter",
@@ -383,4 +611,87 @@ __all__ = [
     "disabled_config",
     "lenient_config",
     "strict_config",
+    # Phase 5.4: Per-query timeouts
+    "QueryType",
+    "QueryTimeoutConfig",
+    "QueryWithTimeout",
+    "QueryTimeoutError",
+    "TimeoutStats",
+    "TimeoutManager",
+    "quick_timeout_config",
+    "standard_timeout_config",
+    "batch_timeout_config",
+    "no_timeout_config",
+    # Phase 5.4: Query cache with smart invalidation
+    "InvalidationStrategy",
+    "QueryCacheConfig",
+    "CacheEntry",
+    "CacheStats",
+    "QueryCache",
+    "simple_cache_config",
+    "smart_cache_config",
+    "aggressive_cache_config",
+    "no_cache_config",
+    # Phase 5.4: Query coalescing
+    "CoalescingConfig",
+    "PendingQuery",
+    "CoalescingStats",
+    "CoalescingLimitError",
+    "QueryCoalescer",
+    "aggressive_coalescing_config",
+    "conservative_coalescing_config",
+    "disabled_coalescing_config",
+    # Phase 5.4: Query pipelining
+    "PipelineConfig",
+    "PipelinedQuery",
+    "PipelineStats",
+    "QueryPipeline",
+    "high_throughput_config",
+    "low_latency_config",
+    "disabled_pipeline_config",
+    # Phase 5.4: Batch optimization
+    "BatchConfig",
+    "BatchResult",
+    "BatchStats",
+    "BatchOptimizer",
+    "bulk_load_config",
+    "transactional_config",
+    "disabled_batch_config",
+    # Phase 5.4: Adaptive scaling
+    "AdaptiveScalingConfig",
+    "LoadSample",
+    "ScaleEvent",
+    "ScalingStats",
+    "ScalingRecommendation",
+    "AdaptiveScaler",
+    "aggressive_scaling_config",
+    "conservative_scaling_config",
+    "disabled_scaling_config",
+    # Phase 5.5: Structured logging
+    "LogConfig",
+    "QueryContext",
+    "DBLogger",
+    "query_id_var",
+    "trace_id_var",
+    "client_ip_var",
+    # Phase 5.5: Metrics collection
+    "MetricsConfig",
+    "MetricsCollector",
+    "MetricsBackend",
+    # Phase 5.5: Prometheus backend
+    "PrometheusBackend",
+    # Phase 5.5: OpenTelemetry backend
+    "OpenTelemetryBackend",
+    "OTLPConfig",
+    # Phase 5.5: Query analyzer
+    "QueryAnalyzer",
+    "AnalyzerConfig",
+    "ExplainResult",
+    "IndexSuggestion",
+    "QueryHint",
+    # Phase 5.5: Pool monitor
+    "PoolMonitor",
+    "MonitorConfig",
+    "LeakDetector",
+    "HealthChecker",
 ]
