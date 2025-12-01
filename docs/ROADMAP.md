@@ -1,6 +1,206 @@
 # PyNext Roadmap
 
-This document tracks future enhancements and features for PyNext. Ideas captured here are not currently in development but represent the product vision.
+This document tracks future enhancements and features for PyNext, and articulates the comprehensive vision for what we're building.
+
+---
+
+## The Vision: What We're Building
+
+### The Problem
+
+Modern web development is **unnecessarily complex**. To build a production web app today, developers must:
+
+1. **Learn JavaScript/TypeScript** - Even for simple apps
+2. **Master React's mental model** - Hooks, re-renders, stale closures, dependency arrays
+3. **Choose from 100+ packages** - State management, routing, forms, auth, ORM, testing...
+4. **Configure build tools** - Webpack, Babel, ESLint, TypeScript, Tailwind...
+5. **Understand web concepts** - CSR, SSR, SSG, ISR, RSC, hydration, streaming...
+6. **Fight the framework** - Workarounds for simple things (why can't I just call a Python function?)
+
+**The result**: A "simple" blog requires 50+ npm packages, 10+ config files, and 1000+ lines of boilerplate.
+
+### The Solution: PyNext
+
+**PyNext is a full-stack Python framework that makes web development as simple as writing Python.**
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           PYNEXT VISION                                      │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  Write Python → Get a Fast, Modern Web App → Deploy Anywhere                │
+│                                                                              │
+│  ┌──────────────────┐      ┌──────────────────┐      ┌──────────────────┐  │
+│  │    Your Code     │      │   PyNext Magic    │      │    Production    │  │
+│  │                  │      │                  │      │                  │  │
+│  │  • Pure Python   │  →   │  • Compiles to   │  →   │  • <10KB JS      │  │
+│  │  • Type hints    │      │    optimized JS  │      │  • <500ms TTI    │  │
+│  │  • No React      │      │  • Auto-hydrates │      │  • SEO perfect   │  │
+│  │  • No npm        │      │  • Smart caching │      │  • Works offline │  │
+│  └──────────────────┘      └──────────────────┘      └──────────────────┘  │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Core Principles
+
+| Principle | What It Means | Why It Matters |
+|-----------|---------------|----------------|
+| **Python-First** | Write Python, not JavaScript | Backend devs don't need to learn new languages |
+| **SolidJS Reactivity** | Fine-grained updates, not virtual DOM | 10x smaller bundles, 3x faster updates |
+| **Zero Config** | Works out of the box | Ship features, not webpack configs |
+| **Full-Stack** | UI + API + Database + Auth in one | No glue code between 5 frameworks |
+| **AI-Friendly** | Simple, explicit code | LLMs can understand and extend your app |
+| **Production-Ready** | Battle-tested patterns built-in | Security, caching, scaling by default |
+
+---
+
+## PyNext vs The Competition
+
+### Framework Comparison
+
+| Capability | Next.js | Django | FastAPI | Flask | **PyNext** |
+|------------|---------|--------|---------|-------|------------|
+| Language | JS/TS | Python | Python | Python | **Python** |
+| Reactivity | Virtual DOM | None | None | None | **Fine-grained (SolidJS)** |
+| Bundle Size | ~80KB | N/A | N/A | N/A | **<10KB** |
+| TTI | ~1.5s | N/A | N/A | N/A | **<500ms** |
+| Server Actions | ✅ | ❌ | ❌ | ❌ | **✅** |
+| Built-in ORM | ❌ (Prisma) | ✅ | ❌ | ❌ | **✅** |
+| Built-in Auth | ❌ (NextAuth) | ✅ | ❌ | ❌ | **✅** |
+| Type Safety | TS required | Optional | ✅ | ❌ | **✅** |
+| Hot Reload | ~300ms | ~2s | ~1s | ~1s | **<50ms** |
+| Learning Curve | Steep | Moderate | Easy | Easy | **Easy** |
+
+### Lines of Code Comparison
+
+| Task | Next.js + React | Django | **PyNext** |
+|------|-----------------|--------|------------|
+| Hello World | 15 | 20 | **5** |
+| Todo App | 150 | 200 | **50** |
+| Blog with Auth | 500 | 400 | **150** |
+| E-commerce (basic) | 2000+ | 1500+ | **500** |
+| Full SaaS | 10000+ | 8000+ | **3000** |
+
+### Why We're Faster Than Next.js
+
+```
+Next.js Request Flow (Complex):
+┌──────┐    ┌─────────┐    ┌──────────┐    ┌─────────┐    ┌──────────┐
+│Client│ →  │ Webpack │ →  │  React   │ →  │ Virtual │ →  │   DOM    │
+│      │    │ Bundle  │    │ Runtime  │    │   DOM   │    │ Updates  │
+└──────┘    └─────────┘    └──────────┘    └─────────┘    └──────────┘
+            (80KB+)        (40KB+)         (Diffing)      (Batch)
+
+PyNext Request Flow (Simple):
+┌──────┐    ┌─────────┐    ┌──────────┐
+│Client│ →  │ Minimal │ →  │  Direct  │
+│      │    │ Runtime │    │   DOM    │
+└──────┘    └─────────┘    └──────────┘
+            (<10KB)        (No diffing)
+```
+
+**Why PyNext is faster:**
+
+1. **No Virtual DOM** - SolidJS compiles to direct DOM updates
+2. **Fine-grained reactivity** - Only changed nodes update, not entire component trees
+3. **Smaller bundles** - No React, no reconciler, no scheduler
+4. **Server-first** - Most code runs on server, minimal client JS
+5. **Smart hydration** - Only hydrate interactive parts (Islands)
+
+---
+
+## Performance Benchmarks (Targets)
+
+### JavaScript Bundle Size
+
+| App Type | Next.js | PyNext | Reduction |
+|----------|---------|--------|-----------|
+| Hello World | 80KB | **8KB** | **90%** |
+| Blog | 150KB | **15KB** | **90%** |
+| Dashboard | 300KB | **30KB** | **90%** |
+| E-commerce | 500KB | **50KB** | **90%** |
+
+### Time to Interactive (TTI)
+
+| Network | Next.js | PyNext | Improvement |
+|---------|---------|--------|-------------|
+| Fast 3G | 2.5s | **0.8s** | **3x faster** |
+| 4G | 1.5s | **0.5s** | **3x faster** |
+| WiFi | 0.8s | **0.3s** | **2.5x faster** |
+
+### Server Response Time
+
+| Operation | Next.js | PyNext | Improvement |
+|-----------|---------|--------|-------------|
+| Static page | 50ms | **20ms** | **2.5x faster** |
+| SSR page | 200ms | **80ms** | **2.5x faster** |
+| API route | 100ms | **40ms** | **2.5x faster** |
+| Database query | 150ms | **60ms** | **2.5x faster** |
+
+### Developer Experience
+
+| Metric | Next.js | PyNext | Improvement |
+|--------|---------|--------|-------------|
+| Hot reload | 300ms | **<50ms** | **6x faster** |
+| Build time | 30s | **<10s** | **3x faster** |
+| Cold start | 5s | **<2s** | **2.5x faster** |
+| Config files | 10+ | **1** | **10x simpler** |
+
+---
+
+## What Makes PyNext Special
+
+### 1. Python All The Way Down
+
+```python
+# Next.js: Learn JSX, hooks, TypeScript, npm, webpack...
+# PyNext: Just write Python
+
+def HomePage():
+    count = Signal(0)
+    return div(
+        h1(f"Count: {count()}"),
+        button("+", on_click=lambda: count.set(count() + 1))
+    )
+```
+
+### 2. SolidJS Reactivity (Not React)
+
+```python
+# React: Re-renders entire component tree
+# SolidJS/PyNext: Only updates the exact DOM node that changed
+
+name = Signal("Alice")
+# When name changes, ONLY the text node updates
+# Not the div, not the parent, not siblings
+h1(f"Hello, {name()}")  
+```
+
+### 3. Built-in Everything
+
+```python
+# Next.js: Install NextAuth + Prisma + TanStack Query + Zod + ...
+# PyNext: It's all included
+
+from pynext.auth import Auth, login_required
+from pynext.db import Table, db
+
+Auth.setup(secret="...")  # Auth done
+db.configure("postgres://...")  # Database done
+
+class User(Table):
+    name: str
+    email: str  # Validation done
+```
+
+### 4. AI-Friendly Code
+
+PyNext is designed for the AI era. Simple, explicit code that LLMs can:
+- **Understand** - No magic, no hidden state
+- **Generate** - Consistent patterns, clear APIs
+- **Debug** - Explicit error messages, stack traces
+- **Extend** - Modular design, composable pieces
 
 ---
 
@@ -1315,6 +1515,866 @@ Create `docs/features/REACTIVITY.md` (~3000 lines):
 | Bundle | ~40KB | ~7KB |
 | Re-renders | Component tree | Only changed nodes |
 | Mental model | "When re-render?" | "When value change?" |
+
+---
+
+### Native Authentication (SolidJS Principles)
+
+Dead-simple authentication that consolidates the entire Next.js auth complexity into a few Python primitives. No more juggling 15+ concepts just to protect a route!
+
+---
+
+#### Why Authentication is Hard (And Shouldn't Be)
+
+Authentication is a **solved problem**. Every app needs login, logout, sessions, and protected routes. Yet the current state of the art requires:
+
+```
+Next.js Auth Flow (From Their Official Docs):
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                 CLIENT                                       │
+│  ┌──────────────┐    ┌──────────────────┐    ┌─────────────────────────┐   │
+│  │   <form>     │    │ useFormState()   │    │   useFormStatus()      │   │
+│  │ (with attrs) │    │ (React hook)     │    │   (another hook)       │   │
+│  └──────┬───────┘    └────────┬─────────┘    └───────────┬─────────────┘   │
+│         │                     │                          │                  │
+│         └─────────────────────┼──────────────────────────┘                  │
+│                               ▼                                             │
+│                    ┌──────────────────┐                                    │
+│                    │  Server Action   │                                    │
+│                    └────────┬─────────┘                                    │
+└─────────────────────────────┼───────────────────────────────────────────────┘
+                              │
+┌─────────────────────────────┼───────────────────────────────────────────────┐
+│                           SERVER                                             │
+│                              ▼                                              │
+│   ┌──────────────┐    ┌─────────────────┐    ┌────────────────────────┐    │
+│   │  Middleware  │    │  cookies() API  │    │  Session encryption   │    │
+│   │  + matcher   │    │  + serialize    │    │  functions            │    │
+│   └──────┬───────┘    └────────┬────────┘    └───────────┬────────────┘    │
+│          │                     │                         │                  │
+│   ┌──────▼───────┐    ┌────────▼────────┐    ┌───────────▼────────────┐    │
+│   │    DAL       │    │     DTO         │    │    getSession()       │    │
+│   │ (Data Access)│    │(Transfer Object)│    │    helper             │    │
+│   └──────────────┘    └─────────────────┘    └────────────────────────┘    │
+│                                                                              │
+│   External Dependencies: NextAuth, Auth0, Clerk, iron-session, jose...     │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+That's 15+ concepts just for "is this user logged in?" 🤯
+```
+
+**PyNext Auth Flow:**
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              PYNEXT                                          │
+│                                                                              │
+│   Auth.setup(secret="...")  ──────────────►  Done.                          │
+│                                                                              │
+│   @login_required           ──────────────►  Route protected.               │
+│                                                                              │
+│   current_user()            ──────────────►  User data (reactive).          │
+│                                                                              │
+│   Auth.login_form()         ──────────────►  Full login UI.                 │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+4 concepts. That's it. 🎉
+```
+
+---
+
+#### The Next.js Auth Problem (In Detail)
+
+From the [Next.js authentication docs](https://nextjs.org/docs/pages/guides/authentication), here's what you actually need:
+
+| Concept | What It Does | Lines of Code | Files |
+|---------|--------------|---------------|-------|
+| `<form>` with handlers | Capture user input | ~20 | 1 |
+| `useFormState()` | Manage form state | ~15 | 1 |
+| `useFormStatus()` | Show loading states | ~10 | 1 |
+| Server Action | Handle form submission | ~30 | 1 |
+| API Route `/api/auth/login` | Process login | ~50 | 1 |
+| `cookies()` API | Set/get cookies | ~20 | 1 |
+| `serialize` package | Encode cookies | ~10 | 1 |
+| Session encryption | Encrypt session data | ~40 | 1 |
+| Database session table | Store sessions | ~30 | 1 |
+| Middleware | Check auth on routes | ~50 | 1 |
+| `matcher` config | Define protected routes | ~20 | 1 |
+| Data Access Layer | Centralize DB queries | ~100 | 3+ |
+| Data Transfer Objects | Shape API responses | ~50 | 2+ |
+| `getSession()` helper | Get user from session | ~30 | 1 |
+| Error handling | Auth errors | ~40 | 1 |
+| **TOTAL** | **Basic auth** | **~500+ lines** | **15+ files** |
+
+And this doesn't include:
+- OAuth providers (add ~200 lines each)
+- Email verification (~100 lines)
+- Password reset (~100 lines)
+- 2FA (~150 lines)
+- Rate limiting (external package)
+- CSRF protection (external package)
+
+---
+
+#### PyNext Auth Solution (Comparison)
+
+| Task | Next.js Approach | Lines | PyNext Approach | Lines | Reduction |
+|------|------------------|-------|-----------------|-------|-----------|
+| **Setup** | Config file + env + init | ~100 | `Auth.setup(secret=...)` | **3** | **97%** |
+| **Protected route** | Middleware + matcher + hook | ~80 | `@login_required` | **1** | **99%** |
+| **Get current user** | Hook + context + types | ~40 | `current_user()` | **1** | **98%** |
+| **Login form** | Form + state + action + API | ~100 | `Auth.login_form()` | **1** | **99%** |
+| **OAuth (Google)** | Provider + callback + config | ~150 | `providers=["google"]` | **1** | **99%** |
+| **Session mgmt** | iron-session + encrypt + cookies | ~80 | `session="jwt"` | **1** | **99%** |
+| **Email verification** | Custom routes + tokens + email | ~100 | `require_verified=True` | **1** | **99%** |
+| **Password reset** | Custom flow + tokens + email | ~100 | `Auth.send_reset_email()` | **1** | **99%** |
+| **2FA/MFA** | External package + UI + storage | ~200 | `mfa_enabled=True` | **1** | **99%** |
+| **Role-based access** | Custom middleware | ~60 | `@role_required("admin")` | **1** | **98%** |
+| **CSRF protection** | Manual tokens + validation | ~50 | Automatic | **0** | **100%** |
+| **Rate limiting** | External package + config | ~40 | Built-in | **0** | **100%** |
+| **TOTAL** | Complex multi-file setup | **~1000+** | Simple Python | **~30** | **97%** |
+
+---
+
+#### Performance Benchmarks (Auth-Specific)
+
+| Metric | Next.js + NextAuth | PyNext Auth | Improvement |
+|--------|-------------------|-------------|-------------|
+| **Auth check latency** | ~50ms (JWT verify + hooks) | **~5ms** | **10x faster** |
+| **Session lookup (DB)** | ~100ms (Prisma + hooks) | **~20ms** | **5x faster** |
+| **Login form render** | ~200ms (React + form libs) | **~20ms** | **10x faster** |
+| **Bundle size (auth)** | ~30KB (NextAuth client) | **<3KB** | **90% smaller** |
+| **OAuth flow** | 3 round-trips | **2 round-trips** | **33% faster** |
+| **Time to implement** | 1-2 days | **10 minutes** | **100x faster** |
+
+---
+
+#### Why Our Approach is Better
+
+| Principle | Next.js Problem | PyNext Solution |
+|-----------|-----------------|-----------------|
+| **Simplicity** | 15+ concepts to learn | 4 concepts total |
+| **Reactivity** | Hooks + context + re-renders | Signals - just works |
+| **Integration** | Separate auth library | Built into framework |
+| **Database** | Separate ORM (Prisma) | Uses your existing `db` |
+| **Type Safety** | TypeScript required | Python type hints |
+| **Security** | Manual CSRF, rate limiting | Automatic, built-in |
+| **Extensibility** | Override adapter methods | Extend `Auth.User` class |
+| **Testing** | Mock providers manually | MockAdapter included |
+
+---
+
+#### Complete Example: Next.js vs PyNext
+
+**Next.js (Minimal Auth) - 12+ files, ~500 lines:**
+
+```
+app/
+├── api/
+│   └── auth/
+│       ├── [...nextauth]/route.ts    # 50 lines
+│       └── login/route.ts            # 40 lines
+├── lib/
+│   ├── auth.ts                       # 60 lines (config)
+│   ├── session.ts                    # 40 lines
+│   └── dal.ts                        # 80 lines
+├── middleware.ts                     # 50 lines
+├── login/
+│   ├── page.tsx                      # 60 lines
+│   └── actions.ts                    # 40 lines
+├── dashboard/
+│   └── page.tsx                      # 30 lines
+└── types/
+    └── auth.ts                       # 30 lines
+```
+
+**PyNext (Same Features) - 2 files, ~30 lines:**
+
+```python
+# config.py (10 lines)
+from pynext.auth import Auth
+
+Auth.setup(
+    secret=env("AUTH_SECRET"),
+    providers=["email", "google"],
+    session="jwt",
+)
+
+# pages/login.py (10 lines)
+from pynext.auth import Auth
+
+def LoginPage():
+    return div(
+        h1("Sign In"),
+        Auth.oauth_button("google"),
+        Auth.login_form()
+    )
+
+# pages/dashboard.py (10 lines)
+from pynext.auth import login_required, current_user
+
+@login_required
+def Dashboard():
+    user = current_user()
+    return div(f"Welcome, {user().name}!")
+```
+
+**Same result. 97% less code. Zero config files.**
+
+---
+
+#### Architecture: How It Works
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           PYNEXT AUTH ARCHITECTURE                           │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  ┌─────────────┐     ┌──────────────────────────────────────────────────┐  │
+│  │   Browser   │     │                    PyNext Server                  │  │
+│  │             │     │                                                   │  │
+│  │  ┌───────┐  │     │   ┌─────────────────────────────────────────┐   │  │
+│  │  │Signal │◄─┼─────┼───│            Auth Middleware               │   │  │
+│  │  │current│  │     │   │  • Check session cookie                  │   │  │
+│  │  │_user()│  │     │   │  • Decode JWT / lookup DB session        │   │  │
+│  │  └───────┘  │     │   │  • Set current_user Signal               │   │  │
+│  │             │     │   │  • Apply @login_required                 │   │  │
+│  │  ┌───────┐  │     │   └─────────────────────────────────────────┘   │  │
+│  │  │ Forms │──┼─────┼───►  Auth.login_form()                          │  │
+│  │  │       │  │     │      • CSRF token (automatic)                   │  │
+│  │  │       │  │     │      • Validation (automatic)                   │  │
+│  │  │       │  │     │      • Rate limiting (automatic)                │  │
+│  │  └───────┘  │     │                                                   │  │
+│  │             │     │   ┌─────────────────────────────────────────┐   │  │
+│  │  ┌───────┐  │     │   │            Session Storage               │   │  │
+│  │  │Cookie │◄─┼─────┼───│                                         │   │  │
+│  │  │(JWT)  │  │     │   │  JWT ───► Stateless (default)           │   │  │
+│  │  └───────┘  │     │   │  DB  ───► PostgresAdapter (revocable)   │   │  │
+│  │             │     │   │  Redis──► Fast + revocable              │   │  │
+│  └─────────────┘     │   └─────────────────────────────────────────┘   │  │
+│                      │                                                   │  │
+│                      │   ┌─────────────────────────────────────────┐   │  │
+│                      │   │            ORM Integration               │   │  │
+│                      │   │                                         │   │  │
+│                      │   │  Auth.User ──► extends Table            │   │  │
+│                      │   │  user.posts ──► relationships work      │   │  │
+│                      │   │  migrations ──► auto-generated          │   │  │
+│                      │   └─────────────────────────────────────────┘   │  │
+│                      └───────────────────────────────────────────────────┘  │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+#### Security: Built-in, Not Bolted-on
+
+| Security Feature | Next.js | PyNext |
+|------------------|---------|--------|
+| **Password Hashing** | Manual (bcrypt package) | **Argon2 (default)** |
+| **CSRF Protection** | Manual tokens | **Automatic** |
+| **Rate Limiting** | External package | **Built-in** |
+| **Brute Force Protection** | Manual implementation | **Built-in lockout** |
+| **Secure Cookies** | Manual config | **httpOnly, secure, sameSite by default** |
+| **Session Encryption** | Manual implementation | **Automatic** |
+| **XSS in Forms** | Manual sanitization | **Automatic escaping** |
+| **SQL Injection** | Depends on ORM | **Parameterized queries** |
+
+---
+
+#### The PyNext Solution (Code)
+
+```python
+from pynext.auth import Auth, login_required, current_user
+
+# 1. Configure once (3 lines)
+Auth.setup(
+    secret="your-secret-key",
+    providers=["email", "google", "github"],
+    session="jwt",
+)
+
+# 2. Protect routes (1 decorator)
+@login_required
+def Dashboard():
+    user = current_user()  # Signal - reactive!
+    return div(f"Welcome, {user().name}")
+
+# 3. Login form (1 line)
+def LoginPage():
+    return Auth.login_form()
+```
+
+**~30 lines of PyNext replaces ~500+ lines of Next.js**
+
+---
+
+#### Phase 13: Native Authentication (Target: 600+ tests)
+
+**13.1 One-Line Setup**
+- [ ] `Auth.setup(secret=, providers=, session=)` - Configure everything
+- [ ] Auto-generate routes: `/login`, `/logout`, `/register`, `/forgot-password`, `/verify-email`, `/reset-password`
+- [ ] Auto-create database tables if needed
+- [ ] Environment variable fallbacks (`PYNEXT_AUTH_SECRET`, etc.)
+
+```python
+from pynext.auth import Auth
+from datetime import timedelta
+
+# Minimal setup - just a secret
+Auth.setup(secret="my-secret-key")
+
+# Full setup
+Auth.setup(
+    secret="my-secret-key",
+    session="jwt",                       # or "database" or "redis"
+    session_lifetime=timedelta(days=7),
+    providers=["email", "google", "github", "magic_link"],
+    password_min_length=8,
+    require_verified=True,               # Email verification required
+    rate_limit="10/minute",
+    csrf=True,
+    mfa_enabled=False,                   # 2FA support
+)
+```
+
+**13.2 Signal-Based Auth State**
+- [ ] `current_user()` - Reactive Signal with user data
+- [ ] `is_authenticated()` - Reactive boolean Signal
+- [ ] `auth_loading()` - Loading state Signal
+- [ ] `auth_error()` - Error state Signal
+- [ ] Auto-refresh on token expiry
+- [ ] Automatic state sync across tabs
+
+```python
+from pynext.auth import current_user, is_authenticated
+
+def Header():
+    user = current_user()  # Signal - updates automatically!
+    
+    return header(
+        Show(is_authenticated(),
+            lambda: div(
+                f"Hello, {user().name}",
+                button("Logout", on_click=Auth.logout)
+            ),
+            fallback=a("Login", href="/login")
+        )
+    )
+```
+
+**13.3 Route Protection**
+- [ ] `@login_required` - Protect any route
+- [ ] `@login_required(redirect="/login")` - Custom redirect
+- [ ] `@role_required("admin")` - Role-based access
+- [ ] `@permission_required("posts:write")` - Permission-based
+- [ ] Automatic redirect after login to original destination
+- [ ] Protected route patterns in config
+
+```python
+from pynext.auth import login_required, role_required, permission_required
+
+# Simple protection
+@login_required
+def Dashboard():
+    return div("Secret dashboard")
+
+# Role-based
+@role_required("admin")
+def AdminPanel():
+    return div("Admin only")
+
+# Fine-grained permissions
+@permission_required("posts:delete")
+def DeletePost(post_id: int):
+    return div("Delete confirmation")
+
+# Or configure globally
+Auth.setup(
+    protected_routes=["/dashboard/*", "/admin/*", "/api/private/*"],
+    public_routes=["/", "/login", "/register", "/api/public/*"],
+)
+```
+
+**13.4 Built-In Auth Forms**
+- [ ] `Auth.login_form()` - Complete login form with validation
+- [ ] `Auth.register_form()` - Registration with password strength
+- [ ] `Auth.forgot_password_form()` - Password reset request
+- [ ] `Auth.reset_password_form(token)` - Set new password
+- [ ] `Auth.change_password_form()` - Change current password
+- [ ] `Auth.verify_email_form()` - Email verification
+- [ ] All forms customizable but work out-of-box
+- [ ] Built-in CSRF protection
+
+```python
+# Default forms - just work!
+def LoginPage():
+    return div(
+        h1("Sign In"),
+        Auth.login_form()
+    )
+
+# Customized
+def CustomLogin():
+    return Auth.login_form(
+        class_="my-form",
+        show_remember_me=True,
+        show_forgot_password=True,
+        on_success=lambda: navigate("/dashboard"),
+    )
+```
+
+**13.5 OAuth Providers**
+- [ ] Google, GitHub, Apple, Microsoft, Discord, Twitter, Facebook
+- [ ] `Auth.oauth_button("google")` - Styled button
+- [ ] Automatic callback handling
+- [ ] Account linking (same email = same account)
+- [ ] Scope configuration
+
+```python
+Auth.setup(
+    providers={
+        "google": {
+            "client_id": env("GOOGLE_CLIENT_ID"),
+            "client_secret": env("GOOGLE_CLIENT_SECRET"),
+            "scopes": ["email", "profile"],
+        },
+        "github": {
+            "client_id": env("GITHUB_CLIENT_ID"),
+            "client_secret": env("GITHUB_CLIENT_SECRET"),
+        }
+    }
+)
+
+def LoginPage():
+    return div(
+        Auth.oauth_button("google"),
+        Auth.oauth_button("github"),
+        p("or"),
+        Auth.login_form()
+    )
+```
+
+**13.6 Magic Links (Passwordless)**
+- [ ] `Auth.send_magic_link(email)` - Send login link
+- [ ] Automatic token generation and validation
+- [ ] Configurable expiry
+- [ ] Rate limiting built-in
+
+```python
+Auth.setup(
+    providers=["magic_link"],
+    magic_link_expiry=timedelta(minutes=15),
+)
+
+async def send_link():
+    await Auth.send_magic_link(email())
+```
+
+**13.7 Session Management**
+- [ ] JWT sessions (stateless, scalable) - default
+- [ ] Database sessions (revocable, audit trail)
+- [ ] Redis sessions (fast + revocable)
+- [ ] Cookie encryption automatic
+- [ ] Secure cookie settings (httpOnly, secure, sameSite)
+- [ ] "Remember me" with extended lifetime
+- [ ] Multi-device session management
+- [ ] Session invalidation on password change
+
+```python
+# Stateless JWT (default)
+Auth.setup(session="jwt", session_lifetime=timedelta(days=7))
+
+# Database sessions (revocable)
+Auth.setup(session="database")
+
+# Redis (fast + revocable)
+Auth.setup(session="redis", redis_url="redis://localhost")
+
+# Session management
+sessions = await Auth.get_sessions(user_id)
+await Auth.revoke_session(session_id)
+await Auth.revoke_all_sessions(user_id)
+```
+
+**13.8 Email Verification**
+- [ ] `Auth.send_verification_email(email)` - Send verification
+- [ ] Auto-generated `/verify-email` route
+- [ ] Configurable expiry
+- [ ] Resend with rate limiting
+
+```python
+Auth.setup(
+    require_verified=True,
+    verification_expiry=timedelta(hours=24),
+)
+
+# Check status
+if not current_user().email_verified:
+    return redirect("/verify-email")
+```
+
+**13.9 Password Reset**
+- [ ] `Auth.send_reset_email(email)` - Send reset link
+- [ ] Auto-generated `/reset-password` route
+- [ ] Secure token with expiry
+- [ ] Invalidate all sessions on reset
+
+```python
+await Auth.send_reset_email(email)
+await Auth.reset_password(token, new_password)
+```
+
+**13.10 Two-Factor Authentication (2FA/MFA)**
+- [ ] TOTP support (Google Authenticator, Authy)
+- [ ] SMS codes (optional)
+- [ ] Backup codes generation
+- [ ] Remember device option
+
+```python
+Auth.setup(mfa_enabled=True, mfa_methods=["totp"])
+
+# Enable for user
+qr_code, backup_codes = await Auth.enable_2fa(user_id)
+
+# Verify
+is_valid = await Auth.verify_2fa(user_id, code)
+
+# Require 2FA for route
+@login_required(require_2fa=True)
+def SecureDashboard(): ...
+```
+
+**13.11 Account Linking**
+- [ ] Same email = same account (automatic)
+- [ ] Link additional providers
+- [ ] Unlink providers (keep at least one)
+
+```python
+await Auth.link_provider(user_id, "github", github_token)
+providers = await Auth.get_linked_providers(user_id)
+await Auth.unlink_provider(user_id, "github")
+```
+
+**13.12 Role & Permission System**
+- [ ] Built-in Role model
+- [ ] Permission strings (e.g., "posts:write")
+- [ ] Role inheritance
+- [ ] Easy assignment
+
+```python
+from pynext.auth import Role
+
+admin = Role("admin", permissions=["*"])
+editor = Role("editor", permissions=["posts:*", "comments:*"])
+
+await Auth.assign_role(user_id, "editor")
+
+if await Auth.has_permission(user_id, "posts:write"):
+    # Can write posts
+```
+
+**13.13 API Route Protection**
+- [ ] `@api_auth_required` for API endpoints
+- [ ] API key authentication option
+- [ ] Scoped access tokens
+- [ ] Rate limiting per endpoint
+
+```python
+from pynext.auth import api_auth_required
+
+@api_auth_required
+async def api_get_profile(request):
+    user = current_user()
+    return {"id": user().id, "name": user().name}
+
+@api_auth_required(scopes=["write:posts"])
+async def api_create_post(request): ...
+```
+
+**13.14 Data Access Layer Integration**
+- [ ] Automatic user context in queries
+- [ ] Row-level security helpers
+- [ ] Audit logging
+
+```python
+from pynext.auth import with_user_context
+
+@with_user_context
+async def get_my_posts():
+    # Automatically filtered by current user
+    return await Post.all()
+```
+
+**13.15 Seamless ORM Integration**
+
+Auth uses PyNext's existing database layer - no separate config needed!
+
+- [ ] `AuthUser` extends `Table` - full ORM capabilities
+- [ ] Auto-create auth tables via migrations
+- [ ] Use existing `PostgresAdapter` for sessions
+- [ ] Relationships work out-of-box (`user.posts`, `user.roles`)
+- [ ] Validation uses PyNext's validation system
+- [ ] Works with all adapters (Postgres, SQLite, Mock)
+
+```python
+from pynext.db import Table, db
+from pynext.auth import Auth
+
+# Auth automatically uses your configured database
+db.configure("postgresql://localhost/myapp")
+
+Auth.setup(
+    secret="...",
+    session="database",  # Uses your PostgresAdapter!
+)
+
+# AuthUser is a regular Table - extend it!
+class User(Auth.User):
+    """Your custom user with all ORM features."""
+    bio: Optional[str] = None
+    avatar_url: Optional[str] = None
+    
+    # Relationships work!
+    posts: List["Post"] = has_many("Post", backref="author")
+    profile: "Profile" = has_one("Profile")
+
+class Post(Table):
+    title: str
+    content: str
+    author_id: int  # FK to User - auto-detected!
+
+# All ORM features available
+user = await User.get(1)
+user.posts  # Eager loading works
+await user.with_related("posts", "profile")  # Load relationships
+
+# Queries with auth context
+@login_required
+async def my_dashboard():
+    user = current_user()
+    
+    # Use ORM normally
+    my_posts = await Post.where(author_id=user().id).all()
+    recent = await Post.where(author_id=user().id).order_by("-created_at").limit(5)
+    
+    return {"posts": my_posts, "recent": recent}
+```
+
+**13.16 Auto-Generated Migrations**
+- [ ] `pynext db migrate` creates auth tables automatically
+- [ ] Version-tracked with your app migrations
+- [ ] Customizable table names
+
+```python
+# Auth tables are auto-detected and migrated
+# Just run: pynext db migrate
+
+# Generated migration creates:
+# - users (id, email, password_hash, email_verified, created_at, updated_at)
+# - sessions (id, user_id, token, expires_at, created_at)
+# - roles (id, name, permissions)
+# - user_roles (user_id, role_id)
+
+# Customize table names if needed
+Auth.setup(
+    table_prefix="auth_",  # auth_users, auth_sessions, etc.
+)
+```
+
+**13.17 Session Storage with Adapters**
+- [ ] JWT (stateless) - no database needed
+- [ ] Database sessions use your `PostgresAdapter`
+- [ ] Redis sessions via optional adapter
+- [ ] All benefit from connection pooling, retry, etc.
+
+```python
+# Database sessions use your existing adapter
+db.configure("postgresql://localhost/myapp")
+
+Auth.setup(
+    session="database",
+    # Automatically uses your PostgresAdapter with:
+    # - Connection pooling
+    # - Statement caching
+    # - Retry logic
+    # - Circuit breaker
+)
+
+# Or explicit adapter
+from pynext.db.adapters import PostgresAdapter
+
+adapter = PostgresAdapter(
+    url="postgresql://localhost/myapp",
+    min_connections=5,
+    max_connections=20,
+)
+
+Auth.setup(
+    session="database",
+    adapter=adapter,  # Use specific adapter
+)
+```
+
+**13.18 Validation Integration**
+- [ ] Uses PyNext's validation system
+- [ ] Custom validators for auth fields
+- [ ] Clear error messages
+
+```python
+from pynext.db import Table, EmailField, StringField
+from pynext.auth import Auth
+
+class User(Auth.User):
+    # PyNext validation works!
+    email: str = EmailField(unique=True)
+    username: str = StringField(min_length=3, max_length=30, pattern=r"^[a-z0-9_]+$")
+    
+    @validator("username")
+    def username_not_reserved(cls, v):
+        if v in ["admin", "root", "system"]:
+            raise ValueError("Username is reserved")
+        return v
+
+# Validation errors are user-friendly
+try:
+    await Auth.register(email="bad", password="123")
+except ValidationError as e:
+    # {"email": "Invalid email format", "password": "Must be at least 8 characters"}
+```
+
+**13.19 Query Builder Integration**
+- [ ] Auth queries use PyNext's query builder
+- [ ] Chainable, type-safe queries
+- [ ] Raw SQL escape hatch
+
+```python
+# Auth uses the same query patterns you know
+from pynext.auth import AuthUser
+
+# Standard queries
+admins = await AuthUser.where(role="admin").all()
+recent_users = await AuthUser.order_by("-created_at").limit(10)
+verified = await AuthUser.where(email_verified=True).count()
+
+# Complex queries
+active_admins = await (
+    AuthUser
+    .where(role="admin")
+    .where(last_login__gte=datetime.now() - timedelta(days=30))
+    .with_related("sessions")
+    .all()
+)
+
+# Raw SQL when needed
+result = await db.sql("""
+    SELECT u.*, COUNT(s.id) as session_count
+    FROM users u
+    LEFT JOIN sessions s ON s.user_id = u.id
+    GROUP BY u.id
+    HAVING COUNT(s.id) > 5
+""")
+```
+
+**13.20 Security Built-In**
+- [ ] Password hashing (argon2 default, bcrypt option)
+- [ ] CSRF protection automatic
+- [ ] Rate limiting built-in
+- [ ] Brute force protection (lockout)
+- [ ] Secure cookies (httpOnly, secure, sameSite)
+- [ ] Session encryption
+- [ ] XSS protection in forms
+
+```python
+Auth.setup(
+    password_hasher="argon2",
+    csrf=True,
+    rate_limit={
+        "login": "5/minute",
+        "register": "3/minute",
+        "forgot_password": "3/hour",
+    },
+    lockout_threshold=5,  # Lock after 5 failed attempts
+    lockout_duration=timedelta(minutes=15),
+)
+```
+
+---
+
+**Files to Create:**
+```
+pynext/auth/
+├── __init__.py          # Public API
+├── config.py            # Auth.setup()
+├── signals.py           # current_user(), is_authenticated()
+├── decorators.py        # @login_required, @role_required
+├── forms.py             # Auth.login_form(), etc.
+├── providers/
+│   ├── email.py         # Email/password
+│   ├── oauth.py         # OAuth base + Google, GitHub, etc.
+│   └── magic_link.py    # Passwordless
+├── session/
+│   ├── jwt.py           # JWT sessions
+│   ├── database.py      # DB sessions (uses PostgresAdapter)
+│   └── redis.py         # Redis sessions
+├── security/
+│   ├── password.py      # Hashing
+│   ├── csrf.py          # CSRF protection
+│   ├── rate_limit.py    # Rate limiting
+│   ├── tokens.py        # Token generation
+│   └── mfa.py           # 2FA/TOTP
+├── verification.py      # Email verification
+├── reset.py             # Password reset
+├── roles.py             # Roles & permissions
+├── linking.py           # Account linking
+├── models.py            # User, Session, Role (extends Table)
+└── middleware.py        # Auth middleware
+```
+
+**Test Coverage Target: 600+ tests**
+
+| Feature | Tests |
+|---------|-------|
+| Setup & Config | 40 |
+| Auth Signals | 50 |
+| Route Protection | 60 |
+| Built-in Forms | 60 |
+| OAuth Providers | 80 |
+| Magic Links | 40 |
+| Sessions | 70 |
+| Email Verification | 40 |
+| Password Reset | 40 |
+| 2FA/MFA | 50 |
+| Account Linking | 30 |
+| Roles & Permissions | 50 |
+| API Protection | 40 |
+| ORM Integration | 60 |
+| Security | 80 |
+
+**Documentation:** [AUTHENTICATION.md](./features/AUTHENTICATION.md) (~2500 lines)
+
+**PyNext Auth vs Next.js Auth:**
+
+| Task | Next.js | PyNext |
+|------|---------|--------|
+| Basic setup | ~100 lines + config | 3 lines |
+| Protected route | Middleware + matcher + hooks | 1 decorator |
+| Get current user | Hook + context + types | `current_user()` |
+| Login form | Form + handler + API route + fetch | `Auth.login_form()` |
+| OAuth | Provider config + callbacks + routes | `providers=["google"]` |
+| Sessions | iron-session/jose + encrypt + cookies | `session="jwt"` |
+| Database sessions | Manual table + encrypt + cookies | `session="database"` |
+| ORM integration | Separate setup | Uses existing `db` |
+| Email verification | Custom implementation | `require_verified=True` |
+| Password reset | Custom implementation | `Auth.send_reset_email()` |
+| 2FA/MFA | External package | `mfa_enabled=True` |
+| Role-based access | Custom middleware | `@role_required("admin")` |
+| CSRF | Manual setup | Automatic |
+| Rate limiting | External package | Built-in |
+
+**Total: ~500+ lines of Next.js code → ~30 lines of PyNext**
 
 ---
 
