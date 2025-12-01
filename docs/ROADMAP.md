@@ -148,7 +148,7 @@ This eliminates the need for:
 - [x] MockAdapter (dict-based) for instant testing
 - [x] MemoryAdapter (SQLite) for SQL testing
 - [x] Chainable query builder with all filter types
-- [x] Documentation: `docs/features/DATABASE.md`
+- [x] Documentation: `docs/database/01-fundamentals.md`
 
 ##### Phase 2: CRUD Operations ✅ Complete (483 tests)
 - [x] **Simple Methods** — One-liners for common operations
@@ -243,7 +243,7 @@ This eliminates the need for:
 - **Preview Mode**: `--sql` flag to see exact SQL before applying
 - **Rollback Support**: Single, multiple, or to-version rollback
 
-**Documentation:** [MIGRATIONS.md](./features/MIGRATIONS.md)
+**Documentation:** [03-migrations.md](./database/03-migrations.md)
 
 ##### Phase 5: Database Adapters (PostgreSQL & Supabase)
 
@@ -266,7 +266,7 @@ This eliminates the need for:
 - [x] Statement caching for performance (LRU cache, configurable size)
 - [x] Binary protocol for maximum throughput
 - [x] Full transaction support with savepoints
-- [x] Documentation: [POSTGRES.md](./features/POSTGRES.md)
+- [x] Documentation: [02-getting-started.md](./database/02-getting-started.md)
 
 **5.2 Connection Pooling (High-Performance):** ✅ Complete (500 tests)
 - [x] Built-in asyncpg pool with intelligent sizing
@@ -286,7 +286,7 @@ This eliminates the need for:
   - Use-count based retirement
   - Graceful replacement strategy
   - Health check validation
-- [x] Documentation: [POOLING.md](./features/POOLING.md)
+- [x] Documentation: [05-connection-pooling.md](./database/05-connection-pooling.md)
 
 **5.3 Production Reliability: ✅ Complete (502 tests)**
 - [x] Retry with exponential backoff (configurable delays, max 30s)
@@ -312,7 +312,7 @@ This eliminates the need for:
   - Configurable triggers (queue depth, error rate, latency, pool utilization)
   - Configurable actions (logging, load shedding, notifications)
   - Auto-recovery with debouncing
-- [x] Documentation: [RELIABILITY.md](./features/RELIABILITY.md)
+- [x] Documentation: [06-reliability.md](./database/06-reliability.md)
 
 **5.4 High-Load Scalability: ✅ Complete (373 tests)**
 - [x] Per-query timeouts with intelligent routing
@@ -347,7 +347,7 @@ This eliminates the need for:
   - Predictive pool size recommendations
   - Auto-scaling with configurable cooldown
   - Scale event tracking and statistics
-- [x] Documentation: [HIGH_LOAD.md](./features/HIGH_LOAD.md)
+- [x] Documentation: [07-high-load.md](./database/07-high-load.md)
 
 **5.5 Error Logging & Debugging:** ✅ COMPLETE (600 tests)
 - [x] Structured logging with context
@@ -374,7 +374,7 @@ This eliminates the need for:
   - `pynext_db_query_duration_seconds`
   - `pynext_db_pool_exhausted_total`
   - `pynext_db_errors_total{type="timeout|connection|query"}`
-- [x] Documentation: [OBSERVABILITY.md](./features/OBSERVABILITY.md)
+- [x] Documentation: [08-observability.md](./database/08-observability.md)
 
 **5.6 Supabase Full Integration:** ✅ Complete (600 tests)
 - [x] `pynext/db/supabase/adapter.py` - SupabaseConfig, Supabase main class
@@ -384,7 +384,7 @@ This eliminates the need for:
 - [x] `pynext/db/supabase/functions.py` - invoke edge functions with retry
 - [x] `pynext/db/supabase/rls.py` - @policy decorator, migration gen, sync
 - [x] `pynext/db/supabase/exceptions.py` - SupabaseError hierarchy
-- [x] Documentation: [SUPABASE.md](./features/SUPABASE.md)
+- [x] Documentation: [10-supabase.md](./database/10-supabase.md)
 
 **5.7 Advanced Query Features:** ✅ (391 tests)
 - [x] Per-query `.timeout(seconds)` with statement_timeout (chain + context manager)
@@ -397,13 +397,13 @@ This eliminates the need for:
 - [x] `pynext/db/adapters/postgres_pagination.py` - Keyset, offset, smart mode
 - [x] `pynext/db/adapters/postgres_prepared.py` - Cache + auto-invalidation
 - [x] `pynext/db/adapters/postgres_cancel.py` - Tracking + disconnect handling
-- [x] Documentation: [ADVANCED_QUERIES.md](./features/ADVANCED_QUERIES.md)
+- [x] Documentation: [09-advanced-queries.md](./database/09-advanced-queries.md)
 
 **PostgreSQL Adapter Integration:** ✅ All Phases Unified
 - [x] All Phase 5.1-5.7 features integrated into single `PostgresAdapter` class
 - [x] Python-first API with sensible defaults (just works out of the box)
 - [x] Progressive disclosure: simple toggles for common needs, full config for power users
-- [x] Comprehensive documentation: [POSTGRES_ADAPTER.md](./features/POSTGRES_ADAPTER.md)
+- [x] Comprehensive documentation: [04-postgres-adapter.md](./database/04-postgres-adapter.md)
 
 **Configuration Example:**
 ```python

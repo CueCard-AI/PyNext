@@ -1541,6 +1541,6 @@ ExternalPoolerConfig(
 
 ## See Also
 
-- [PostgreSQL Adapter](./POSTGRES.md) - Core PostgreSQL functionality
-- [Database Overview](./DATABASE.md) - Full Data Layer documentation
-- [Migrations](./MIGRATIONS.md) - Schema migration system
+- [PostgreSQL Adapter](./02-getting-started.md) - Core PostgreSQL functionality
+- [Database Overview](./01-fundamentals.md) - Full Data Layer documentation
+- [Migrations](./03-migrations.md) - Schema migration system

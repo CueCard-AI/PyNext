@@ -1559,6 +1559,6 @@ PyNext migrations are:
 5. Commit everything to git
 
 **Next steps:**
-- [DATABASE.md](./DATABASE.md) - Core database concepts
-- [POSTGRES.md](./POSTGRES.md) - PostgreSQL-specific features
-- [RELIABILITY.md](./RELIABILITY.md) - Production fault tolerance
+- [01-fundamentals.md](./01-fundamentals.md) - Core database concepts
+- [02-getting-started.md](./02-getting-started.md) - PostgreSQL-specific features
+- [06-reliability.md](./06-reliability.md) - Production fault tolerance

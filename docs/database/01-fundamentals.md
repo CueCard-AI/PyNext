@@ -1671,7 +1671,7 @@ configure_db(adapter)
 await User.insert(name="Alice")  # Persisted to PostgreSQL
 ```
 
-See [POSTGRES.md](./POSTGRES.md) for complete PostgreSQL documentation.
+See [02-getting-started.md](./02-getting-started.md) for complete PostgreSQL documentation.
 
 ### Choosing an Adapter
 
@@ -1939,8 +1939,8 @@ You've learned the PyNext database layer from first principles:
 PyNext makes database operations feel like native Python, while giving you the full power of SQL when you need it.
 
 **Next steps:**
-- [POSTGRES.md](./POSTGRES.md) - Production PostgreSQL setup
-- [MIGRATIONS.md](./MIGRATIONS.md) - Schema changes and versioning
-- [POOLING.md](./POOLING.md) - Connection management
-- [RELIABILITY.md](./RELIABILITY.md) - Fault tolerance
-- [HIGH_LOAD.md](./HIGH_LOAD.md) - Performance optimization
+- [02-getting-started.md](./02-getting-started.md) - Production PostgreSQL setup
+- [03-migrations.md](./03-migrations.md) - Schema changes and versioning
+- [05-connection-pooling.md](./05-connection-pooling.md) - Connection management
+- [06-reliability.md](./06-reliability.md) - Fault tolerance
+- [07-high-load.md](./07-high-load.md) - Performance optimization

@@ -200,9 +200,9 @@ Fetching data, handling forms, and server communication.
 
 | Document | Description | Difficulty |
 |----------|-------------|------------|
-| [Database ORM](features/DATABASE.md) | Type-safe ORM with simple Python types | 🟢 Beginner |
-| [PostgreSQL Adapter](features/POSTGRES.md) | Production PostgreSQL with auto-scaling pool | 🟡 Intermediate |
-| [Database Migrations](features/MIGRATIONS.md) | Alembic-wrapped migration system | 🟡 Intermediate |
+| [Database ORM](database/01-fundamentals.md) | Type-safe ORM with simple Python types | 🟢 Beginner |
+| [PostgreSQL Adapter](database/04-postgres-adapter.md) | Production PostgreSQL with auto-scaling pool | 🟡 Intermediate |
+| [Database Migrations](database/03-migrations.md) | Alembic-wrapped migration system | 🟡 Intermediate |
 | [Server Actions](data-server/SERVER_ACTIONS.md) | Call Python from browser events | 🟡 Intermediate |
 | [API Routes](data-server/API_ROUTES.md) | REST endpoints alongside pages | 🟡 Intermediate |
 | [State Patterns](data-server/STATE_PATTERNS.md) | Forms, async state, optimistic updates | 🟡 Intermediate |
@@ -411,7 +411,7 @@ Static Gen ──► ISR ──► Draft Mode ──► i18n
 | Add a dynamic route like `/users/[id]` | [Routing](routing/ROUTING.md) | Dynamic Routes |
 | Create a shared header/footer | [Layouts](routing/LAYOUTS.md) | Creating Layouts |
 | Manage form state | [State Patterns](data-server/STATE_PATTERNS.md) | Form State |
-| Connect to PostgreSQL | [PostgreSQL](features/POSTGRES.md) | Quick Start |
+| Connect to PostgreSQL | [PostgreSQL](database/04-postgres-adapter.md) | Quick Start |
 | Fetch data from database | [Server Actions](data-server/SERVER_ACTIONS.md) | Quick Start |
 | Create a REST API | [API Routes](data-server/API_ROUTES.md) | HTTP Methods |
 | Add authentication | [Middleware](advanced/MIDDLEWARE.md) | Auth Pattern |
@@ -474,10 +474,10 @@ Static Gen ──► ISR ──► Draft Mode ──► i18n
 | **OGTemplate** | Pre-defined OG image template | [OG Images](features/OG_IMAGES.md) |
 | **@og_image** | Decorator for OG image generation | [OG Images](features/OG_IMAGES.md) |
 | **OGRenderer** | Pillow-based image renderer | [OG Images](features/OG_IMAGES.md) |
-| **PostgresAdapter** | PostgreSQL database adapter with asyncpg | [PostgreSQL](features/POSTGRES.md) |
-| **AutoScalingPool** | Connection pool that grows/shrinks on demand | [PostgreSQL](features/POSTGRES.md) |
-| **StatementCache** | LRU cache for prepared statements | [PostgreSQL](features/POSTGRES.md) |
-| **PostgresConfig** | PostgreSQL connection configuration | [PostgreSQL](features/POSTGRES.md) |
+| **PostgresAdapter** | PostgreSQL database adapter with asyncpg | [PostgreSQL](database/04-postgres-adapter.md) |
+| **AutoScalingPool** | Connection pool that grows/shrinks on demand | [PostgreSQL](database/05-connection-pooling.md) |
+| **StatementCache** | LRU cache for prepared statements | [PostgreSQL](database/04-postgres-adapter.md) |
+| **PostgresConfig** | PostgreSQL connection configuration | [PostgreSQL](database/02-getting-started.md) |
 | **FileWatcher** | Rust-based file change detection | [Dev Server](features/DEV_SERVER.md) |
 | **DevServer** | Development server with hot reload | [Dev Server](features/DEV_SERVER.md) |
 | **FileChange** | File change event with reload type | [Dev Server](features/DEV_SERVER.md) |

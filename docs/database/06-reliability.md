@@ -1292,6 +1292,6 @@ adapter = PostgresAdapter(
 ```
 
 **Next steps:**
-- [POOLING.md](./POOLING.md) - Connection pool configuration
-- [HIGH_LOAD.md](./HIGH_LOAD.md) - Performance optimization
-- [POSTGRES.md](./POSTGRES.md) - PostgreSQL setup
+- [05-connection-pooling.md](./05-connection-pooling.md) - Connection pool configuration
+- [07-high-load.md](./07-high-load.md) - Performance optimization
+- [02-getting-started.md](./02-getting-started.md) - PostgreSQL setup

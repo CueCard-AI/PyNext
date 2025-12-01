@@ -405,7 +405,7 @@ print(f"Available: {stats['available']}")
 print(f"Waiting: {stats['waiting']}")
 ```
 
-For detailed pooling documentation, see [POOLING.md](./POOLING.md).
+For detailed pooling documentation, see [05-connection-pooling.md](./05-connection-pooling.md).
 
 ---
 
@@ -653,7 +653,7 @@ adapter = PostgresAdapter(
 )
 ```
 
-See [RELIABILITY.md](./RELIABILITY.md) for complete reliability documentation.
+See [06-reliability.md](./06-reliability.md) for complete reliability documentation.
 
 ---
 
@@ -829,8 +829,8 @@ adapter = PostgresAdapter(
 
 | Topic | Document | Description |
 |-------|----------|-------------|
-| **Core Concepts** | [DATABASE.md](./DATABASE.md) | ORM basics, models, CRUD |
-| **Schema Changes** | [MIGRATIONS.md](./MIGRATIONS.md) | Version-controlled migrations |
-| **Connection Pool** | [POOLING.md](./POOLING.md) | Advanced pooling configuration |
-| **Fault Tolerance** | [RELIABILITY.md](./RELIABILITY.md) | Retries, circuit breakers, replicas |
-| **Performance** | [HIGH_LOAD.md](./HIGH_LOAD.md) | Caching, pipelining, scaling |
+| **Core Concepts** | [01-fundamentals.md](./01-fundamentals.md) | ORM basics, models, CRUD |
+| **Schema Changes** | [03-migrations.md](./03-migrations.md) | Version-controlled migrations |
+| **Connection Pool** | [05-connection-pooling.md](./05-connection-pooling.md) | Advanced pooling configuration |
+| **Fault Tolerance** | [06-reliability.md](./06-reliability.md) | Retries, circuit breakers, replicas |
+| **Performance** | [07-high-load.md](./07-high-load.md) | Caching, pipelining, scaling |
