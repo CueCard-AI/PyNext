@@ -497,6 +497,301 @@ pynext/db/
       )
   ```
 
+##### Phase 7: Advanced Relationships (Target: 800+ tests)
+
+A complete relationship system that matches SQLAlchemy's power while keeping PyNext's simple definition advantage.
+
+**7.1 Bidirectional Relationships (backref)**
+- [ ] `backref` parameter for automatic reverse relationship creation
+- [ ] `back_populates` for explicit bidirectional linking
+- [ ] Automatic sync when either side is modified
+- [ ] Cascade relationship updates through the graph
+
+```python
+class User(Table):
+    posts: List["Post"] = has_many("Post", backref="author")
+
+class Post(Table):
+    author_id: int
+    # author: User automatically created via backref
+
+# Now both sides stay in sync
+user.posts.append(post)  # Also sets post.author = user
+post.author = user       # Also adds to user.posts
+```
+
+**7.2 Loading Strategies**
+- [ ] `lazy="select"` - Default lazy loading (query on access)
+- [ ] `lazy="joined"` - JOIN in same query (eager)
+- [ ] `lazy="subquery"` - Separate subquery (good for collections)
+- [ ] `lazy="selectin"` - SELECT IN (ids) (best for batches)
+- [ ] `lazy="raise"` - Raise error if accessed (prevent N+1)
+- [ ] `lazy="dynamic"` - Return query instead of results
+
+```python
+class User(Table):
+    posts: List[Post] = has_many(Post, lazy="selectin")  # Best for batches
+    profile: Profile = has_one(Profile, lazy="joined")    # Eager load
+    audit_logs: List[Log] = has_many(Log, lazy="dynamic") # Query builder
+
+# Query-level override
+users = await User.all().options(
+    joinedload(User.posts),
+    selectinload(User.posts.comments),
+)
+```
+
+**7.3 Many-to-Many Relationships**
+- [ ] `through` parameter for junction/association tables
+- [ ] Support for extra columns on junction table
+- [ ] Association proxy for direct access through relationship
+- [ ] Bidirectional many-to-many with backref
+
+```python
+class Student(Table):
+    courses: List["Course"] = many_to_many(
+        "Course",
+        through="enrollments",
+        backref="students"
+    )
+
+class Course(Table):
+    students: List["Student"]  # Auto-created via backref
+
+class Enrollment(Table):  # Junction table with extra data
+    student_id: int = ForeignKey(Student)
+    course_id: int = ForeignKey(Course)
+    enrolled_at: datetime
+    grade: Optional[str]
+
+# Usage
+student.courses.append(course, grade="A")  # With extra data
+course.students  # Access from either side
+```
+
+**7.4 Cascade Options**
+- [ ] `cascade="save-update"` - Cascade saves to related
+- [ ] `cascade="delete"` - Delete related when parent deleted
+- [ ] `cascade="delete-orphan"` - Delete when removed from collection
+- [ ] `cascade="merge"` - Cascade merge operations
+- [ ] `cascade="all"` - All of the above
+
+```python
+class User(Table):
+    posts: List[Post] = has_many(
+        Post, 
+        cascade="all, delete-orphan"  # Delete posts when user deleted
+    )
+    profile: Profile = has_one(
+        Profile,
+        cascade="all, delete-orphan"  # Delete profile too
+    )
+
+# Now deletion cascades automatically
+await user.delete()  # Also deletes all posts and profile
+```
+
+**7.5 Custom Join Conditions**
+- [ ] `primaryjoin` for custom join expressions
+- [ ] `secondaryjoin` for many-to-many custom joins
+- [ ] Support for non-foreign-key relationships
+- [ ] Filtered relationships (e.g., only active posts)
+
+```python
+class User(Table):
+    # Only load active posts
+    active_posts: List[Post] = has_many(
+        Post,
+        primaryjoin="and_(User.id == Post.author_id, Post.is_active == True)"
+    )
+    
+    # Load posts from last 30 days
+    recent_posts: List[Post] = has_many(
+        Post,
+        primaryjoin="and_(User.id == Post.author_id, Post.created_at > now() - interval '30 days')"
+    )
+
+class Comment(Table):
+    # Self-referential for replies
+    parent_id: Optional[int] = ForeignKey("Comment")
+    parent: Optional["Comment"] = belongs_to("Comment", foreign_key="parent_id")
+    replies: List["Comment"] = has_many("Comment", foreign_key="parent_id")
+```
+
+**7.6 Self-Referential Relationships**
+- [ ] Parent-child hierarchies (e.g., categories, org charts)
+- [ ] Adjacency list pattern
+- [ ] Path enumeration helpers
+- [ ] Recursive query support
+
+```python
+class Category(Table):
+    name: str
+    parent_id: Optional[int] = ForeignKey("Category")
+    
+    parent: Optional["Category"] = belongs_to("Category")
+    children: List["Category"] = has_many("Category", foreign_key="parent_id")
+    
+    # Helper methods
+    async def ancestors(self) -> List["Category"]:
+        """Get all parent categories up to root."""
+        ...
+    
+    async def descendants(self) -> List["Category"]:
+        """Get all child categories recursively."""
+        ...
+    
+    @property
+    def path(self) -> str:
+        """Get path like 'Electronics/Computers/Laptops'."""
+        ...
+```
+
+**7.7 Polymorphic Relationships**
+- [ ] Single table inheritance
+- [ ] Joined table inheritance
+- [ ] Concrete table inheritance
+- [ ] Generic foreign keys
+
+```python
+class Content(Table):
+    __polymorphic_on__ = "type"
+    type: str
+    title: str
+
+class Article(Content):
+    __polymorphic_identity__ = "article"
+    body: str
+
+class Video(Content):
+    __polymorphic_identity__ = "video"
+    url: str
+    duration: int
+
+# Query returns mixed types
+contents = await Content.all()  # [Article(...), Video(...), ...]
+
+# Type-specific queries
+articles = await Article.all()  # Only articles
+```
+
+**7.8 Relationship Events/Hooks**
+- [ ] `@on_append` - When item added to collection
+- [ ] `@on_remove` - When item removed from collection
+- [ ] `@on_set` - When scalar relationship set
+- [ ] `@before_delete` - Before cascade delete
+
+```python
+class User(Table):
+    posts: List[Post] = has_many(Post)
+    
+    @posts.on_append
+    def on_post_added(self, post: Post):
+        """Called when a post is added to user.posts."""
+        send_notification(f"New post by {self.name}")
+    
+    @posts.on_remove
+    def on_post_removed(self, post: Post):
+        """Called when a post is removed."""
+        log_audit(f"Post {post.id} removed from {self.name}")
+```
+
+**7.9 Association Proxy**
+- [ ] Access attributes through relationships
+- [ ] Simplify many-to-many access
+- [ ] Scalar and collection proxies
+
+```python
+class User(Table):
+    enrollments: List[Enrollment] = has_many(Enrollment)
+    
+    # Access course names directly through enrollments
+    course_names: List[str] = association_proxy("enrollments", "course.name")
+    
+    # Access courses directly
+    courses: List[Course] = association_proxy("enrollments", "course")
+
+# Usage
+user.course_names  # ["Math", "Physics", "Chemistry"]
+user.courses       # [Course(...), Course(...), ...]
+```
+
+**7.10 Relationship Ordering**
+- [ ] Default ordering on relationships
+- [ ] Multiple order columns
+- [ ] Ascending/descending
+
+```python
+class User(Table):
+    # Posts ordered by created_at desc by default
+    posts: List[Post] = has_many(
+        Post, 
+        order_by="created_at desc"
+    )
+    
+    # Multiple order columns
+    comments: List[Comment] = has_many(
+        Comment,
+        order_by=["pinned desc", "created_at desc"]
+    )
+```
+
+**Files to Create/Modify:**
+```
+pynext/db/
+├── relationships.py          # Enhance existing (~800 lines total)
+│   ├── backref support
+│   ├── loading strategies
+│   ├── cascade options
+│   ├── custom joins
+│   └── relationship events
+├── relationships/
+│   ├── __init__.py
+│   ├── loading.py           # Loading strategy implementations (~300 lines)
+│   ├── cascade.py           # Cascade logic (~200 lines)
+│   ├── many_to_many.py      # M2M implementation (~250 lines)
+│   ├── polymorphic.py       # Inheritance patterns (~300 lines)
+│   ├── self_referential.py  # Hierarchies (~200 lines)
+│   ├── proxy.py             # Association proxy (~150 lines)
+│   └── events.py            # Relationship hooks (~150 lines)
+├── query.py                 # Add joinedload, selectinload, etc.
+└── table.py                 # Integrate new relationship features
+```
+
+**Test Coverage Target: 800+ tests**
+
+| Feature | Tests | Coverage |
+|---------|-------|----------|
+| 7.1 Backref | 80 | Sync, cycles, deletion |
+| 7.2 Loading strategies | 120 | All 6 strategies, nested |
+| 7.3 Many-to-many | 100 | Through, extra cols, proxy |
+| 7.4 Cascade | 80 | All cascade types, combinations |
+| 7.5 Custom joins | 80 | Expressions, filters, complex |
+| 7.6 Self-referential | 80 | Hierarchies, recursion |
+| 7.7 Polymorphic | 100 | All 3 inheritance patterns |
+| 7.8 Events | 60 | All event types |
+| 7.9 Association proxy | 50 | Scalar, collection |
+| 7.10 Ordering | 50 | Single, multiple, desc |
+
+**Documentation:** [11-relationships.md](./database/11-relationships.md) (~2500 lines)
+
+**PyNext vs SQLAlchemy Comparison (After Phase 7):**
+
+| Feature | PyNext | SQLAlchemy |
+|---------|--------|------------|
+| Definition | Simple (type hints) | Verbose (Column, relationship) |
+| Backref | Full support | Full support |
+| Loading strategies | 6 strategies | 6 strategies |
+| Many-to-many | With through table | Full support |
+| Cascade | Full support | Full support |
+| Custom joins | Full support | Full support |
+| Self-referential | With helpers | Manual |
+| Polymorphic | All 3 patterns | All 3 patterns |
+| Events | Decorators | Event system |
+| Association proxy | Full support | Full support |
+| N+1 protection | Built-in | Manual |
+| Async native | Yes | Bolt-on |
+
 ---
 
 #### Success Criteria
@@ -510,6 +805,516 @@ pynext/db/
 | Frontend state sync | Automatic |
 | Connection pool efficiency | < 5ms acquisition |
 | Query timeout precision | Per-query control |
+| Relationship definition | 1 line with backref |
+| N+1 query protection | Automatic detection |
+| Loading strategy selection | Per-query control |
+| Many-to-many with extra data | Through tables |
+| Cascade delete | Configurable per-relationship |
+
+---
+
+### React Feature Parity (SolidJS Principles)
+
+Achieve everything React can do, but faster, simpler, and more Pythonic - using SolidJS's fine-grained reactivity instead of React's virtual DOM and hooks.
+
+**Why SolidJS Over React?**
+
+| Aspect | React | SolidJS/PyNext |
+|--------|-------|----------------|
+| Re-renders | Entire component tree | Only changed DOM nodes |
+| Bundle size | ~40KB min | ~7KB min |
+| Mental model | "When does this re-render?" | "When does this value change?" |
+| Hooks rules | Must follow rules of hooks | No rules, just variables |
+| Memoization | Manual (useMemo, useCallback) | Automatic |
+| Closures | Stale closure bugs | Always fresh values |
+
+---
+
+#### Phase 8: Core Reactivity (Target: 400+ tests)
+
+**8.1 Signals (React's useState equivalent)**
+- [x] `Signal(initial)` - Reactive primitive (ALREADY IMPLEMENTED)
+- [ ] `signal()` - Shorthand factory function
+- [ ] Batch updates with `batch()`
+- [ ] Untrack reads with `untrack()`
+- [ ] Signal debugging with `on_change()` callback
+
+```python
+from pynext import Signal, batch
+
+# Simple - just a variable that triggers updates
+count = Signal(0)
+name = Signal("Alice")
+
+def Counter():
+    return div(
+        f"Count: {count()}",  # Read with ()
+        button("+", on_click=lambda: count.set(count() + 1))
+    )
+
+# Batch multiple updates (one DOM update)
+def reset():
+    batch(lambda: [
+        count.set(0),
+        name.set("Alice")
+    ])
+```
+
+**8.2 Computed/Derived State (React's useMemo)**
+- [x] `Computed(fn)` - Auto-tracking derived values (ALREADY IMPLEMENTED)
+- [ ] `memo(fn)` - Shorthand alias
+- [ ] Lazy evaluation option
+- [ ] Equality functions for custom comparison
+
+```python
+from pynext import Signal, Computed
+
+first = Signal("John")
+last = Signal("Doe")
+
+# Automatically recomputes when first or last changes
+# No dependency array needed - it just works
+full_name = Computed(lambda: f"{first()} {last()}")
+
+def Profile():
+    return div(f"Hello, {full_name()}")  # Updates automatically
+```
+
+**8.3 Effects (React's useEffect)**
+- [x] `Effect(fn)` - Run side effects when dependencies change (ALREADY IMPLEMENTED)
+- [ ] `on_mount(fn)` - Run once on mount (like useEffect(fn, []))
+- [ ] `on_cleanup(fn)` - Cleanup when component unmounts
+- [ ] `on(signal, fn)` - Explicit dependency (like useEffect with deps)
+
+```python
+from pynext import Signal, Effect, on_mount, on_cleanup
+
+search = Signal("")
+
+def SearchResults():
+    results = Signal([])
+    
+    # Runs whenever search() changes - no dependency array!
+    Effect(lambda: fetch_results(search()).then(results.set))
+    
+    # Run once on mount
+    on_mount(lambda: print("Component mounted"))
+    
+    # Cleanup on unmount
+    on_cleanup(lambda: cancel_pending_requests())
+    
+    return ul(For(results, lambda r: li(r.title)))
+```
+
+**8.4 Resources (React's data fetching patterns)**
+- [ ] `Resource(fetcher)` - Async data with loading/error states
+- [ ] `resource.loading` - Boolean loading state
+- [ ] `resource.error` - Error if failed
+- [ ] `resource()` - The data (or None while loading)
+- [ ] `resource.refetch()` - Manual refetch
+- [ ] `resource.mutate(data)` - Optimistic updates
+
+```python
+from pynext import Resource, Signal
+
+user_id = Signal(1)
+
+# Fetcher re-runs when user_id changes
+user = Resource(lambda: fetch(f"/api/users/{user_id()}"))
+
+def UserProfile():
+    return div(
+        Show(user.loading, lambda: "Loading..."),
+        Show(user.error, lambda: f"Error: {user.error}"),
+        Show(user(), lambda u: div(
+            h1(u.name),
+            p(u.email)
+        ))
+    )
+```
+
+---
+
+#### Phase 9: Component Patterns (Target: 300+ tests)
+
+**9.1 Context (React's useContext)**
+- [ ] `create_context(default)` - Create a context
+- [ ] `Provider(value=...)` - Provide value to descendants
+- [ ] `use_context(ctx)` - Read context value (reactive!)
+- [ ] Nested providers with override
+
+```python
+from pynext import create_context, Provider
+
+# Create context with default
+ThemeContext = create_context("light")
+UserContext = create_context(None)
+
+def App():
+    theme = Signal("dark")
+    user = Signal({"name": "Alice"})
+    
+    return Provider(ThemeContext, theme,
+        Provider(UserContext, user,
+            Dashboard()
+        )
+    )
+
+def Dashboard():
+    # Just use it - reactive automatically
+    theme = use_context(ThemeContext)
+    user = use_context(UserContext)
+    
+    return div(
+        class_=f"theme-{theme()}",
+        f"Welcome, {user().name}"
+    )
+```
+
+**9.2 Error Boundaries (React's componentDidCatch)**
+- [ ] `ErrorBoundary(fallback=...)` - Catch errors in children
+- [ ] `fallback` receives error and reset function
+- [ ] Nested error boundaries
+- [ ] `reset_error_boundary()` to recover
+
+```python
+from pynext import ErrorBoundary
+
+def App():
+    return ErrorBoundary(
+        fallback=lambda err, reset: div(
+            h1("Something went wrong"),
+            p(str(err)),
+            button("Try again", on_click=reset)
+        ),
+        children=RiskyComponent()
+    )
+```
+
+**9.3 Suspense (React's Suspense)**
+- [x] `Suspense(fallback=...)` - Show fallback while loading (PARTIALLY IMPLEMENTED)
+- [ ] Nested suspense boundaries
+- [ ] `SuspenseList` for coordinated loading
+- [ ] Integration with `Resource()`
+
+```python
+from pynext import Suspense, lazy
+
+# Lazy load component
+HeavyChart = lazy(lambda: import_component("./HeavyChart"))
+
+def Dashboard():
+    return Suspense(
+        fallback=Spinner(),
+        children=[
+            HeavyChart(),
+            lazy(lambda: import_component("./DataTable"))()
+        ]
+    )
+```
+
+**9.4 Portals (React's createPortal)**
+- [ ] `Portal(mount=selector)` - Render children elsewhere in DOM
+- [ ] Default mount to document.body
+- [ ] Event bubbling through portal
+
+```python
+from pynext import Portal
+
+def Modal():
+    show = Signal(False)
+    
+    return div(
+        button("Open", on_click=lambda: show.set(True)),
+        Show(show, lambda: 
+            Portal(
+                mount="body",  # or "#modal-root"
+                children=div(
+                    class_="modal-overlay",
+                    div(
+                        class_="modal",
+                        h2("Modal Title"),
+                        button("Close", on_click=lambda: show.set(False))
+                    )
+                )
+            )
+        )
+    )
+```
+
+**9.5 Refs (React's useRef)**
+- [ ] `ref=` attribute for DOM element access
+- [ ] `Ref()` for mutable values that don't trigger updates
+- [ ] Forward refs through components
+
+```python
+from pynext import Ref
+
+def Form():
+    input_ref = Ref()  # Mutable container
+    
+    def focus_input():
+        input_ref.current.focus()
+    
+    return div(
+        input(ref=input_ref, type="text"),
+        button("Focus", on_click=focus_input)
+    )
+
+# Forward ref to child
+def FancyInput(ref=None):
+    return input(ref=ref, class_="fancy")
+```
+
+---
+
+#### Phase 10: Control Flow (Target: 200+ tests)
+
+**10.1 Conditional Rendering**
+- [x] `Show(when, children)` - Conditional render (ALREADY IMPLEMENTED)
+- [ ] `Show(when, children, fallback=...)` - With else branch
+- [ ] `Switch/Match` - Multiple conditions
+
+```python
+from pynext import Show, Switch, Match
+
+status = Signal("loading")
+
+def StatusDisplay():
+    return Switch(
+        Match(status() == "loading", Spinner()),
+        Match(status() == "error", ErrorMessage()),
+        Match(status() == "success", SuccessMessage()),
+        fallback=UnknownStatus()
+    )
+```
+
+**10.2 List Rendering**
+- [x] `For(items, render)` - Efficient list rendering (ALREADY IMPLEMENTED)
+- [ ] `Index(items, render)` - When index matters more than identity
+- [ ] Keyed vs non-keyed rendering
+- [ ] `For` with `fallback` for empty lists
+
+```python
+from pynext import For, Index, Signal
+
+items = Signal([
+    {"id": 1, "name": "Apple"},
+    {"id": 2, "name": "Banana"}
+])
+
+def ItemList():
+    return ul(
+        For(
+            items,
+            lambda item, idx: li(f"{idx}: {item['name']}"),
+            fallback=li("No items")
+        )
+    )
+```
+
+**10.3 Dynamic Components**
+- [ ] `Dynamic(component=...)` - Render component dynamically
+- [ ] Props spreading
+
+```python
+from pynext import Dynamic, Signal
+
+component = Signal(HomePage)
+
+def App():
+    return div(
+        nav(
+            button("Home", on_click=lambda: component.set(HomePage)),
+            button("About", on_click=lambda: component.set(AboutPage))
+        ),
+        Dynamic(component=component)
+    )
+```
+
+---
+
+#### Phase 11: Advanced Patterns (Target: 300+ tests)
+
+**11.1 Stores (Complex State)**
+- [ ] `Store(initial)` - Nested reactive objects
+- [ ] `store.path.to.value` - Deep reactivity
+- [ ] `produce(store, fn)` - Immer-style updates
+- [ ] `reconcile(store, new_data)` - Diff and patch
+
+```python
+from pynext import Store, produce
+
+# Deeply reactive - any nested change triggers precise updates
+state = Store({
+    "user": {"name": "Alice", "settings": {"theme": "dark"}},
+    "items": [{"id": 1, "done": False}]
+})
+
+def Settings():
+    return div(
+        f"Theme: {state.user.settings.theme}",  # Reactive path
+        button("Toggle", on_click=lambda: 
+            produce(state, lambda s: 
+                s.user.settings.update(theme="light" if s.user.settings.theme == "dark" else "dark")
+            )
+        )
+    )
+```
+
+**11.2 Transitions (Concurrent UI)**
+- [ ] `start_transition(fn)` - Mark updates as non-urgent
+- [ ] `use_transition()` - Get pending state
+- [ ] Keep old UI while new one loads
+
+```python
+from pynext import Signal, start_transition, use_transition
+
+tab = Signal("home")
+is_pending, start = use_transition()
+
+def TabContainer():
+    return div(
+        class_="pending" if is_pending() else "",
+        nav(
+            button("Home", on_click=lambda: start(lambda: tab.set("home"))),
+            button("Profile", on_click=lambda: start(lambda: tab.set("profile")))
+        ),
+        # Old tab stays visible until new one is ready
+        TabContent(tab())
+    )
+```
+
+**11.3 Deferred Values**
+- [ ] `deferred(signal)` - Lag behind for expensive renders
+- [ ] `deferred(signal, timeout_ms=)` - With timeout
+
+```python
+from pynext import Signal, deferred
+
+search = Signal("")
+deferred_search = deferred(search, timeout_ms=300)
+
+def Search():
+    return div(
+        input(value=search, on_input=lambda e: search.set(e.target.value)),
+        # Expensive list uses deferred value
+        ExpensiveList(query=deferred_search)
+    )
+```
+
+**11.4 Streaming & Progressive Rendering**
+- [x] Streaming HTML (ALREADY IMPLEMENTED)
+- [ ] Progressive hydration
+- [ ] Selective hydration based on visibility
+- [ ] `renderToStream()` for SSR
+
+---
+
+#### Phase 12: Developer Experience (Target: 200+ tests)
+
+**12.1 DevTools Integration**
+- [ ] Signal inspection in browser devtools
+- [ ] Component tree visualization
+- [ ] Reactivity graph visualization
+- [ ] Time-travel debugging
+
+**12.2 Hot Module Replacement**
+- [x] HMR for components (ALREADY IMPLEMENTED)
+- [ ] Preserve signal state across HMR
+- [ ] Component state persistence
+
+**12.3 TypeScript-style Type Hints**
+- [ ] Full type inference for signals
+- [ ] Generic Signal[T]
+- [ ] Typed props with dataclass
+
+```python
+from pynext import Signal, component
+from dataclasses import dataclass
+
+@dataclass
+class ButtonProps:
+    label: str
+    on_click: Callable[[], None]
+    disabled: bool = False
+
+@component
+def Button(props: ButtonProps):
+    return button(
+        props.label,
+        on_click=props.on_click,
+        disabled=props.disabled
+    )
+```
+
+---
+
+#### Files to Create/Modify
+
+```
+pynext/
+├── reactivity/
+│   ├── __init__.py          # Public exports
+│   ├── signal.py            # Enhance Signal with batch, untrack
+│   ├── computed.py          # Enhance Computed with lazy, equality
+│   ├── effect.py            # Add on_mount, on_cleanup, on()
+│   ├── resource.py          # NEW: Async data primitive
+│   ├── store.py             # NEW: Deep reactivity
+│   ├── context.py           # NEW: Context API
+│   └── transitions.py       # NEW: Concurrent UI
+├── components/
+│   ├── error_boundary.py    # NEW: Error catching
+│   ├── suspense.py          # Enhance existing
+│   ├── portal.py            # NEW: DOM portals
+│   ├── dynamic.py           # NEW: Dynamic component
+│   └── control_flow.py      # Enhance Show, For, add Switch
+└── runtime/
+    ├── reactivity.js        # Client-side reactivity
+    └── hydration.js         # Progressive hydration
+```
+
+#### React Parity Test Coverage Target: 1200+ tests
+
+| Phase | Feature | Tests |
+|-------|---------|-------|
+| 8.1 | Signals | 100 |
+| 8.2 | Computed | 80 |
+| 8.3 | Effects | 100 |
+| 8.4 | Resources | 120 |
+| 9.1 | Context | 80 |
+| 9.2 | Error Boundaries | 60 |
+| 9.3 | Suspense | 80 |
+| 9.4 | Portals | 40 |
+| 9.5 | Refs | 40 |
+| 10.x | Control Flow | 200 |
+| 11.x | Advanced | 300 |
+
+#### Documentation
+
+Create `docs/features/REACTIVITY.md` (~3000 lines):
+- First principles: Why fine-grained reactivity
+- Migration guide from React hooks
+- Visual diagrams of reactivity flow
+- Performance comparisons
+- Complete API reference
+
+#### PyNext vs React Comparison
+
+| Feature | React | PyNext |
+|---------|-------|--------|
+| State | useState + rules | Signal() - just works |
+| Derived | useMemo + deps array | Computed() - auto-tracks |
+| Effects | useEffect + deps array | Effect() - auto-tracks |
+| Context | Provider + useContext | Provider + use_context (reactive!) |
+| Suspense | Yes | Yes |
+| Error Boundaries | Class components only | Simple component |
+| Portals | createPortal | Portal component |
+| Concurrent | startTransition | start_transition |
+| SSR | Next.js required | Built-in |
+| Bundle | ~40KB | ~7KB |
+| Re-renders | Component tree | Only changed nodes |
+| Mental model | "When re-render?" | "When value change?" |
 
 ---
 
