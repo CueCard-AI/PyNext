@@ -161,92 +161,326 @@ Best for: Learning, critical projects, partial generation
 
 The `auto` complexity (default) analyzes your description to determine the appropriate level.
 
-## PyNext Knowledge Base
+## PyNext Knowledge Base (RAG)
 
-Since no AI model is natively trained on PyNext, the App Builder includes a sophisticated RAG (Retrieval-Augmented Generation) system:
+Since **no AI model is natively trained on PyNext**, the App Builder includes a sophisticated RAG (Retrieval-Augmented Generation) system. This is critical because:
 
-### How It Works
+- PyNext is a new framework not in LLM training data
+- Unique syntax patterns (`class_=`, `input_`, Signal patterns)
+- Without RAG, AI would guess wrong imports and syntax
+
+### RAG Architecture
 
 ```
 User Request: "task manager with drag-drop boards"
                     │
                     ▼
-        ┌─────────────────────┐
-        │   Intent Parsing    │
-        │  - needs: pages     │
-        │  - needs: drag-drop │
-        │  - needs: database  │
-        └─────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                     1. INDEXING (One-time)                   │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│   KnowledgeIndexer scans:                                   │
+│   ├── docs/*.md → Split by ## headers, extract code blocks │
+│   ├── pynext/*.py → Extract docstrings, signatures         │
+│   └── Creates IndexedChunks with topics (routing, state...)│
+│                                                              │
+│   Each chunk gets:                                          │
+│   - Unique ID (hash)                                        │
+│   - Content                                                 │
+│   - Source file                                             │
+│   - Type: docs, code, example, api                         │
+│   - Topics: [routing, state, database, auth, ...]          │
+│   - Embedding vector (optional)                            │
+└─────────────────────────────────────────────────────────────┘
                     │
                     ▼
-        ┌─────────────────────┐
-        │  Semantic Search    │
-        │                     │
-        │  Searches PyNext    │
-        │  docs and source    │
-        └─────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                     2. RETRIEVAL                             │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│   SemanticRetriever.search("drag drop interactive")         │
+│                                                              │
+│   Scoring = Keyword Match (30%) + Semantic Similarity (70%) │
+│                                                              │
+│   Returns ranked results:                                    │
+│   ├── Score 0.89: islands.md "Interactive Components"       │
+│   ├── Score 0.82: @island decorator API                     │
+│   ├── Score 0.76: Signal state management docs              │
+│   └── Score 0.71: example DragDrop component                │
+└─────────────────────────────────────────────────────────────┘
                     │
                     ▼
-        ┌─────────────────────┐
-        │  Retrieved Context  │
-        │                     │
-        │  - ISLANDS.md docs  │
-        │  - DragDrop pattern │
-        │  - Signal examples  │
-        │  - @island API      │
-        └─────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                  3. PATTERN MATCHING                         │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│   PatternLibrary.get_patterns_for("drag drop boards")       │
+│                                                              │
+│   Matches keywords to patterns:                              │
+│   ├── "interactive" → island_component                      │
+│   ├── "state" → signal_state                                │
+│   ├── "database" → database_model                           │
+│   └── "page" → basic_page, page_with_data                   │
+│                                                              │
+│   Each pattern has:                                          │
+│   - Code template with placeholders                          │
+│   - Required imports                                         │
+│   - Related patterns                                         │
+└─────────────────────────────────────────────────────────────┘
                     │
                     ▼
-        ┌─────────────────────┐
-        │  Context Builder    │
-        │                     │
-        │  Assembles optimal  │
-        │  prompt with:       │
-        │  - Patterns         │
-        │  - Examples         │
-        │  - API refs         │
-        └─────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                 4. CONTEXT BUILDING                          │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│   ContextBuilder.build_context(task, max_tokens=8000)       │
+│                                                              │
+│   Assembles optimal prompt:                                  │
+│   ┌────────────────────────────────────────┐                │
+│   │ ## PyNext Overview (always included)   │ Priority: 100  │
+│   │ - HTML elements, Signals, Islands      │                │
+│   │ - Server Actions, API routes           │                │
+│   └────────────────────────────────────────┘                │
+│   ┌────────────────────────────────────────┐                │
+│   │ ## Relevant Patterns                   │ Priority: 90   │
+│   │ - island_component template            │                │
+│   │ - signal_state template                │                │
+│   └────────────────────────────────────────┘                │
+│   ┌────────────────────────────────────────┐                │
+│   │ ## Existing Files (for imports)        │ Priority: 85   │
+│   │ - pages/layout.py signatures           │                │
+│   └────────────────────────────────────────┘                │
+│   ┌────────────────────────────────────────┐                │
+│   │ ## Retrieved Documentation             │ Priority: 80   │
+│   │ - Islands.md excerpts                  │                │
+│   └────────────────────────────────────────┘                │
+│                                                              │
+│   Sections sorted by priority, fit within token budget      │
+└─────────────────────────────────────────────────────────────┘
                     │
                     ▼
-        ┌─────────────────────┐
-        │   AI Generation     │
-        │                     │
-        │  Generates files    │
-        │  with full PyNext   │
-        │  knowledge          │
-        └─────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                 5. AI GENERATION                             │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│   FileGenerator sends to Claude:                             │
+│                                                              │
+│   SYSTEM: [PyNext context from ContextBuilder]               │
+│                                                              │
+│   USER: Generate a PyNext island file.                       │
+│         File: islands/DragDrop.py                           │
+│         Description: Drag-drop board component              │
+│         Requirements: {...}                                  │
+│                                                              │
+│   Claude generates valid PyNext code because it has:         │
+│   ✓ Correct import statements                                │
+│   ✓ Proper @island decorator usage                          │
+│   ✓ Signal patterns for state                               │
+│   ✓ PyNext HTML element syntax                              │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-### Pattern Library
+### Why RAG is Critical
 
-The App Builder includes templates for common patterns:
+**Problem**: Without context, AI generates broken code:
 
-**Pages:**
-- `basic_page` - Simple static page
-- `page_with_data` - Page with async data fetching
-- `dynamic_route_page` - Dynamic routes ([id].py)
+```python
+# ❌ Without RAG (AI guesses wrong)
+from pynext import div
 
-**Components:**
-- `static_component` - Reusable UI component
-- `island_component` - Interactive island with state
+def Component():
+    return div(class="container")  # WRONG: should be class_=
+```
 
-**State:**
-- `signal_state` - Reactive state with Signal
-- `computed_value` - Derived values
-- `effect_side_effect` - Side effects
+**Solution**: With RAG, AI knows PyNext syntax:
 
-**Data:**
-- `database_model` - Table model definition
-- `api_crud` - CRUD API endpoints
-- `server_action` - Form handling action
+```python
+# ✅ With RAG (AI knows correct patterns)
+from pynext import div, Signal
+from pynext.islands import island
 
-**Auth:**
-- `auth_middleware` - Route protection
-- `login_form` - Login page and form
+@island
+def Counter():
+    count = Signal(0)
+    return div(class_="container")(  # CORRECT: class_= syntax
+        button(on_click=lambda: count.set(count() + 1))(
+            f"Count: {count()}"
+        )
+    )
+```
 
-**Real-time:**
-- `websocket_connection` - WebSocket integration
-- `live_query` - Live database queries
+### RAG Components
+
+#### 1. KnowledgeIndexer (`pynext/app/knowledge/indexer.py`)
+
+Indexes all PyNext documentation and source code:
+
+```python
+indexer = KnowledgeIndexer(project_root)
+await indexer.index_all()
+
+# Creates chunks like:
+IndexedChunk(
+    id="abc123",
+    content="@island decorator makes components interactive...",
+    source_path="docs/islands.md",
+    metadata={"type": "documentation"},
+    topics=["islands", "interactive", "reactivity"],
+)
+```
+
+#### 2. SemanticRetriever (`pynext/app/knowledge/retriever.py`)
+
+Performs semantic + keyword hybrid search:
+
+```python
+retriever = SemanticRetriever(indexer, embedding_provider)
+
+# Search for relevant content
+results = retriever.search(
+    "drag and drop component",
+    top_k=10,
+    filters={"type": "docs"}
+)
+
+# Returns ranked SearchResult objects
+# SearchResult(chunk=..., relevance_score=0.89, keyword_score=0.6, total_score=0.8)
+```
+
+#### 3. PatternLibrary (`pynext/app/knowledge/patterns.py`)
+
+16 curated PyNext patterns with code templates:
+
+```python
+Pattern(
+    name="island_component",
+    description="Interactive component with client-side state",
+    code='''
+@island
+def ${component_name}(${props}):
+    ${state_name} = Signal(${initial_state})
+    
+    def ${handler_name}():
+        ${handler_body}
+    
+    return div(class_="${container_class}")(
+        ${content}
+    )
+''',
+    required_imports=[
+        "from pynext import div, button",
+        "from pynext import Signal",
+        "from pynext.islands import island",
+    ],
+    tags=["island", "reactivity", "signal", "component"],
+)
+```
+
+#### 4. EmbeddingProvider (`pynext/app/knowledge/embeddings.py`)
+
+Generates vector embeddings for semantic search:
+
+```python
+# Local embeddings (no API needed)
+provider = EmbeddingProvider()  # Uses sentence-transformers
+
+# Generate embedding
+embedding = await provider.get_embedding("drag drop component")
+# Returns: [0.23, -0.45, 0.12, ...] (384-dim vector)
+```
+
+#### 5. ContextBuilder (`pynext/app/knowledge/context_builder.py`)
+
+Assembles optimal context within token budget:
+
+```python
+builder = ContextBuilder(retriever, pattern_library)
+
+context = builder.build_context(
+    user_query="Create a drag-drop kanban board",
+    current_files={"pages/layout.py": "..."},
+    relevant_chunks=retriever.search(...),
+)
+
+# Returns formatted string with:
+# - PyNext framework overview
+# - Relevant patterns
+# - Documentation excerpts
+# - Existing file signatures
+```
+
+### How It Works Together
+
+```python
+# Inside FileGenerator.generate_file()
+
+# 1. Search knowledge base
+relevant_chunks = self.knowledge.search(
+    f"PyNext {file_type} {description}",
+    top_k=5
+)
+
+# 2. Get relevant patterns
+patterns = self.knowledge.pattern_library.get_patterns_for(file_type)
+
+# 3. Build context with token budget
+context = self.knowledge.build_context(
+    user_query=description,
+    current_files=previously_generated_files,
+    relevant_chunks=relevant_chunks,
+)
+
+# 4. Generate with Claude
+response = await self.client.messages.create(
+    model=self.config.model,
+    system=context,  # Full PyNext knowledge injected here
+    messages=[{"role": "user", "content": generation_prompt}],
+)
+```
+
+### Pattern Library (16 Patterns)
+
+The App Builder includes 16 curated patterns for common PyNext code:
+
+| Category | Pattern | Description |
+|----------|---------|-------------|
+| **Pages** | `basic_page` | Simple static page with SEO |
+| | `page_with_data` | Page with async data fetching |
+| | `dynamic_route_page` | Dynamic routes (`[id].py`) |
+| **Components** | `static_component` | Reusable UI component |
+| | `component_with_props` | Component accepting props |
+| | `island_component` | Interactive island with state |
+| **State** | `signal_state` | Reactive state with Signal |
+| | `computed_value` | Derived values with Computed |
+| | `effect_side_effect` | Side effects with Effect |
+| **Data** | `database_model` | Table model definition |
+| | `api_crud` | Full CRUD API endpoints |
+| | `server_action` | Form handling action |
+| **Auth** | `auth_middleware` | Route protection middleware |
+| | `protected_page` | Page requiring authentication |
+| | `login_form` | Login page and form |
+| **Real-time** | `websocket_connection` | WebSocket integration |
+| | `live_query` | Live database queries with `Model.live()` |
+
+**Example Pattern Usage:**
+
+```python
+from pynext.app.knowledge import PatternLibrary
+
+patterns = PatternLibrary()
+
+# Get a specific pattern
+island_pattern = patterns.get_pattern("island_component")
+
+# Render with variables
+code = island_pattern.render(
+    component_name="Counter",
+    state_name="count",
+    initial_state="0",
+    handler_name="increment",
+    handler_body="count.set(count() + 1)",
+)
+```
 
 ## App Templates
 
@@ -467,29 +701,193 @@ print(f"Duration: {result.duration}s")
 
 ## Knowledge Base API
 
-Access the PyNext knowledge base directly:
+Access the PyNext knowledge base directly for custom integrations:
+
+### Initialization
 
 ```python
-from pynext.app.knowledge import get_knowledge, init_knowledge
+from pathlib import Path
+from pynext.app.knowledge import PyNextKnowledge
 
-# Initialize (builds index if needed)
-kb = await init_knowledge()
+# Initialize knowledge base
+kb = PyNextKnowledge(project_root=Path.cwd())
 
+# Index all PyNext docs and source (one-time, cached)
+await kb.initialize()
+```
+
+### Semantic Search
+
+```python
 # Search for relevant content
-results = kb.search("drag and drop component")
+results = kb.search("drag and drop component", top_k=10)
+
 for result in results:
-    print(f"{result.chunk.source}: {result.score}")
+    print(f"Score: {result.total_score:.2f}")
+    print(f"Source: {result.chunk.source_path}")
+    print(f"Content: {result.chunk.content[:100]}...")
+    print()
+```
 
-# Get patterns for a feature
-patterns = kb.get_patterns_for("authentication")
-for pattern in patterns:
-    print(f"{pattern.name}: {pattern.description}")
+### Pattern Library
 
-# Build context for AI generation
-context = kb.build_context(
-    task="Create a real-time chat component",
-    max_tokens=8000,
+```python
+# Get a specific pattern
+pattern = kb.get_pattern("island_component")
+print(pattern.description)
+print(pattern.code)
+
+# Get all patterns matching tags
+island_patterns = kb.pattern_library.get_patterns_by_tags(["island", "reactivity"])
+
+# Render a pattern with variables
+code = pattern.render(
+    component_name="DragDrop",
+    state_name="items",
+    initial_state="[]",
 )
+```
+
+### Context Building
+
+```python
+# Build optimized context for AI generation
+context = kb.build_context(
+    user_query="Create a real-time chat component",
+    current_files={"pages/chat.py": "..."},  # Existing files
+    relevant_chunks=kb.search("chat component websocket"),
+)
+
+# Context is formatted and prioritized to fit within token limits
+print(f"Context length: {len(context)} chars")
+```
+
+### Embeddings
+
+```python
+from pynext.app.knowledge import EmbeddingProvider
+
+# Local embeddings (sentence-transformers, no API)
+provider = EmbeddingProvider()
+
+# Generate embedding for a query
+embedding = await provider.get_embedding("PyNext Signal state management")
+
+# Batch embeddings
+embeddings = await provider.get_batch_embeddings([
+    "page routing",
+    "island component",
+    "database model",
+])
+```
+
+### Indexing Custom Content
+
+```python
+from pynext.app.knowledge import KnowledgeIndexer, IndexedChunk
+
+indexer = kb.indexer
+
+# Get all indexed chunks
+chunks = indexer.get_chunks()
+print(f"Total chunks: {len(chunks)}")
+
+# Filter by type
+doc_chunks = indexer.get_chunks(filters={"type": "documentation"})
+code_chunks = indexer.get_chunks(filters={"type": "source_code"})
+
+# Filter by topics
+signal_chunks = indexer.get_chunks(filters={"topics": ["signal", "reactivity"]})
+```
+
+## Extending the Knowledge Base
+
+### Adding Custom Patterns
+
+Create new patterns for your team's coding standards:
+
+```python
+from pynext.app.knowledge.patterns import PyNextPattern, PatternLibrary
+
+# Define a custom pattern
+my_pattern = PyNextPattern(
+    name="team_component",
+    description="Team-standard component with logging",
+    code='''
+from pynext import div, Signal
+from pynext.islands import island
+import logging
+
+logger = logging.getLogger(__name__)
+
+@island
+def ${component_name}():
+    """${description}"""
+    logger.info("${component_name} mounted")
+    
+    ${state_declarations}
+    
+    return div(class_="${container_class}")(
+        ${content}
+    )
+''',
+    tags=["team", "component", "logging"],
+    dependencies=["pynext.islands"],
+    template_vars={
+        "component_name": "str",
+        "description": "str",
+        "state_declarations": "str",
+        "container_class": "str",
+        "content": "str",
+    },
+)
+
+# Add to library
+patterns = PatternLibrary()
+patterns.add_pattern(my_pattern)
+```
+
+### Custom Index Sources
+
+Index additional documentation or code:
+
+```python
+from pynext.app.knowledge import KnowledgeIndexer
+
+indexer = KnowledgeIndexer(project_root)
+
+# Index a custom directory
+await indexer._index_file(
+    Path("team_docs/conventions.md"),
+    doc_type="documentation"
+)
+
+# Index external examples
+await indexer._index_file(
+    Path("examples/advanced_island.py"),
+    doc_type="example"
+)
+```
+
+### Custom Retrieval Strategies
+
+Implement custom scoring for your use case:
+
+```python
+from pynext.app.knowledge import SemanticRetriever, SearchResult
+
+class CustomRetriever(SemanticRetriever):
+    def _rerank_results(self, results: list[SearchResult]) -> list[SearchResult]:
+        # Custom reranking: boost patterns and examples
+        for result in results:
+            chunk_type = result.chunk.metadata.get("type")
+            if chunk_type == "pattern":
+                result.total_score *= 1.5  # Boost patterns
+            elif chunk_type == "example":
+                result.total_score *= 1.3  # Boost examples
+        
+        results.sort(key=lambda x: x.total_score, reverse=True)
+        return results
 ```
 
 ## Troubleshooting
