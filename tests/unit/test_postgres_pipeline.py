@@ -345,6 +345,9 @@ class TestAutoFlush:
             batch_executor=batch_executor,
         )
         
+        # Must start pipeline before adding queries
+        await pipeline.start()
+        
         # Add query
         task = asyncio.create_task(pipeline.add("SELECT 1"))
         await asyncio.sleep(0.01)

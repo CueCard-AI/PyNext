@@ -9,6 +9,13 @@ import os
 import sys
 import tempfile
 from pathlib import Path
+
+# Load environment variables from .env file
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass  # python-dotenv not installed, use system env vars
 from typing import AsyncGenerator, Generator
 from unittest.mock import MagicMock
 
@@ -328,4 +335,58 @@ def test_layout(children):
 def event_loop_policy():
     """Use default event loop policy."""
     return asyncio.DefaultEventLoopPolicy()
+
+
+# =============================================================================
+# Timeout and Debug Hooks
+# =============================================================================
+
+def pytest_timeout_cancel_timer(item):
+    """Called when test completes before timeout."""
+    pass  # Normal completion
+
+
+def pytest_timeout_set_timer(item, settings):
+    """Called when timeout timer is set for a test."""
+    # Log which test is starting (helps debug stuck tests)
+    import logging
+    logger = logging.getLogger("pytest.timeout")
+    logger.debug(f"Starting test with {settings.timeout}s timeout: {item.nodeid}")
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_makereport(item, call):
+    """Hook to log test failures and timeouts."""
+    import logging
+    outcome = yield
+    report = outcome.get_result()
+    
+    if report.failed:
+        logger = logging.getLogger("pytest")
+        if "timeout" in str(report.longrepr).lower():
+            logger.error(f"⏰ TIMEOUT: {item.nodeid}")
+            logger.error(f"   Location: {item.fspath}:{item.function.__code__.co_firstlineno if hasattr(item, 'function') else '?'}")
+        else:
+            logger.debug(f"❌ FAILED: {item.nodeid}")
+
+
+@pytest.fixture(autouse=True)
+def reset_global_state():
+    """Reset global state between tests to prevent test pollution."""
+    yield
+    # Clean up any global singletons after each test
+    # This helps prevent flaky tests due to shared state
+    try:
+        from pynext.db.live.subscriptions import reset_subscription_manager
+        import asyncio
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                pass  # Can't reset in running loop
+            else:
+                loop.run_until_complete(reset_subscription_manager())
+        except RuntimeError:
+            pass  # No event loop, that's fine
+    except ImportError:
+        pass
 

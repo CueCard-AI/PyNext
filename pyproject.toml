@@ -48,6 +48,7 @@ dev = [
     "black>=23.0.0",
     "ruff>=0.1.0",
     "mypy>=1.7.0",
+    "python-dotenv>=1.0.0",
 ]
 
 test = [
@@ -101,15 +102,23 @@ testpaths = ["tests"]
 python_files = ["test_*.py", "bench_*.py"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
+# Default timeout of 60 seconds per test - prevents stuck tests
+# AI generation tests may take 30-40s, so we use 60s as default
+timeout = 60
+# Method to use for timeout (signal is more reliable on Unix)
+timeout_method = "signal"
 addopts = [
     "-v",
     "--tb=short",
     "--strict-markers",
+    # Show test durations for the 10 slowest tests
+    "--durations=10",
 ]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "e2e: marks tests as end-to-end browser tests",
     "benchmark: marks tests as performance benchmarks",
+    "timeout: override default timeout for a specific test",
 ]
 filterwarnings = [
     "ignore::DeprecationWarning",

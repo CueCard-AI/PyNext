@@ -128,7 +128,7 @@ enabled_rules = ["PNX001", "PNX002"]
         content = config_path.read_text()
         assert "line-length" in content
     
-    @pytest.mark.skipif(True, reason="Requires filesystem write permissions outside sandbox")
+    @pytest.mark.skipif(True, reason="Sandbox blocks .vscode dir creation in temp folders")
     def test_create_vscode_config(self, tmp_project):
         """Test creating VS Code config."""
         from pynext.lint.config import create_vscode_config
@@ -827,7 +827,7 @@ class TestCLIIntegration:
         assert result == 0
         assert (tmp_project / ".ruff.toml").exists()
     
-    @pytest.mark.skipif(True, reason="Requires filesystem write permissions outside sandbox")
+    @pytest.mark.skipif(True, reason="Sandbox blocks .vscode dir creation in temp folders")
     def test_cmd_lint_vscode(self, tmp_project, capsys):
         """Test pynext lint vscode command."""
         import argparse

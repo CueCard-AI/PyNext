@@ -208,9 +208,10 @@ class TestQueuePriority:
 class TestQueuedRequest:
     """Tests for QueuedRequest dataclass."""
     
-    def test_request_creation(self):
+    @pytest.mark.asyncio
+    async def test_request_creation(self):
         """Test request creation."""
-        future = asyncio.get_event_loop().create_future()
+        future = asyncio.get_running_loop().create_future()
         request = QueuedRequest(
             priority=2,
             enqueue_time=time.monotonic(),
@@ -220,9 +221,10 @@ class TestQueuedRequest:
         assert request.priority == 2
         assert request.request_id == "req_1"
         
-    def test_wait_time(self):
+    @pytest.mark.asyncio
+    async def test_wait_time(self):
         """Test wait time calculation."""
-        future = asyncio.get_event_loop().create_future()
+        future = asyncio.get_running_loop().create_future()
         request = QueuedRequest(
             priority=2,
             enqueue_time=time.monotonic() - 1.0,
@@ -231,9 +233,10 @@ class TestQueuedRequest:
         )
         assert request.wait_time() >= 1.0
         
-    def test_cancel(self):
+    @pytest.mark.asyncio
+    async def test_cancel(self):
         """Test request cancellation."""
-        future = asyncio.get_event_loop().create_future()
+        future = asyncio.get_running_loop().create_future()
         request = QueuedRequest(
             priority=2,
             enqueue_time=time.monotonic(),
@@ -243,9 +246,10 @@ class TestQueuedRequest:
         request.cancel()
         assert future.cancelled()
         
-    def test_cancel_completed_future(self):
+    @pytest.mark.asyncio
+    async def test_cancel_completed_future(self):
         """Test cancelling completed future does nothing."""
-        future = asyncio.get_event_loop().create_future()
+        future = asyncio.get_running_loop().create_future()
         future.set_result(True)
         
         request = QueuedRequest(
@@ -257,16 +261,18 @@ class TestQueuedRequest:
         request.cancel()
         # Should not raise
         
-    def test_request_ordering_by_priority(self):
+    @pytest.mark.asyncio
+    async def test_request_ordering_by_priority(self):
         """Test requests are ordered by priority."""
-        future = asyncio.get_event_loop().create_future()
+        future = asyncio.get_running_loop().create_future()
         r1 = QueuedRequest(priority=0, enqueue_time=1.0, future=future, request_id="1")
         r2 = QueuedRequest(priority=2, enqueue_time=1.0, future=future, request_id="2")
         assert r1 < r2
         
-    def test_request_with_metadata(self):
+    @pytest.mark.asyncio
+    async def test_request_with_metadata(self):
         """Test request with metadata."""
-        future = asyncio.get_event_loop().create_future()
+        future = asyncio.get_running_loop().create_future()
         request = QueuedRequest(
             priority=2,
             enqueue_time=time.monotonic(),
@@ -276,9 +282,10 @@ class TestQueuedRequest:
         )
         assert request.metadata["query"] == "SELECT 1"
         
-    def test_request_without_metadata(self):
+    @pytest.mark.asyncio
+    async def test_request_without_metadata(self):
         """Test request without metadata."""
-        future = asyncio.get_event_loop().create_future()
+        future = asyncio.get_running_loop().create_future()
         request = QueuedRequest(
             priority=2,
             enqueue_time=time.monotonic(),
@@ -287,16 +294,18 @@ class TestQueuedRequest:
         )
         assert request.metadata is None
         
-    def test_request_equality(self):
+    @pytest.mark.asyncio
+    async def test_request_equality(self):
         """Test request equality is based on priority."""
-        future = asyncio.get_event_loop().create_future()
+        future = asyncio.get_running_loop().create_future()
         r1 = QueuedRequest(priority=2, enqueue_time=1.0, future=future, request_id="1")
         r2 = QueuedRequest(priority=2, enqueue_time=1.0, future=future, request_id="2")
         assert r1 == r2  # Equal priority and enqueue_time
         
-    def test_request_sorting(self):
+    @pytest.mark.asyncio
+    async def test_request_sorting(self):
         """Test request sorting in priority queue."""
-        future = asyncio.get_event_loop().create_future()
+        future = asyncio.get_running_loop().create_future()
         requests = [
             QueuedRequest(priority=3, enqueue_time=1.0, future=future, request_id="3"),
             QueuedRequest(priority=1, enqueue_time=1.0, future=future, request_id="1"),
@@ -306,9 +315,10 @@ class TestQueuedRequest:
         assert sorted_reqs[0].priority == 1
         assert sorted_reqs[2].priority == 3
         
-    def test_request_id_uniqueness(self):
+    @pytest.mark.asyncio
+    async def test_request_id_uniqueness(self):
         """Test request IDs can be unique."""
-        future = asyncio.get_event_loop().create_future()
+        future = asyncio.get_running_loop().create_future()
         r1 = QueuedRequest(priority=2, enqueue_time=1.0, future=future, request_id="unique_1")
         r2 = QueuedRequest(priority=2, enqueue_time=1.0, future=future, request_id="unique_2")
         assert r1.request_id != r2.request_id

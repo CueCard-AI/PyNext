@@ -486,16 +486,12 @@ class PostgresAdapter(Adapter):
         self._retry_enabled = retry
         self._retry_manager = RetryManager(RetryConfig(
             max_attempts=retry_attempts,
-            enabled=retry,
         )) if retry else None
         
         self._circuit_breaker_enabled = circuit_breaker
-        self._circuit_breaker_registry = CircuitBreakerRegistry() if circuit_breaker else None
-        if circuit_breaker:
-            self._circuit_breaker_registry.register(
-                "default",
-                CircuitBreakerConfig(failure_threshold=circuit_breaker_threshold)
-            )
+        self._circuit_breaker_registry = CircuitBreakerRegistry(
+            config=CircuitBreakerConfig(failure_threshold=circuit_breaker_threshold)
+        ) if circuit_breaker else None
         
         self._replica_manager: Optional[ReplicaManager] = None
         self._replica_urls = replicas or []
@@ -518,15 +514,14 @@ class PostgresAdapter(Adapter):
         self._slow_query_threshold = slow_query_threshold
         self._db_logger = DBLogger(LogConfig(
             log_queries=log_queries,
-            log_slow_queries=log_slow_queries,
-            slow_query_threshold=slow_query_threshold,
+            slow_query_ms=slow_query_threshold * 1000 if slow_query_threshold else 100.0,
         ))
         
         self._metrics_enabled = metrics
         self._metrics_collector = MetricsCollector(MetricsConfig()) if metrics else None
         
         self._query_analyzer = QueryAnalyzer(AnalyzerConfig(
-            slow_threshold=slow_query_threshold,
+            slow_threshold_ms=slow_query_threshold * 1000 if slow_query_threshold else 100.0,
         ))
         
         self._pool_monitor = PoolMonitor(MonitorConfig())
@@ -1983,6 +1978,179 @@ class PostgresAdapter(Adapter):
                     logger.warning(f"Leak: connection held for {leak.held_duration_ms}ms")
         """
         return await self._pool_monitor.detect_leaks(self._pool)
+    
+    # =========================================================================
+    # Phase 6: Live Query Integration
+    # =========================================================================
+    
+    def supports_listen_notify(self) -> bool:
+        """Check if this adapter supports PostgreSQL LISTEN/NOTIFY.
+        
+        LISTEN/NOTIFY enables instant database change detection for live queries.
+        This is the preferred method for real-time updates.
+        
+        Returns:
+            True - PostgreSQL always supports LISTEN/NOTIFY
+        
+        Example:
+            if adapter.supports_listen_notify():
+                # Use instant detection
+                detector = PostgresNotifyDetector()
+            else:
+                # Fall back to polling
+                detector = PollingDetector()
+        """
+        return True
+    
+    def supports_live_queries(self) -> bool:
+        """Check if this adapter supports live queries.
+        
+        Live queries automatically update when database changes.
+        
+        Returns:
+            True - PostgreSQL supports live queries via LISTEN/NOTIFY
+        
+        Example:
+            if adapter.supports_live_queries():
+                users = User.live()  # Real-time updates!
+        """
+        return True
+    
+    async def get_listen_connection(self) -> "asyncpg.Connection":
+        """Get a dedicated connection for LISTEN/NOTIFY.
+        
+        This connection is NOT returned to the pool. It stays open for the
+        lifetime of the live query subscription because LISTEN requires a
+        persistent connection.
+        
+        Important:
+            - The caller is responsible for closing this connection
+            - Don't use for regular queries - use the pool instead
+            - One connection can LISTEN to multiple channels
+        
+        Returns:
+            A dedicated asyncpg connection
+        
+        Example:
+            conn = await adapter.get_listen_connection()
+            try:
+                await conn.add_listener("pynext_live_users", callback)
+                # Keep connection open...
+            finally:
+                await conn.close()  # Caller must close!
+        
+        Raises:
+            RuntimeError: If connection cannot be established
+        """
+        try:
+            import asyncpg
+            
+            return await asyncpg.connect(
+                host=self._config.host,
+                port=self._config.port,
+                user=self._config.user,
+                password=self._config.password,
+                database=self._config.database,
+                ssl=self._config.ssl_context,
+                timeout=self._config.connect_timeout,
+            )
+        except Exception as e:
+            logger.error(f"Failed to create LISTEN connection: {e}")
+            raise RuntimeError(f"Could not create LISTEN connection: {e}") from e
+    
+    async def execute_trigger_sql(self, sql: str) -> None:
+        """Execute SQL for trigger creation/modification.
+        
+        Uses retry logic for reliability. Triggers are created for
+        LISTEN/NOTIFY-based live query detection.
+        
+        Args:
+            sql: The trigger SQL to execute
+        
+        Example:
+            await adapter.execute_trigger_sql('''
+                CREATE OR REPLACE FUNCTION pynext_notify_users()
+                RETURNS trigger AS $$ ... $$
+            ''')
+        
+        Raises:
+            Exception: If SQL execution fails after retries
+        """
+        if self._retry_manager:
+            async with self._retry_manager.retry("trigger_sql"):
+                async with self.connection() as conn:
+                    await conn.execute(sql)
+        else:
+            async with self.connection() as conn:
+                await conn.execute(sql)
+    
+    async def check_trigger_exists(self, table: str, trigger_name: str) -> bool:
+        """Check if a trigger exists on a table.
+        
+        Used to avoid recreating triggers that already exist.
+        
+        Args:
+            table: Table name
+            trigger_name: Name of the trigger
+        
+        Returns:
+            True if trigger exists, False otherwise
+        
+        Example:
+            if not await adapter.check_trigger_exists("users", "pynext_live_users_trigger"):
+                await adapter.execute_trigger_sql(create_sql)
+        """
+        result = await self.fetch_one(
+            """
+            SELECT 1 FROM pg_trigger 
+            WHERE tgname = $1 
+            AND tgrelid = $2::regclass
+            """,
+            trigger_name, table
+        )
+        return result is not None
+    
+    async def check_function_exists(self, function_name: str) -> bool:
+        """Check if a function exists in the database.
+        
+        Args:
+            function_name: Name of the function
+        
+        Returns:
+            True if function exists, False otherwise
+        """
+        result = await self.fetch_one(
+            """
+            SELECT 1 FROM pg_proc 
+            WHERE proname = $1
+            """,
+            function_name
+        )
+        return result is not None
+    
+    @property
+    def live_query_config(self) -> Dict[str, Any]:
+        """Get configuration for live queries.
+        
+        Exposes retry and circuit breaker settings so live query
+        components can use consistent resilience patterns.
+        
+        Returns:
+            Dict with retry and circuit breaker configuration
+        
+        Example:
+            config = adapter.live_query_config
+            retry_attempts = config["retry_attempts"]
+        """
+        return {
+            "retry_attempts": self._retry_config.max_attempts if self._retry_config else 3,
+            "retry_initial_delay": self._retry_config.initial_delay if self._retry_config else 1.0,
+            "retry_max_delay": self._retry_config.max_delay if self._retry_config else 30.0,
+            "circuit_breaker_enabled": self._circuit_registry is not None,
+            "host": self._config.host,
+            "port": self._config.port,
+            "database": self._config.database,
+        }
     
     def __repr__(self) -> str:
         """Return string representation."""

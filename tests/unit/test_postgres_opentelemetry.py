@@ -665,6 +665,18 @@ class TestOpenTelemetryBackend:
 class TestTracingIntegration:
     """Tests for tracing integration."""
     
+    @pytest.fixture(autouse=True)
+    def reset_trace_context(self):
+        """Reset trace context before each test to ensure isolation."""
+        from pynext.db.adapters.postgres_opentelemetry import _current_span, _trace_context
+        # Reset both ContextVars
+        _current_span.set(None)
+        _trace_context.set(None)
+        yield
+        # Clean up after test
+        _current_span.set(None)
+        _trace_context.set(None)
+    
     def test_trace_context_propagation(self):
         """Test trace context propagates to spans."""
         backend = OpenTelemetryBackend()

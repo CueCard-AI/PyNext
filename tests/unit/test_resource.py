@@ -377,7 +377,8 @@ class TestResourceRegistry:
         assert r1.state() == ResourceState.READY
         assert r2.state() == ResourceState.READY
     
-    def test_registry_hydration_data(self):
+    @pytest.mark.asyncio
+    async def test_registry_hydration_data(self):
         """Registry provides hydration data."""
         registry = ResourceRegistry()
         registry.clear()
@@ -389,7 +390,7 @@ class TestResourceRegistry:
         registry.register(resource)
         
         # Run fetch
-        asyncio.get_event_loop().run_until_complete(resource.fetch())
+        await resource.fetch()
         
         data = registry.get_hydration_data()
         

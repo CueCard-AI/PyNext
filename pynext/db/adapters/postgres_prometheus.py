@@ -215,15 +215,24 @@ class PrometheusHistogram:
         return ",".join(f'{k}="{v}"' for k, v in sorted(labels.items()))
     
     def _compute_buckets(self, observations: List[float]) -> Dict[float, int]:
-        """Compute bucket counts."""
+        """Compute bucket counts (non-cumulative, per-bucket counts).
+        
+        Each observation is counted in only the smallest bucket it fits in.
+        The expose() method then makes these cumulative.
+        """
         bucket_counts = {b: 0 for b in self.buckets}
         bucket_counts[float("inf")] = 0
+        sorted_buckets = sorted(self.buckets)
         
         for obs in observations:
-            for bucket in self.buckets:
+            placed = False
+            for bucket in sorted_buckets:
                 if obs <= bucket:
                     bucket_counts[bucket] += 1
-            bucket_counts[float("inf")] += 1
+                    placed = True
+                    break  # Only count in the FIRST (smallest) matching bucket
+            if not placed:
+                bucket_counts[float("inf")] += 1
         
         return bucket_counts
     
