@@ -2627,6 +2627,34 @@ All return fine-grained signals (no component re-renders):
   - Tests: **54 comprehensive tests** for knowledge base, planner, context, generator
   - Docs: [docs/app-builder/README.md](./app-builder/README.md)
 
+- [x] **Session Memory & Configuration System** — Persistent memory and hierarchical config ✅ COMPLETED
+  - Files: `pynext/app/memory.py`, `pynext/app/config.py`, `pynext/app/templates/pynext.toml`
+  - **Session Memory** (`memory.py`):
+    - Persistent conversation history stored in `.pynext/session.mem` (JSON Lines format)
+    - Automatic summarization when context gets large (80% of max tokens)
+    - Checkpoints for project state snapshots and rollback
+    - Preferences storage for learned user settings
+    - Semantic search and context retrieval for AI prompts
+    - **Configurable sync**: incremental/full/manual modes, customizable triggers
+    - CLI: `pynext memory show/stats/clear/flush/compact/export/sync/checkpoint`
+  - **Configuration System** (`config.py`):
+    - Hierarchical config: `~/.config/pynext/` → `./pynext.toml` → env → CLI
+    - Variables with `${var}` syntax and computed values
+    - Named modes: `prototype`, `production`, `strict` with inheritance
+    - Conditional prompts with Python (`when`) and LLM (`when_llm`) evaluation
+    - Reusable patterns with variable substitution
+    - Per-file-type prompts (page, island, api, model, action, etc.)
+    - Validation rules, style preferences, team standards
+    - CLI: `pynext config init/show/get/validate`
+  - **Sync Configuration** (in `[memory]` section of `pynext.toml`):
+    - `sync_mode`: incremental (append), full (rewrite), manual
+    - `sync_on`: triggers like `assistant_response`, `checkpoint`, `exit`
+    - `sync_batch_size`, `exclude_roles`, `max_entries_in_memory`
+    - File rotation and compression options
+  - **Integration**: Session uses memory for persistence, file_generator uses config for prompts
+  - Tests: **80+ comprehensive tests** for memory and config systems
+  - Docs: [docs/app-builder/CONFIG.md](./app-builder/CONFIG.md), [docs/app-builder/MEMORY.md](./app-builder/MEMORY.md)
+
 - [x] **PyTest Utilities** — Testing helpers ✅ COMPLETED
   - Files: `pynext/testing/` module (render.py, assertions.py, accessibility.py, snapshots.py, async_utils.py, visual.py, benchmarks.py, coverage.py)
   - APIs: `render()`, `assert_text()`, `assert_has_class()`, `assert_accessible()`, `assert_snapshot()`, `assert_visual_match()`, `@benchmark`, `wait_for()`
