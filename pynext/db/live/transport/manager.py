@@ -105,29 +105,33 @@ class TransportManager:
     async def disconnect(self, client_id: str) -> None:
         """Disconnect a client and clean up."""
         async with self._lock:
-            transport = self._transports.pop(client_id, None)
+            await self._disconnect_unlocked(client_id)
+    
+    async def _disconnect_unlocked(self, client_id: str) -> None:
+        """Internal disconnect - must be called with lock held."""
+        transport = self._transports.pop(client_id, None)
+        
+        if transport:
+            await transport.disconnect()
             
-            if transport:
-                await transport.disconnect()
-                
-                # Clean up selector
-                if isinstance(transport, WebSocketTransport):
-                    get_transport_selector().unregister_websocket(client_id)
-            
-            # Clean up subscriptions
-            query_ids = self._client_subscriptions.pop(client_id, set())
-            for query_id in query_ids:
-                clients = self._query_clients.get(query_id, set())
-                clients.discard(client_id)
-                if not clients:
-                    self._query_clients.pop(query_id, None)
-            
-            # Cancel batch task
-            batch_task = self._batch_tasks.pop(client_id, None)
-            if batch_task:
-                batch_task.cancel()
-            
-            logger.info(f"Client disconnected: {client_id}")
+            # Clean up selector
+            if isinstance(transport, WebSocketTransport):
+                get_transport_selector().unregister_websocket(client_id)
+        
+        # Clean up subscriptions
+        query_ids = self._client_subscriptions.pop(client_id, set())
+        for query_id in query_ids:
+            clients = self._query_clients.get(query_id, set())
+            clients.discard(client_id)
+            if not clients:
+                self._query_clients.pop(query_id, None)
+        
+        # Cancel batch task
+        batch_task = self._batch_tasks.pop(client_id, None)
+        if batch_task:
+            batch_task.cancel()
+        
+        logger.info(f"Client disconnected: {client_id}")
     
     async def send(
         self,
@@ -245,7 +249,8 @@ class TransportManager:
             ]
             
             for client_id in disconnected:
-                await self.disconnect(client_id)
+                # Use internal method to avoid deadlock (we already hold the lock)
+                await self._disconnect_unlocked(client_id)
             
             return len(disconnected)
     

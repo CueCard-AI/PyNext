@@ -569,7 +569,6 @@ class TestTransportManager:
         await transport_manager.disconnect(client1)
         await transport_manager.disconnect(client2)
     
-    @pytest.mark.skip(reason="TransportManager cleanup causes async timeout - needs investigation")
     @pytest.mark.asyncio
     async def test_cleanup_disconnected(self, transport_manager):
         """Test cleaning up disconnected transports."""
