@@ -9,6 +9,9 @@ Features:
 - AI evaluates if enough info was gathered
 - Follow-up questions for missing details
 - High-quality code generation
+- **Thought Threads**: Chain-of-thought reasoning for error correction
+- **Configurable models**: Set via CLI, env var, or config file
+- **Validation**: Syntax, imports, and PyNext pattern checking
 
 Example:
     pynext g page products --ai
@@ -28,11 +31,52 @@ Example:
     🤖 Generating your component...
     
     ✅ Created: pages/products.py
+
+Advanced usage with thought threads:
+    pynext g page products --ai --max-thoughts 5 --thought-depth deep
+    
+    # Or programmatically:
+    code = generate_with_ai(
+        "page", "products", answers,
+        max_thoughts=5,
+        thought_depth="deep",
+        model="claude-opus-4-20250514"
+    )
 """
 
 import os
 import re
 from typing import Dict, List, Optional
+
+# Import the new agentic system
+from .config import AIConfig, ThoughtConfig, ThoughtDepth, ValidationLevel
+from .agent import GeneratorAgent, GenerationError, generate_with_agent
+from .thought import Thought, ThoughtThread
+from .validator import CodeValidator, ValidationResult
+from .search import CodebaseSearch
+
+# Re-export for convenience
+__all__ = [
+    # New agentic system
+    "AIConfig",
+    "ThoughtConfig",
+    "ThoughtDepth",
+    "ValidationLevel",
+    "GeneratorAgent",
+    "GenerationError",
+    "Thought",
+    "ThoughtThread",
+    "CodeValidator",
+    "ValidationResult",
+    "CodebaseSearch",
+    # Original functions
+    "AI_QUESTIONS",
+    "ai_interview",
+    "evaluate_completeness",
+    "generate_with_ai",
+    "generate_quick",
+    "extract_code",
+]
 
 
 # ============================================
@@ -164,6 +208,7 @@ def evaluate_completeness(
     name: str,
     answers: Dict[str, str],
     api_key: str,
+    model: Optional[str] = None,
 ) -> List[str]:
     """
     Use AI to evaluate if we have enough information.
@@ -176,6 +221,7 @@ def evaluate_completeness(
         name: Component name
         answers: Current answers from user
         api_key: Anthropic API key
+        model: Model to use (default: from env or claude-sonnet-4)
     
     Returns:
         List of follow-up questions (empty if sufficient)
@@ -184,6 +230,9 @@ def evaluate_completeness(
         import anthropic
     except ImportError:
         return []  # Can't evaluate without anthropic
+    
+    # Use provided model or get from env or default
+    model_to_use = model or os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-20250514")
     
     client = anthropic.Anthropic(api_key=api_key)
     
@@ -222,7 +271,7 @@ Respond with ONLY the questions (one per line) or SUFFICIENT. No other text."""
 
     try:
         message = client.messages.create(
-            model="claude-sonnet-4-20250514",
+            model=model_to_use,
             max_tokens=500,
             messages=[{"role": "user", "content": eval_prompt}],
         )
@@ -259,15 +308,31 @@ def generate_with_ai(
     name: str,
     answers: Dict[str, str],
     api_key: Optional[str] = None,
+    model: Optional[str] = None,
+    max_thoughts: Optional[int] = None,
+    thought_depth: str = "deep",
+    validation_level: str = "full",
+    use_agent: bool = True,
+    verbose: bool = False,
 ) -> str:
     """
     Generate component using AI with gathered context.
+    
+    This function supports two modes:
+    1. **Agent mode** (default): Uses thought thread reasoning for error correction
+    2. **Legacy mode**: Direct generation without validation (use_agent=False)
     
     Args:
         generator_type: Type (page, component, etc.)
         name: Component name
         answers: Dict from ai_interview()
-        api_key: Anthropic API key
+        api_key: Anthropic API key (default: from ANTHROPIC_API_KEY env)
+        model: Model to use (default: from ANTHROPIC_MODEL env or claude-sonnet-4)
+        max_thoughts: Max reasoning steps (default: 5)
+        thought_depth: How deep to analyze - "shallow"/"medium"/"deep" (default: deep)
+        validation_level: How thoroughly to validate - "syntax"/"imports"/"full"
+        use_agent: Use the agentic system with thought threads (default: True)
+        verbose: Print progress and reasoning (default: False)
     
     Returns:
         Generated Python code
@@ -275,10 +340,69 @@ def generate_with_ai(
     Raises:
         ValueError: If API key is missing
         ImportError: If anthropic is not installed
+        GenerationError: If valid code cannot be generated after all thoughts
+    
+    Configuration Priority:
+        1. Function parameters (model=, max_thoughts=)
+        2. Environment variables (ANTHROPIC_MODEL, PYNEXT_AI_MAX_THOUGHTS)
+        3. Config file (pynext.ai.toml)
+        4. Default values
     
     Example:
+        # Basic usage (uses agent by default)
         answers = ai_interview("page", "products")
         code = generate_with_ai("page", "products", answers)
+        
+        # With custom settings
+        code = generate_with_ai(
+            "page", "products", answers,
+            model="claude-opus-4-20250514",
+            max_thoughts=10,
+            thought_depth="deep",
+            verbose=True
+        )
+        
+        # Legacy mode (no validation/retry)
+        code = generate_with_ai("page", "products", answers, use_agent=False)
+    """
+    # Use the new agentic system by default
+    if use_agent:
+        # Load config with priority: param > env > file > default
+        config = AIConfig.load()
+        
+        # Apply parameter overrides
+        config = config.with_overrides(
+            model=model,
+            api_key=api_key,
+            validation_level=validation_level,
+            max_thoughts=max_thoughts,
+            thought_depth=thought_depth,
+        )
+        
+        # Use the agent
+        return generate_with_agent(
+            generator_type=generator_type,
+            name=name,
+            answers=answers,
+            config=config,
+            verbose=verbose,
+        )
+    
+    # Legacy mode: direct generation without validation
+    return _generate_legacy(generator_type, name, answers, api_key, model)
+
+
+def _generate_legacy(
+    generator_type: str,
+    name: str,
+    answers: Dict[str, str],
+    api_key: Optional[str] = None,
+    model: Optional[str] = None,
+) -> str:
+    """
+    Legacy generation without thought threads.
+    
+    This is the original implementation preserved for backward compatibility.
     """
     key = api_key or os.environ.get("ANTHROPIC_API_KEY")
     if not key:
@@ -295,6 +419,9 @@ def generate_with_ai(
             "  pip install anthropic\n"
             "Or add 'anthropic' to pynext.requirements.txt"
         )
+    
+    # Use provided model or get from env or default
+    model_to_use = model or os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-20250514")
     
     client = anthropic.Anthropic(api_key=key)
     
@@ -437,7 +564,7 @@ Use best practices and make it look professional."""
     
     try:
         message = client.messages.create(
-            model="claude-sonnet-4-20250514",
+            model=model_to_use,
             max_tokens=4000,
             system=system,
             messages=[{"role": "user", "content": user_prompt}],
@@ -491,18 +618,27 @@ def generate_quick(
     name: str,
     description: str,
     api_key: Optional[str] = None,
+    model: Optional[str] = None,
+    max_thoughts: Optional[int] = None,
+    thought_depth: str = "deep",
+    verbose: bool = False,
 ) -> str:
     """
     Quick generation with a single description.
     
     For users who know exactly what they want.
-    Skips the interview process.
+    Skips the interview process but still uses the agentic system
+    for validation and error correction.
     
     Args:
         generator_type: Type of component
         name: Component name
         description: Free-form description
         api_key: Anthropic API key
+        model: Model to use (default: from env or claude-sonnet-4)
+        max_thoughts: Max reasoning steps (default: 5)
+        thought_depth: How deep to analyze - "shallow"/"medium"/"deep"
+        verbose: Print progress and reasoning
     
     Returns:
         Generated Python code
@@ -513,7 +649,25 @@ def generate_quick(
             "products",
             "E-commerce product grid with filtering and search"
         )
+        
+        # With custom model
+        code = generate_quick(
+            "page",
+            "products", 
+            "E-commerce product grid",
+            model="claude-opus-4-20250514",
+            verbose=True
+        )
     """
     answers = {"description": description}
-    return generate_with_ai(generator_type, name, answers, api_key)
+    return generate_with_ai(
+        generator_type, 
+        name, 
+        answers, 
+        api_key=api_key,
+        model=model,
+        max_thoughts=max_thoughts,
+        thought_depth=thought_depth,
+        verbose=verbose,
+    )
 

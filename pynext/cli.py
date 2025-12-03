@@ -542,30 +542,54 @@ def cmd_generate(args: argparse.Namespace) -> int:
     - AI mode (--ai): uses Anthropic Claude with leading questions
     - Non-interactive (--yes): uses defaults without prompts
     
+    AI mode supports thought threads for intelligent error correction:
+    - --max-thoughts: Max reasoning steps (default: 5)
+    - --thought-depth: shallow/medium/deep (default: deep)
+    - --model: AI model to use
+    - --verbose: Show reasoning process
+    
     Example:
         pynext g page blog            # Interactive
         pynext g page blog --yes      # Non-interactive
         pynext g page blog --ai       # AI-assisted
+        pynext g page blog --ai --max-thoughts 10 --thought-depth deep --verbose
     """
     from pathlib import Path
     from pynext.generator import Generator
     from pynext.generator.prompts import prompt_for_type
-    from pynext.generator.ai import ai_interview, generate_with_ai, generate_quick
+    from pynext.generator.ai import ai_interview, generate_with_ai, generate_quick, GenerationError
     from pynext.generator.validators import ValidationError
     
     gen = Generator(Path.cwd())
+    
+    # Get AI-specific args with defaults
+    model = getattr(args, 'model', None)
+    max_thoughts = getattr(args, 'max_thoughts', None)
+    thought_depth = getattr(args, 'thought_depth', 'deep')
+    validation = getattr(args, 'validation', 'full')
+    use_agent = not getattr(args, 'no_agent', False)
+    verbose = getattr(args, 'verbose', False)
     
     try:
         # AI mode with direct prompt
         if args.ai and args.prompt:
             print(f"\n🤖 Generating {args.type}: {args.name}")
-            print(f"   Prompt: {args.prompt}\n")
+            print(f"   Prompt: {args.prompt}")
+            if verbose:
+                print(f"   Model: {model or 'default'}")
+                print(f"   Max thoughts: {max_thoughts or 5}")
+                print(f"   Thought depth: {thought_depth}")
+            print()
             
             content = generate_quick(
                 args.type,
                 args.name,
                 args.prompt,
                 api_key=args.api_key,
+                model=model,
+                max_thoughts=max_thoughts,
+                thought_depth=thought_depth,
+                verbose=verbose,
             )
             path = gen.create_from_content(
                 args.type,
@@ -591,6 +615,12 @@ def cmd_generate(args: argparse.Namespace) -> int:
                 args.name,
                 answers,
                 api_key=args.api_key,
+                model=model,
+                max_thoughts=max_thoughts,
+                thought_depth=thought_depth,
+                validation_level=validation,
+                use_agent=use_agent,
+                verbose=verbose,
             )
             path = gen.create_from_content(
                 args.type,
@@ -639,6 +669,16 @@ def cmd_generate(args: argparse.Namespace) -> int:
         
         return 0
         
+    except GenerationError as e:
+        print(f"\n❌ AI generation failed: {e}")
+        if verbose and e.reasoning:
+            print("\n📝 Reasoning chain:")
+            print(e.reasoning)
+        if e.last_errors:
+            print("\n🔍 Last errors:")
+            for error in e.last_errors[:3]:
+                print(f"   • {error}")
+        return 1
     except ValidationError as e:
         print(f"\n❌ Validation error: {e}")
         return 1
@@ -2344,6 +2384,37 @@ def main() -> int:
     gen_parser.add_argument(
         "--api-key",
         help="Anthropic API key (or set ANTHROPIC_API_KEY env var)"
+    )
+    gen_parser.add_argument(
+        "--model",
+        help="AI model to use (default: claude-sonnet-4-20250514, or ANTHROPIC_MODEL env)"
+    )
+    gen_parser.add_argument(
+        "--max-thoughts",
+        type=int,
+        help="Max reasoning steps for error correction (default: 5, or PYNEXT_AI_MAX_THOUGHTS env)"
+    )
+    gen_parser.add_argument(
+        "--thought-depth",
+        choices=["shallow", "medium", "deep"],
+        default="deep",
+        help="How deeply to analyze errors: shallow (fast), medium (balanced), deep (thorough)"
+    )
+    gen_parser.add_argument(
+        "--validation",
+        choices=["syntax", "imports", "full"],
+        default="full",
+        help="Validation level: syntax (fast), imports (medium), full (comprehensive)"
+    )
+    gen_parser.add_argument(
+        "--no-agent",
+        action="store_true",
+        help="Disable the agentic system (no validation/retry, just generate)"
+    )
+    gen_parser.add_argument(
+        "--verbose", "-v",
+        action="store_true",
+        help="Show detailed progress including thought threads"
     )
     
     # deps command
