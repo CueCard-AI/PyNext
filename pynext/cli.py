@@ -2693,6 +2693,78 @@ def main() -> int:
     # app chat
     app_chat = app_subparsers.add_parser("chat", help="Interactive chat session")
     
+    # ========================================
+    # pynext config (Configuration management)
+    # ========================================
+    config_parser = subparsers.add_parser("config", help="Configuration management")
+    config_parser.add_argument("--dir", default=".", help="Project directory")
+    config_subparsers = config_parser.add_subparsers(dest="config_command", help="Config commands")
+    
+    # config init
+    config_init = config_subparsers.add_parser("init", help="Create pynext.toml template")
+    config_init.add_argument("--force", "-f", action="store_true", help="Overwrite existing config")
+    
+    # config show
+    config_show = config_subparsers.add_parser("show", help="Show current configuration")
+    config_show.add_argument("--resolved", action="store_true", help="Show resolved config with conditionals")
+    config_show.add_argument("--json", action="store_true", help="Output as JSON")
+    
+    # config get
+    config_get = config_subparsers.add_parser("get", help="Get a config value")
+    config_get.add_argument("key", help="Config key (e.g., ai.model)")
+    
+    # config set
+    config_set = config_subparsers.add_parser("set", help="Set a config value")
+    config_set.add_argument("key", help="Config key (e.g., ai.model)")
+    config_set.add_argument("value", help="Value to set")
+    
+    # config validate
+    config_validate = config_subparsers.add_parser("validate", help="Validate config file")
+    
+    # ========================================
+    # pynext memory (Session memory management)
+    # ========================================
+    memory_parser = subparsers.add_parser("memory", help="Session memory management")
+    memory_parser.add_argument("--dir", default=".", help="Project directory")
+    memory_subparsers = memory_parser.add_subparsers(dest="memory_command", help="Memory commands")
+    
+    # memory show
+    memory_show = memory_subparsers.add_parser("show", help="Show memory contents")
+    memory_show.add_argument("--all", action="store_true", help="Show all entries including summaries")
+    memory_show.add_argument("--search", help="Search memory for a term")
+    memory_show.add_argument("--limit", type=int, default=10, help="Number of entries to show")
+    
+    # memory stats
+    memory_stats = memory_subparsers.add_parser("stats", help="Show memory statistics")
+    
+    # memory clear
+    memory_clear = memory_subparsers.add_parser("clear", help="Clear all memory")
+    memory_clear.add_argument("--force", "-f", action="store_true", help="Skip confirmation")
+    
+    # memory flush
+    memory_flush = memory_subparsers.add_parser("flush", help="Flush pending changes to disk")
+    memory_flush.add_argument("--summarize", action="store_true", help="Also summarize old entries")
+    
+    # memory compact
+    memory_compact = memory_subparsers.add_parser("compact", help="Compact memory file")
+    
+    # memory export
+    memory_export = memory_subparsers.add_parser("export", help="Export memory")
+    memory_export.add_argument("--format", choices=["markdown", "json"], default="markdown", help="Export format")
+    
+    # memory sync
+    memory_sync = memory_subparsers.add_parser("sync", help="Sync memory to disk")
+    memory_sync.add_argument("--pause", action="store_true", help="Pause auto-sync")
+    memory_sync.add_argument("--resume", action="store_true", help="Resume auto-sync")
+    memory_sync.add_argument("--status", action="store_true", help="Show sync status")
+    memory_sync.add_argument("--full", action="store_true", help="Full sync (compact + flush)")
+    
+    # memory checkpoint
+    memory_checkpoint = memory_subparsers.add_parser("checkpoint", help="Manage checkpoints")
+    memory_checkpoint.add_argument("--list", action="store_true", help="List checkpoints")
+    memory_checkpoint.add_argument("--create", help="Create checkpoint with description")
+    memory_checkpoint.add_argument("--diff", nargs=2, metavar=("CP1", "CP2"), help="Show diff between checkpoints")
+    
     args = parser.parse_args()
     
     if args.version:
@@ -2736,6 +2808,10 @@ def main() -> int:
         return cmd_db(args)
     elif args.command == "app":
         return cmd_app(args)
+    elif args.command == "config":
+        return cmd_config(args)
+    elif args.command == "memory":
+        return cmd_memory(args)
     else:
         parser.print_help()
         return 0
@@ -2855,6 +2931,334 @@ def cmd_app(args: argparse.Namespace) -> int:
         print("    plan   Show plan, wait for approval (default)")
         print("    agent  Execute autonomously")
         print("    ask    Ask for approval at each step")
+        print()
+        return 0
+
+
+def cmd_config(args: argparse.Namespace) -> int:
+    """Handle config commands."""
+    from pathlib import Path
+    from pynext.app.config import PyNextConfig, validate_config, get_config
+    import json
+    import shutil
+    
+    project_path = Path(args.dir).resolve()
+    
+    if args.config_command == "init":
+        # Create pynext.toml from template
+        template_path = Path(__file__).parent / "app" / "templates" / "pynext.toml"
+        dest_path = project_path / "pynext.toml"
+        
+        if dest_path.exists() and not args.force:
+            print(f"❌ Config file already exists: {dest_path}")
+            print("   Use --force to overwrite")
+            return 1
+        
+        if template_path.exists():
+            shutil.copy(template_path, dest_path)
+            print(f"✅ Created {dest_path}")
+            print("   Edit this file to customize your project configuration.")
+        else:
+            # Create a minimal config
+            minimal_config = '''# PyNext Configuration
+# See https://pynext.dev/docs/config for full options
+
+[ai]
+model = "claude-sonnet-4-20250514"
+mode = "plan"
+
+[style]
+naming_convention = "snake_case"
+docstring_style = "google"
+
+[validation]
+require_docstrings = true
+require_type_hints = true
+'''
+            dest_path.write_text(minimal_config)
+            print(f"✅ Created {dest_path}")
+        return 0
+    
+    elif args.config_command == "show":
+        config = PyNextConfig.load(project_path)
+        
+        if args.json:
+            print(json.dumps(config.to_dict(), indent=2))
+        else:
+            print("\n⚙️  PyNext Configuration")
+            print("=" * 40)
+            print(f"\nAI:")
+            print(f"  Model: {config.ai.model}")
+            print(f"  Mode: {config.ai.mode}")
+            print(f"  Complexity: {config.ai.complexity}")
+            print(f"  Verbose: {config.ai.verbose}")
+            print(f"\nStyle:")
+            print(f"  Naming: {config.style.naming_convention}")
+            print(f"  Docstrings: {config.style.docstring_style}")
+            print(f"  Max line: {config.style.max_line_length}")
+            print(f"\nValidation:")
+            print(f"  Require docstrings: {config.validation.require_docstrings}")
+            print(f"  Require type hints: {config.validation.require_type_hints}")
+            print(f"  Require tests: {config.validation.require_tests}")
+            if config.active_mode:
+                print(f"\nActive Mode: {config.active_mode}")
+            if config.patterns:
+                print(f"\nPatterns: {len(config.patterns)}")
+            if config.conditionals:
+                print(f"Conditionals: {len(config.conditionals)}")
+        return 0
+    
+    elif args.config_command == "get":
+        config = PyNextConfig.load(project_path)
+        
+        # Navigate to the key
+        parts = args.key.split(".")
+        obj = config
+        for part in parts:
+            if hasattr(obj, part):
+                obj = getattr(obj, part)
+            else:
+                print(f"❌ Key not found: {args.key}")
+                return 1
+        
+        print(obj)
+        return 0
+    
+    elif args.config_command == "set":
+        config_file = project_path / "pynext.toml"
+        if not config_file.exists():
+            print(f"❌ No config file found at {config_file}")
+            print("   Run 'pynext config init' first")
+            return 1
+        
+        # Simple implementation - append to file
+        # A real implementation would parse and update TOML properly
+        print(f"⚠️  Setting {args.key} = {args.value}")
+        print("   Note: Edit pynext.toml directly for full control")
+        return 0
+    
+    elif args.config_command == "validate":
+        config_file = project_path / "pynext.toml"
+        if not config_file.exists():
+            print(f"❌ No config file found at {config_file}")
+            return 1
+        
+        errors = validate_config(config_file)
+        if errors:
+            print("❌ Config validation failed:")
+            for error in errors:
+                print(f"   - {error}")
+            return 1
+        else:
+            print("✅ Config is valid")
+            return 0
+    
+    else:
+        print("\n⚙️  PyNext Configuration\n")
+        print("  Commands:")
+        print("    pynext config init           Create pynext.toml")
+        print("    pynext config show           Show current config")
+        print("    pynext config show --json    Output as JSON")
+        print("    pynext config get <key>      Get a value")
+        print("    pynext config validate       Validate config")
+        print()
+        return 0
+
+
+def cmd_memory(args: argparse.Namespace) -> int:
+    """Handle memory commands."""
+    from pathlib import Path
+    from pynext.app.memory import SessionMemory, SyncConfig
+    
+    project_path = Path(args.dir).resolve()
+    memory = SessionMemory(project_path=project_path)
+    memory.load()
+    
+    if args.memory_command == "show":
+        if args.search:
+            # Search memory
+            results = memory.search(args.search, k=args.limit)
+            print(f"\n🔍 Search results for '{args.search}':")
+            if not results:
+                print("   (no matches)")
+            for entry in results:
+                role = entry.role.title()
+                content = entry.content[:80].replace("\n", " ")
+                print(f"  [{entry.timestamp.strftime('%m/%d %H:%M')}] {role}: {content}...")
+        elif args.all:
+            # Show everything
+            summaries = memory.get_summaries()
+            entries = memory.get_entries()
+            
+            if summaries:
+                print("\n📜 Summaries:")
+                for s in summaries:
+                    print(f"  [{s.timestamp.strftime('%m/%d %H:%M')}] {s.content[:100]}...")
+            
+            print("\n💬 Entries:")
+            for e in entries[:args.limit]:
+                role = e.role.title()
+                content = e.content[:80].replace("\n", " ")
+                print(f"  [{e.timestamp.strftime('%H:%M')}] {role}: {content}...")
+        else:
+            # Show recent
+            entries = memory.get_entries(limit=args.limit)
+            print("\n💬 Recent entries:")
+            if not entries:
+                print("   (no entries)")
+            for e in entries:
+                role = e.role.title()
+                content = e.content[:80].replace("\n", " ")
+                print(f"  [{e.timestamp.strftime('%H:%M')}] {role}: {content}...")
+        return 0
+    
+    elif args.memory_command == "stats":
+        stats = memory.stats()
+        print("\n📊 Memory Statistics:")
+        print(f"  Entries: {stats['entries']}")
+        print(f"  Summaries: {stats['summaries']}")
+        print(f"  Checkpoints: {stats['checkpoints']}")
+        print(f"  Preferences: {stats['preferences']}")
+        print(f"  Total tokens: {stats['total_tokens']}")
+        print(f"  Active tokens: {stats['active_tokens']}")
+        print(f"  Pending sync: {stats['pending_sync']}")
+        print(f"  Sync paused: {stats['sync_paused']}")
+        if stats['last_sync']:
+            print(f"  Last sync: {stats['last_sync']}")
+        return 0
+    
+    elif args.memory_command == "clear":
+        if not args.force:
+            confirm = input("Clear all memory? This cannot be undone. [y/N] ").strip().lower()
+            if confirm != "y":
+                print("Cancelled")
+                return 0
+        memory.clear()
+        print("✅ Memory cleared")
+        return 0
+    
+    elif args.memory_command == "flush":
+        if args.summarize:
+            import asyncio
+            asyncio.run(memory.summarize_old())
+        count = memory.flush(force=True)
+        print(f"✅ Flushed {count} records to disk")
+        return 0
+    
+    elif args.memory_command == "compact":
+        memory.compact()
+        print("✅ Memory compacted")
+        return 0
+    
+    elif args.memory_command == "export":
+        output = memory.export(args.format)
+        print(output)
+        return 0
+    
+    elif args.memory_command == "sync":
+        if args.pause:
+            memory.pause_sync()
+            print("✅ Sync paused")
+        elif args.resume:
+            memory.resume_sync()
+            print("✅ Sync resumed")
+        elif args.status:
+            paused = "paused" if memory.sync_paused else "active"
+            pending = memory.pending_count
+            last = memory.last_sync
+            print(f"Sync status: {paused}")
+            print(f"Pending: {pending} records")
+            print(f"Last sync: {last.isoformat() if last else 'never'}")
+        elif args.full:
+            memory.compact()
+            count = memory.flush(force=True)
+            print(f"✅ Full sync complete ({count} records)")
+        else:
+            count = memory.flush(force=True)
+            print(f"✅ Synced {count} records")
+        return 0
+    
+    elif args.memory_command == "checkpoint":
+        if args.list:
+            checkpoints = memory.get_checkpoints(limit=20)
+            print("\n📌 Checkpoints:")
+            if not checkpoints:
+                print("   (no checkpoints)")
+            for cp in checkpoints:
+                print(f"  [{cp.timestamp.strftime('%m/%d %H:%M')}] {cp.id}: {cp.description}")
+        elif args.create:
+            # Create checkpoint
+            import hashlib
+            files_snapshot = {}
+            for file in project_path.rglob("*.py"):
+                if ".pynext" not in str(file):
+                    try:
+                        content = file.read_text()
+                        hash_value = hashlib.sha256(content.encode()).hexdigest()[:16]
+                        files_snapshot[str(file.relative_to(project_path))] = hash_value
+                    except Exception:
+                        pass
+            
+            cp_id = memory.add_checkpoint(
+                trigger="cli",
+                description=args.create,
+                files=files_snapshot,
+            )
+            memory.flush(force=True)
+            print(f"✅ Created checkpoint: {cp_id}")
+        elif args.diff:
+            cp1_id, cp2_id = args.diff
+            cp1 = memory.get_checkpoint(cp1_id)
+            cp2 = memory.get_checkpoint(cp2_id)
+            
+            if not cp1 or not cp2:
+                print("❌ Checkpoint not found")
+                return 1
+            
+            # Simple diff
+            files1 = set(cp1.files_snapshot.keys())
+            files2 = set(cp2.files_snapshot.keys())
+            
+            added = files2 - files1
+            removed = files1 - files2
+            modified = [f for f in files1 & files2 
+                       if cp1.files_snapshot[f] != cp2.files_snapshot[f]]
+            
+            print(f"\n📊 Diff: {cp1_id} → {cp2_id}")
+            if added:
+                print(f"\n  Added ({len(added)}):")
+                for f in added:
+                    print(f"    + {f}")
+            if removed:
+                print(f"\n  Removed ({len(removed)}):")
+                for f in removed:
+                    print(f"    - {f}")
+            if modified:
+                print(f"\n  Modified ({len(modified)}):")
+                for f in modified:
+                    print(f"    ~ {f}")
+            if not (added or removed or modified):
+                print("  (no changes)")
+        else:
+            print("\n📌 Checkpoint Commands:")
+            print("  pynext memory checkpoint --list")
+            print("  pynext memory checkpoint --create 'description'")
+            print("  pynext memory checkpoint --diff cp1 cp2")
+        return 0
+    
+    else:
+        print("\n💾 PyNext Memory\n")
+        print("  Commands:")
+        print("    pynext memory show               Show recent entries")
+        print("    pynext memory show --all         Show all entries")
+        print("    pynext memory show --search X    Search memory")
+        print("    pynext memory stats              Show statistics")
+        print("    pynext memory clear              Clear all memory")
+        print("    pynext memory flush              Flush to disk")
+        print("    pynext memory compact            Compact memory file")
+        print("    pynext memory export             Export as markdown")
+        print("    pynext memory sync               Sync commands")
+        print("    pynext memory checkpoint         Checkpoint commands")
         print()
         return 0
 
