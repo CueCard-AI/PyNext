@@ -749,21 +749,37 @@ class SessionMemory:
         except Exception as e:
             logger.error(f"Failed to compact memory: {e}")
     
-    def clear(self) -> None:
-        """Clear all memory (both in-memory and on disk)."""
-        self._entries.clear()
-        self._summaries.clear()
-        self._checkpoints.clear()
-        self._preferences.clear()
-        self._pending_entries.clear()
-        self._pending_summaries.clear()
-        self._pending_checkpoints.clear()
-        self._pending_preferences.clear()
+    def clear(self, disk_only: bool = False) -> Path:
+        """
+        Clear all memory (both in-memory and on disk).
         
-        if self._memory_file.exists():
-            self._memory_file.unlink()
+        Args:
+            disk_only: If True, only delete the .mem file, don't clear in-memory state
+            
+        Returns:
+            Path to the deleted file (or would-be file if it didn't exist)
+        """
+        file_path = self._memory_file
+        file_existed = file_path.exists()
         
-        logger.info("Cleared all memory")
+        if not disk_only:
+            self._entries.clear()
+            self._summaries.clear()
+            self._checkpoints.clear()
+            self._preferences.clear()
+            self._pending_entries.clear()
+            self._pending_summaries.clear()
+            self._pending_checkpoints.clear()
+            self._pending_preferences.clear()
+            self._last_sync = None
+        
+        if file_existed:
+            file_path.unlink()
+            logger.info(f"Deleted memory file: {file_path}")
+        else:
+            logger.info(f"Memory file did not exist: {file_path}")
+        
+        return file_path
     
     def export(self, format: str = "markdown") -> str:
         """

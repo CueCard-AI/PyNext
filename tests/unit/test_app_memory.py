@@ -332,10 +332,24 @@ class TestSessionMemory:
         memory.add("user", "Test", {})
         memory.flush(force=True)
         
-        memory.clear()
+        deleted_path = memory.clear()
         
         assert len(memory._entries) == 0
         assert not memory._memory_file.exists()
+        assert deleted_path == memory._memory_file
+    
+    def test_clear_disk_only(self, memory, temp_project):
+        """Test clearing only disk file, keeping in-memory state."""
+        memory.add("user", "Test", {})
+        memory.flush(force=True)
+        
+        # Clear disk only
+        deleted_path = memory.clear(disk_only=True)
+        
+        # In-memory should still have data
+        assert len(memory._entries) == 1
+        # File should be deleted
+        assert not deleted_path.exists()
     
     def test_export_markdown(self, memory):
         """Test exporting as markdown."""

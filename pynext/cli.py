@@ -2740,6 +2740,7 @@ def main() -> int:
     # memory clear
     memory_clear = memory_subparsers.add_parser("clear", help="Clear all memory")
     memory_clear.add_argument("--force", "-f", action="store_true", help="Skip confirmation")
+    memory_clear.add_argument("--disk-only", action="store_true", help="Only delete .mem file, keep in-memory state")
     
     # memory flush
     memory_flush = memory_subparsers.add_parser("flush", help="Flush pending changes to disk")
@@ -3128,13 +3129,22 @@ def cmd_memory(args: argparse.Namespace) -> int:
         return 0
     
     elif args.memory_command == "clear":
+        mem_file = project_path / ".pynext" / "session.mem"
         if not args.force:
-            confirm = input("Clear all memory? This cannot be undone. [y/N] ").strip().lower()
+            exists_msg = f" (file exists: {mem_file.exists()})" if mem_file.exists() else " (no file on disk)"
+            confirm = input(f"Clear all memory{exists_msg}? This cannot be undone. [y/N] ").strip().lower()
             if confirm != "y":
                 print("Cancelled")
                 return 0
-        memory.clear()
-        print("✅ Memory cleared")
+        
+        disk_only = getattr(args, 'disk_only', False)
+        deleted_path = memory.clear(disk_only=disk_only)
+        
+        if disk_only:
+            print(f"✅ Deleted memory file: {deleted_path}")
+        else:
+            print(f"✅ Memory cleared (in-memory + disk)")
+            print(f"   File: {deleted_path}")
         return 0
     
     elif args.memory_command == "flush":

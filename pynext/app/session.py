@@ -261,10 +261,13 @@ class AppSession:
         if subcommand == "show":
             self._show_memory(subargs)
         elif subcommand == "clear":
-            confirm = input("Clear all memory? This cannot be undone. [y/N] ").strip().lower()
+            mem_file = self.memory._memory_file
+            exists_msg = " (file exists)" if mem_file.exists() else " (no file on disk)"
+            confirm = input(f"Clear all memory{exists_msg}? This cannot be undone. [y/N] ").strip().lower()
             if confirm == "y":
-                self.memory.clear()
-                print("✓ Memory cleared")
+                deleted_path = self.memory.clear()
+                print(f"✓ Memory cleared")
+                print(f"  Deleted: {deleted_path}")
             else:
                 print("Cancelled")
         elif subcommand == "flush":
