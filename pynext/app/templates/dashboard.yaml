@@ -1,0 +1,148 @@
+# Admin Dashboard Template
+# A data dashboard with charts, tables, and real-time updates
+
+name: dashboard
+description: Admin dashboard with charts, tables, and real-time updates
+complexity: medium
+packages:
+  - pynext[db]
+  - pynext[auth]
+
+files:
+  # Layout
+  - path: pages/layout.py
+    type: layout
+    description: Dashboard layout with sidebar
+    
+  # Pages
+  - path: pages/index.py
+    type: page
+    description: Dashboard overview
+    dependencies:
+      - pages/layout.py
+      - middleware/auth.py
+      
+  - path: pages/analytics.py
+    type: page
+    description: Analytics and charts
+    dependencies:
+      - pages/layout.py
+      
+  - path: pages/users/index.py
+    type: page
+    description: User management
+    dependencies:
+      - pages/layout.py
+      - models/user.py
+      
+  - path: pages/users/[id].py
+    type: page
+    description: User detail view
+    dependencies:
+      - pages/layout.py
+      - models/user.py
+      
+  - path: pages/settings.py
+    type: page
+    description: Settings page
+    dependencies:
+      - pages/layout.py
+      
+  - path: pages/login.py
+    type: page
+    description: Admin login
+    dependencies:
+      - actions/auth.py
+      
+  # Models
+  - path: models/user.py
+    type: model
+    description: User model
+    requirements:
+      fields:
+        - email: String, unique
+        - name: String
+        - role: String
+        - created_at: DateTime
+        - last_login: DateTime
+        
+  - path: models/activity.py
+    type: model
+    description: Activity log
+    requirements:
+      fields:
+        - user_id: Integer, foreign key
+        - action: String
+        - details: JSON
+        - created_at: DateTime
+        
+  # Auth
+  - path: actions/auth.py
+    type: action
+    description: Authentication actions
+    
+  - path: middleware/auth.py
+    type: middleware
+    description: Admin auth middleware
+    requirements:
+      protect: /*
+      exclude: /login
+      
+  # API
+  - path: api/users.py
+    type: api
+    description: Users API
+    dependencies:
+      - models/user.py
+      
+  - path: api/analytics.py
+    type: api
+    description: Analytics data API
+    dependencies:
+      - models/activity.py
+      
+  - path: api/ws/dashboard.py
+    type: api
+    description: Real-time dashboard updates
+    
+  # Components
+  - path: components/Sidebar.py
+    type: component
+    description: Navigation sidebar
+    
+  - path: components/StatCard.py
+    type: component
+    description: Statistics card
+    
+  - path: components/DataTable.py
+    type: component
+    description: Data table with sorting
+    
+  - path: components/Chart.py
+    type: component
+    description: Chart component
+    
+  # Islands
+  - path: islands/LiveStats.py
+    type: island
+    description: Real-time statistics
+    requirements:
+      features:
+        - WebSocket updates
+        - Auto-refresh
+        
+  - path: islands/UserSearch.py
+    type: island
+    description: User search with autocomplete
+    
+  - path: islands/NotificationBell.py
+    type: island
+    description: Notification dropdown
+
+features:
+  - Admin authentication
+  - User management
+  - Analytics charts
+  - Real-time updates
+  - Activity logging
+

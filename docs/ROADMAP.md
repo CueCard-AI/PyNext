@@ -2603,7 +2603,31 @@ All return fine-grained signals (no component re-renders):
   - Tests: **100+ comprehensive tests** for config, thought threads, validator, search, agent
   - Docs: [docs/generators/AI_GENERATION.md](./generators/AI_GENERATION.md)
 
-  - [x] **PyTest Utilities** — Testing helpers ✅ COMPLETED
+- [x] **AI App Builder CLI** — Cursor-like AI application builder ✅ COMPLETED
+  - Files: `pynext/app/` (generator.py, planner.py, context.py, session.py, progress.py, rollback.py, file_generator.py)
+  - **PyNext Knowledge Base (RAG)**: Since no LLM is trained on PyNext, we built a semantic retrieval system
+    - `pynext/app/knowledge/indexer.py`: Indexes all docs and source code with smart chunking
+    - `pynext/app/knowledge/retriever.py`: Semantic search over indexed content
+    - `pynext/app/knowledge/patterns.py`: Library of 16 reusable PyNext patterns
+    - `pynext/app/knowledge/embeddings.py`: Local or API-based embeddings
+    - `pynext/app/knowledge/context_builder.py`: Builds optimal prompts for AI
+  - **Three Generation Modes**:
+    - `plan`: Show plan, wait for approval, then generate (default, safest)
+    - `agent`: Execute autonomously with minimal prompts
+    - `ask`: Ask for approval at each step (most interactive)
+  - **Complexity Scaling**: minimal (3-5 files) to enterprise (50+ files)
+  - **Project Context**: Analyzes existing projects to enable intelligent feature additions
+  - **Progress Tracking**: Visual feedback with progress bars and summaries
+  - **Rollback Support**: Checkpoints and rollback for failed generations
+  - **App Templates**: Pre-built structures (blog, SaaS, e-commerce, dashboard)
+  - **CLI Commands**:
+    - `pynext app new "description"` — Create new application
+    - `pynext app add "feature"` — Add feature to existing project
+    - `pynext app chat` — Interactive chat session
+  - Tests: **54 comprehensive tests** for knowledge base, planner, context, generator
+  - Docs: [docs/app-builder/README.md](./app-builder/README.md)
+
+- [x] **PyTest Utilities** — Testing helpers ✅ COMPLETED
   - Files: `pynext/testing/` module (render.py, assertions.py, accessibility.py, snapshots.py, async_utils.py, visual.py, benchmarks.py, coverage.py)
   - APIs: `render()`, `assert_text()`, `assert_has_class()`, `assert_accessible()`, `assert_snapshot()`, `assert_visual_match()`, `@benchmark`, `wait_for()`
   - Features: 20+ assertion functions, WCAG 2.1 AA accessibility testing, snapshot testing, visual regression, async testing, performance benchmarks, signal/component/branch coverage

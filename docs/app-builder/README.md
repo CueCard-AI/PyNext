@@ -1,0 +1,536 @@
+# AI App Builder
+
+Build entire PyNext applications from natural language descriptions using the AI App Builder.
+
+## Overview
+
+The PyNext App Builder is a Cursor-like AI application builder that can:
+
+1. **Create entire applications** from natural language descriptions
+2. **Show plans and get approval** before generating (like Cursor)
+3. **Support multiple modes**: plan, agent, ask
+4. **Add features** to existing projects
+5. **Scale from small to large** applications (3 to 50+ files)
+
+## Quick Start
+
+```bash
+# Create a new application
+pynext app new "task manager with user auth and real-time updates"
+
+# Add a feature to existing project
+pynext app add "dark mode toggle"
+
+# Interactive chat session
+pynext app chat
+```
+
+## CLI Commands
+
+### `pynext app new`
+
+Create a new application from a description.
+
+```bash
+pynext app new "your app description" [options]
+```
+
+**Options:**
+
+| Option | Description |
+|--------|-------------|
+| `--output, -o` | Output directory (default: derived from description) |
+| `--mode, -m` | Generation mode: `plan`, `agent`, `ask` (default: plan) |
+| `--complexity, -c` | App complexity: `auto`, `minimal`, `small`, `medium`, `large`, `enterprise` |
+| `--model` | AI model to use |
+| `--dry-run` | Show plan without executing |
+| `--no-confirm` | Skip confirmation prompts |
+
+**Examples:**
+
+```bash
+# Create a blog with auto-detected complexity
+pynext app new "blog with posts, categories, and comments"
+
+# Create a medium-complexity e-commerce site
+pynext app new "e-commerce site with products and cart" --complexity medium
+
+# Autonomous mode (no prompts)
+pynext app new "portfolio website" --mode agent
+
+# Show plan only
+pynext app new "SaaS dashboard" --dry-run
+```
+
+### `pynext app add`
+
+Add a feature to an existing project.
+
+```bash
+pynext app add "feature description" [options]
+```
+
+**Options:**
+
+| Option | Description |
+|--------|-------------|
+| `--dir` | Project directory (default: current directory) |
+| `--mode, -m` | Generation mode: `plan`, `agent`, `ask` |
+| `--model` | AI model to use |
+
+**Examples:**
+
+```bash
+# Add dark mode to current project
+pynext app add "dark mode toggle"
+
+# Add feature with step-by-step approval
+pynext app add "admin dashboard" --mode ask
+
+# Add to specific project
+pynext app add "authentication" --dir ./my-project
+```
+
+### `pynext app chat`
+
+Start an interactive chat session for building applications.
+
+```bash
+pynext app chat [--dir project_path]
+```
+
+In the chat session, you can:
+
+- Describe what you want to build
+- Add features incrementally
+- View and modify plans
+- Execute plans when ready
+
+**Session Commands:**
+
+| Command | Description |
+|---------|-------------|
+| `/help` | Show available commands |
+| `/plan` | Show current plan |
+| `/execute` | Execute current plan |
+| `/mode <mode>` | Change mode (plan/agent/ask) |
+| `/files` | List project files |
+| `/status` | Show session status |
+| `/quit` | Exit session |
+
+## Generation Modes
+
+### Plan Mode (Default)
+
+1. Creates a plan with all files to generate
+2. Displays the plan for review
+3. Waits for approval
+4. Generates all files in order
+5. Shows progress
+
+Best for: Most use cases, learning, important projects
+
+### Agent Mode
+
+1. Creates a plan
+2. Immediately generates all files
+3. Reports results
+
+Best for: Quick scaffolding, scripting, experienced users
+
+### Ask Mode
+
+1. Creates a plan
+2. For each file:
+   - Shows a preview
+   - Asks for approval
+   - Generates if approved
+3. Can skip individual files
+
+Best for: Learning, critical projects, partial generation
+
+## Complexity Levels
+
+| Level | Files | Example |
+|-------|-------|---------|
+| `minimal` | 3-5 | Landing page with contact form |
+| `small` | 5-10 | Blog with auth |
+| `medium` | 10-30 | Full-stack CRUD app |
+| `large` | 30-50 | E-commerce with dashboard |
+| `enterprise` | 50+ | Full SaaS application |
+
+The `auto` complexity (default) analyzes your description to determine the appropriate level.
+
+## PyNext Knowledge Base
+
+Since no AI model is natively trained on PyNext, the App Builder includes a sophisticated RAG (Retrieval-Augmented Generation) system:
+
+### How It Works
+
+```
+User Request: "task manager with drag-drop boards"
+                    │
+                    ▼
+        ┌─────────────────────┐
+        │   Intent Parsing    │
+        │  - needs: pages     │
+        │  - needs: drag-drop │
+        │  - needs: database  │
+        └─────────────────────┘
+                    │
+                    ▼
+        ┌─────────────────────┐
+        │  Semantic Search    │
+        │                     │
+        │  Searches PyNext    │
+        │  docs and source    │
+        └─────────────────────┘
+                    │
+                    ▼
+        ┌─────────────────────┐
+        │  Retrieved Context  │
+        │                     │
+        │  - ISLANDS.md docs  │
+        │  - DragDrop pattern │
+        │  - Signal examples  │
+        │  - @island API      │
+        └─────────────────────┘
+                    │
+                    ▼
+        ┌─────────────────────┐
+        │  Context Builder    │
+        │                     │
+        │  Assembles optimal  │
+        │  prompt with:       │
+        │  - Patterns         │
+        │  - Examples         │
+        │  - API refs         │
+        └─────────────────────┘
+                    │
+                    ▼
+        ┌─────────────────────┐
+        │   AI Generation     │
+        │                     │
+        │  Generates files    │
+        │  with full PyNext   │
+        │  knowledge          │
+        └─────────────────────┘
+```
+
+### Pattern Library
+
+The App Builder includes templates for common patterns:
+
+**Pages:**
+- `basic_page` - Simple static page
+- `page_with_data` - Page with async data fetching
+- `dynamic_route_page` - Dynamic routes ([id].py)
+
+**Components:**
+- `static_component` - Reusable UI component
+- `island_component` - Interactive island with state
+
+**State:**
+- `signal_state` - Reactive state with Signal
+- `computed_value` - Derived values
+- `effect_side_effect` - Side effects
+
+**Data:**
+- `database_model` - Table model definition
+- `api_crud` - CRUD API endpoints
+- `server_action` - Form handling action
+
+**Auth:**
+- `auth_middleware` - Route protection
+- `login_form` - Login page and form
+
+**Real-time:**
+- `websocket_connection` - WebSocket integration
+- `live_query` - Live database queries
+
+## App Templates
+
+Pre-defined structures for common app types:
+
+### Blog
+
+```bash
+pynext app new "blog"
+```
+
+Creates:
+- Home page with post list
+- Post detail page
+- Admin dashboard
+- Post, Category, Comment models
+- CRUD APIs
+- Comment form island
+
+### SaaS
+
+```bash
+pynext app new "SaaS application"
+```
+
+Creates:
+- Landing page
+- Login/Signup pages
+- Dashboard with sidebar
+- User settings
+- Team management
+- Auth middleware
+- User/Organization models
+
+### E-commerce
+
+```bash
+pynext app new "e-commerce store"
+```
+
+Creates:
+- Product catalog
+- Product detail pages
+- Shopping cart
+- Checkout flow
+- Order history
+- Product, Cart, Order models
+- Interactive cart components
+
+### Dashboard
+
+```bash
+pynext app new "admin dashboard"
+```
+
+Creates:
+- Overview with stats
+- User management
+- Analytics charts
+- Settings page
+- Real-time statistics
+- Activity logging
+
+## Example Session
+
+### Creating a New App (Plan Mode)
+
+```
+$ pynext app new "task manager with user auth, drag-drop boards, and real-time sync"
+
+🤖 Creating new application...
+   Description: task manager with user auth, drag-drop boards, and real-time sync
+   Mode: plan
+   Complexity: auto
+
+🔍 Analyzing requirements...
+
+# App Plan: task-manager
+
+**Description:** task manager with user auth, drag-drop boards, and real-time sync
+**Complexity:** medium (18 files)
+**Estimated Time:** 2-3 minutes
+
+## Files to Create
+
+1. ✨ `pages/layout.py` - Application layout
+2. ✨ `pages/index.py` - Landing page
+3. ✨ `pages/login.py` - Auth login
+4. ✨ `pages/signup.py` - Auth signup
+5. ✨ `pages/dashboard.py` - Main dashboard
+6. ✨ `pages/board/[id].py` - Board detail view
+7. ✨ `components/TaskCard.py` - Draggable task card
+8. ✨ `components/Board.py` - Kanban board
+9. ✨ `islands/DragDrop.py` - Drag-drop interactivity
+10. ✨ `models/user.py` - User model
+11. ✨ `models/board.py` - Board model
+12. ✨ `models/task.py` - Task model
+13. ✨ `api/boards.py` - Board CRUD API
+14. ✨ `api/tasks.py` - Task CRUD API
+15. ✨ `api/ws/sync.py` - WebSocket sync
+16. ✨ `actions/auth.py` - Auth actions
+17. ✨ `middleware/auth.py` - Auth middleware
+18. ✨ `styles/globals.css` - Global styles
+
+## Required Packages
+
+- pynext[db] (PostgreSQL)
+- pynext[auth] (Authentication)
+- pynext[realtime] (WebSocket)
+
+Proceed? [Y/n/edit] y
+
+🚀 Generating...
+
+  [1/18] Creating pages/layout.py... ✓
+  [2/18] Creating pages/index.py... ✓
+  ...
+  [18/18] Creating styles/globals.css... ✓
+
+──────────────────────────────────────────────────────
+✅ Generation complete!
+
+  Files created: 18
+  Total time:    45.2s
+
+Next steps:
+  cd task-manager
+  pynext db init
+  pynext dev
+```
+
+### Adding a Feature (Ask Mode)
+
+```
+$ pynext app add "dark mode toggle" --mode ask
+
+🔧 Adding feature to /Users/you/task-manager...
+   Feature: dark mode toggle
+   Mode: ask
+
+🔍 Analyzing project...
+
+# Feature Plan: Dark Mode Toggle
+
+## Files to Create/Modify
+
+1. 📝 `components/ThemeToggle.py` (create)
+2. 📝 `islands/ThemeProvider.py` (create)
+3. 📝 `pages/layout.py` (modify)
+4. 📝 `styles/globals.css` (modify)
+
+[1/4] Create components/ThemeToggle.py?
+
+Preview:
+```python
+from pynext import button, span
+from pynext.islands import island
+
+@island
+def ThemeToggle():
+    ...
+```
+
+Create this file? [Y/n/edit] y
+
+✓ Created
+
+[2/4] Create islands/ThemeProvider.py?
+...
+
+✅ Feature added successfully!
+   Created 4 file(s)
+```
+
+## Python API
+
+Use the App Builder programmatically:
+
+```python
+from pathlib import Path
+from pynext.app import AppGenerator, AppPlanner, create_app, add_feature
+
+# Quick functions
+result = await create_app(
+    "blog with auth",
+    output_dir="./my-blog",
+    mode="agent",
+)
+
+result = await add_feature(
+    "dark mode",
+    project_path="./my-blog",
+)
+
+# Full control
+generator = AppGenerator()
+
+# Create new app
+result = await generator.new_app(
+    description="task manager with real-time updates",
+    output_dir=Path("./task-app"),
+    mode="plan",
+    complexity="medium",
+)
+
+# Add feature
+result = await generator.add_feature(
+    feature="admin dashboard",
+    project_path=Path("./task-app"),
+    mode="ask",
+)
+
+# Access results
+print(f"Success: {result.success}")
+print(f"Files: {list(result.generated_files.keys())}")
+print(f"Duration: {result.duration}s")
+```
+
+## Knowledge Base API
+
+Access the PyNext knowledge base directly:
+
+```python
+from pynext.app.knowledge import get_knowledge, init_knowledge
+
+# Initialize (builds index if needed)
+kb = await init_knowledge()
+
+# Search for relevant content
+results = kb.search("drag and drop component")
+for result in results:
+    print(f"{result.chunk.source}: {result.score}")
+
+# Get patterns for a feature
+patterns = kb.get_patterns_for("authentication")
+for pattern in patterns:
+    print(f"{pattern.name}: {pattern.description}")
+
+# Build context for AI generation
+context = kb.build_context(
+    task="Create a real-time chat component",
+    max_tokens=8000,
+)
+```
+
+## Troubleshooting
+
+### "No ANTHROPIC_API_KEY found"
+
+Set your API key:
+
+```bash
+export ANTHROPIC_API_KEY=sk-ant-...
+```
+
+Or pass it directly:
+
+```bash
+ANTHROPIC_API_KEY=sk-ant-... pynext app new "my app"
+```
+
+### Generation is slow
+
+- Use `--complexity minimal` for faster generation
+- Use `--mode agent` to skip confirmations
+- The first run builds the knowledge index (cached after)
+
+### Files have errors
+
+- Use `--mode ask` to review each file
+- Run `pynext lint --fix` after generation
+- Report issues at github.com/cuegrowthos/pynext/issues
+
+### Want to customize generated code
+
+1. Generate with `--mode ask`
+2. Edit the preview when shown
+3. Or generate and then modify manually
+
+## Best Practices
+
+1. **Start with a clear description**: The more detail, the better the result
+2. **Use appropriate complexity**: Don't over-engineer simple apps
+3. **Review the plan**: Use plan mode for important projects
+4. **Iterate**: Add features incrementally rather than all at once
+5. **Customize**: Generated code is a starting point - customize as needed
+

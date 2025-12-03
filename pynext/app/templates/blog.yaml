@@ -1,0 +1,109 @@
+# Blog Application Template
+# A complete blog with posts, authors, and comments
+
+name: blog
+description: Blog application with posts, categories, and comments
+complexity: medium
+packages:
+  - pynext[db]
+
+files:
+  # Layout
+  - path: pages/layout.py
+    type: layout
+    description: Main layout with navigation
+    
+  # Pages
+  - path: pages/index.py
+    type: page
+    description: Home page with recent posts
+    dependencies:
+      - pages/layout.py
+      
+  - path: pages/post/[slug].py
+    type: page
+    description: Single post view
+    dependencies:
+      - pages/layout.py
+      - models/post.py
+      
+  - path: pages/category/[name].py
+    type: page
+    description: Posts by category
+    dependencies:
+      - pages/layout.py
+      - models/post.py
+      
+  - path: pages/about.py
+    type: page
+    description: About page
+    dependencies:
+      - pages/layout.py
+      
+  # Models
+  - path: models/post.py
+    type: model
+    description: Blog post model
+    requirements:
+      fields:
+        - title: String
+        - slug: String, unique
+        - content: Text
+        - excerpt: String
+        - published: Boolean
+        - created_at: DateTime
+        
+  - path: models/category.py
+    type: model
+    description: Post category model
+    requirements:
+      fields:
+        - name: String, unique
+        - slug: String, unique
+        
+  - path: models/comment.py
+    type: model
+    description: Post comment model
+    requirements:
+      fields:
+        - post_id: Integer, foreign key
+        - author: String
+        - content: Text
+        - created_at: DateTime
+        
+  # API
+  - path: api/posts.py
+    type: api
+    description: Posts CRUD API
+    dependencies:
+      - models/post.py
+      
+  - path: api/comments.py
+    type: api
+    description: Comments API
+    dependencies:
+      - models/comment.py
+      
+  # Components
+  - path: components/PostCard.py
+    type: component
+    description: Post preview card
+    
+  - path: components/CommentList.py
+    type: component
+    description: List of comments
+    
+  # Islands (interactive)
+  - path: islands/CommentForm.py
+    type: island
+    description: Comment submission form
+    dependencies:
+      - api/comments.py
+
+features:
+  - File-based routing
+  - Database models
+  - CRUD API
+  - Comments
+  - Categories
+

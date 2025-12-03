@@ -1,0 +1,166 @@
+# SaaS Application Template
+# A complete SaaS starter with auth, dashboard, and billing
+
+name: saas
+description: SaaS application with authentication, dashboard, and settings
+complexity: large
+packages:
+  - pynext[db]
+  - pynext[auth]
+
+files:
+  # Layout
+  - path: pages/layout.py
+    type: layout
+    description: Main application layout
+    
+  - path: pages/dashboard/layout.py
+    type: layout
+    description: Dashboard layout with sidebar
+    dependencies:
+      - pages/layout.py
+      - middleware/auth.py
+      
+  # Public pages
+  - path: pages/index.py
+    type: page
+    description: Landing page
+    dependencies:
+      - pages/layout.py
+      
+  - path: pages/pricing.py
+    type: page
+    description: Pricing page
+    dependencies:
+      - pages/layout.py
+      
+  - path: pages/login.py
+    type: page
+    description: Login page
+    dependencies:
+      - pages/layout.py
+      - actions/auth.py
+      
+  - path: pages/signup.py
+    type: page
+    description: Signup page
+    dependencies:
+      - pages/layout.py
+      - actions/auth.py
+      
+  # Dashboard pages
+  - path: pages/dashboard/index.py
+    type: page
+    description: Dashboard home
+    dependencies:
+      - pages/dashboard/layout.py
+      
+  - path: pages/dashboard/settings.py
+    type: page
+    description: User settings
+    dependencies:
+      - pages/dashboard/layout.py
+      
+  - path: pages/dashboard/billing.py
+    type: page
+    description: Billing and subscription
+    dependencies:
+      - pages/dashboard/layout.py
+      
+  - path: pages/dashboard/team.py
+    type: page
+    description: Team management
+    dependencies:
+      - pages/dashboard/layout.py
+      
+  # Models
+  - path: models/user.py
+    type: model
+    description: User account model
+    requirements:
+      fields:
+        - email: String, unique
+        - password_hash: String
+        - name: String
+        - avatar_url: String, optional
+        - created_at: DateTime
+        
+  - path: models/organization.py
+    type: model
+    description: Organization/team model
+    requirements:
+      fields:
+        - name: String
+        - slug: String, unique
+        - plan: String
+        - owner_id: Integer, foreign key
+        
+  - path: models/membership.py
+    type: model
+    description: Org membership model
+    requirements:
+      fields:
+        - user_id: Integer, foreign key
+        - org_id: Integer, foreign key
+        - role: String
+        
+  # Auth
+  - path: actions/auth.py
+    type: action
+    description: Authentication actions
+    requirements:
+      functions:
+        - login
+        - signup
+        - logout
+        - reset_password
+        
+  - path: middleware/auth.py
+    type: middleware
+    description: Auth middleware
+    requirements:
+      protect: /dashboard/*
+      
+  # API
+  - path: api/users.py
+    type: api
+    description: User API
+    dependencies:
+      - models/user.py
+      
+  - path: api/organizations.py
+    type: api
+    description: Organization API
+    dependencies:
+      - models/organization.py
+      
+  # Components
+  - path: components/Navbar.py
+    type: component
+    description: Navigation bar
+    
+  - path: components/Sidebar.py
+    type: component
+    description: Dashboard sidebar
+    
+  - path: components/PricingCard.py
+    type: component
+    description: Pricing tier card
+    
+  # Islands
+  - path: islands/UserMenu.py
+    type: island
+    description: User dropdown menu
+    
+  - path: islands/LoginForm.py
+    type: island
+    description: Login form with validation
+
+features:
+  - User authentication
+  - Organizations/teams
+  - Role-based access
+  - Dashboard
+  - Settings
+  - Billing page
+

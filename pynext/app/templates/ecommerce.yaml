@@ -1,0 +1,232 @@
+# E-commerce Application Template
+# A complete e-commerce store with products, cart, and checkout
+
+name: ecommerce
+description: E-commerce store with products, cart, and checkout
+complexity: large
+packages:
+  - pynext[db]
+  - pynext[auth]
+
+files:
+  # Layout
+  - path: pages/layout.py
+    type: layout
+    description: Store layout with header and cart
+    
+  # Public pages
+  - path: pages/index.py
+    type: page
+    description: Home page with featured products
+    dependencies:
+      - pages/layout.py
+      - models/product.py
+      
+  - path: pages/products/index.py
+    type: page
+    description: Product listing page
+    dependencies:
+      - pages/layout.py
+      - models/product.py
+      
+  - path: pages/products/[id].py
+    type: page
+    description: Product detail page
+    dependencies:
+      - pages/layout.py
+      - models/product.py
+      
+  - path: pages/category/[slug].py
+    type: page
+    description: Category page
+    dependencies:
+      - pages/layout.py
+      - models/category.py
+      
+  - path: pages/cart.py
+    type: page
+    description: Shopping cart page
+    dependencies:
+      - pages/layout.py
+      
+  - path: pages/checkout.py
+    type: page
+    description: Checkout flow
+    dependencies:
+      - pages/layout.py
+      - middleware/auth.py
+      
+  - path: pages/orders/index.py
+    type: page
+    description: Order history
+    dependencies:
+      - pages/layout.py
+      - middleware/auth.py
+      
+  - path: pages/orders/[id].py
+    type: page
+    description: Order detail
+    dependencies:
+      - pages/layout.py
+      - middleware/auth.py
+      
+  # Auth pages
+  - path: pages/login.py
+    type: page
+    description: Login page
+    dependencies:
+      - pages/layout.py
+      
+  - path: pages/signup.py
+    type: page
+    description: Signup page
+    dependencies:
+      - pages/layout.py
+      
+  # Models
+  - path: models/product.py
+    type: model
+    description: Product model
+    requirements:
+      fields:
+        - name: String
+        - slug: String, unique
+        - description: Text
+        - price: Decimal
+        - image_url: String
+        - stock: Integer
+        - category_id: Integer, foreign key
+        
+  - path: models/category.py
+    type: model
+    description: Product category
+    requirements:
+      fields:
+        - name: String
+        - slug: String, unique
+        - image_url: String
+        
+  - path: models/cart.py
+    type: model
+    description: Shopping cart
+    requirements:
+      fields:
+        - user_id: Integer, foreign key
+        - created_at: DateTime
+        
+  - path: models/cart_item.py
+    type: model
+    description: Cart item
+    requirements:
+      fields:
+        - cart_id: Integer, foreign key
+        - product_id: Integer, foreign key
+        - quantity: Integer
+        
+  - path: models/order.py
+    type: model
+    description: Order model
+    requirements:
+      fields:
+        - user_id: Integer, foreign key
+        - status: String
+        - total: Decimal
+        - shipping_address: Text
+        - created_at: DateTime
+        
+  - path: models/order_item.py
+    type: model
+    description: Order line item
+    requirements:
+      fields:
+        - order_id: Integer, foreign key
+        - product_id: Integer, foreign key
+        - quantity: Integer
+        - price: Decimal
+        
+  # Actions
+  - path: actions/cart.py
+    type: action
+    description: Cart actions
+    requirements:
+      functions:
+        - add_to_cart
+        - update_quantity
+        - remove_from_cart
+        
+  - path: actions/checkout.py
+    type: action
+    description: Checkout actions
+    requirements:
+      functions:
+        - create_order
+        - process_payment
+        
+  - path: actions/auth.py
+    type: action
+    description: Auth actions
+    
+  # Middleware
+  - path: middleware/auth.py
+    type: middleware
+    description: Authentication middleware
+    
+  # API
+  - path: api/products.py
+    type: api
+    description: Products API
+    dependencies:
+      - models/product.py
+      
+  - path: api/cart.py
+    type: api
+    description: Cart API
+    dependencies:
+      - models/cart.py
+      
+  - path: api/orders.py
+    type: api
+    description: Orders API
+    dependencies:
+      - models/order.py
+      
+  # Components
+  - path: components/ProductCard.py
+    type: component
+    description: Product preview card
+    
+  - path: components/CartItem.py
+    type: component
+    description: Cart item row
+    
+  - path: components/OrderSummary.py
+    type: component
+    description: Order summary
+    
+  # Islands
+  - path: islands/AddToCart.py
+    type: island
+    description: Add to cart button
+    dependencies:
+      - actions/cart.py
+      
+  - path: islands/CartPreview.py
+    type: island
+    description: Mini cart in header
+    
+  - path: islands/QuantitySelector.py
+    type: island
+    description: Quantity +/- selector
+    
+  - path: islands/CheckoutForm.py
+    type: island
+    description: Checkout form
+
+features:
+  - Product catalog
+  - Categories
+  - Shopping cart
+  - Checkout flow
+  - Order history
+  - User accounts
+

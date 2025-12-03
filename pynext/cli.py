@@ -2663,6 +2663,36 @@ def main() -> int:
     db_reset = db_subparsers.add_parser("reset", help="Reset database (rollback all, apply all)")
     db_reset.add_argument("--force", "-f", action="store_true", help="Skip confirmation prompt")
     
+    # ========================================
+    # pynext app (AI App Builder)
+    # ========================================
+    app_parser = subparsers.add_parser("app", help="AI-powered application builder")
+    app_parser.add_argument("--dir", default=".", help="Project directory")
+    app_subparsers = app_parser.add_subparsers(dest="app_command", help="App builder commands")
+    
+    # app new
+    app_new = app_subparsers.add_parser("new", help="Create new application from description")
+    app_new.add_argument("description", help="Natural language description of the app")
+    app_new.add_argument("--output", "-o", help="Output directory (default: derived from description)")
+    app_new.add_argument("--mode", "-m", choices=["plan", "agent", "ask"], default="plan",
+                         help="Generation mode: plan (show plan first), agent (autonomous), ask (approve each file)")
+    app_new.add_argument("--complexity", "-c", 
+                         choices=["auto", "minimal", "small", "medium", "large", "enterprise"],
+                         default="auto", help="App complexity level")
+    app_new.add_argument("--model", help="AI model to use")
+    app_new.add_argument("--dry-run", action="store_true", help="Show plan without executing")
+    app_new.add_argument("--no-confirm", action="store_true", help="Skip confirmation prompts")
+    
+    # app add
+    app_add = app_subparsers.add_parser("add", help="Add feature to existing project")
+    app_add.add_argument("feature", help="Feature description to add")
+    app_add.add_argument("--mode", "-m", choices=["plan", "agent", "ask"], default="plan",
+                         help="Generation mode")
+    app_add.add_argument("--model", help="AI model to use")
+    
+    # app chat
+    app_chat = app_subparsers.add_parser("chat", help="Interactive chat session")
+    
     args = parser.parse_args()
     
     if args.version:
@@ -2704,8 +2734,128 @@ def main() -> int:
         return cmd_pwa(args)
     elif args.command == "db":
         return cmd_db(args)
+    elif args.command == "app":
+        return cmd_app(args)
     else:
         parser.print_help()
+        return 0
+
+
+def cmd_app(args: argparse.Namespace) -> int:
+    """Handle app builder commands."""
+    import asyncio
+    from pathlib import Path
+    
+    if args.app_command == "new":
+        # Create new application
+        from pynext.app import AppGenerator
+        from pynext.generator.config import AIConfig
+        
+        description = args.description
+        output_dir = Path(args.output) if args.output else Path(f"./{description.split()[0].lower()}")
+        mode = args.mode
+        complexity = args.complexity
+        
+        print(f"\n🤖 Creating new application...")
+        print(f"   Description: {description}")
+        print(f"   Mode: {mode}")
+        print(f"   Complexity: {complexity}")
+        print()
+        
+        config = AIConfig.from_env()
+        if args.model:
+            config.model = args.model
+        
+        generator = AppGenerator(config)
+        
+        async def run():
+            result = await generator.new_app(
+                description=description,
+                output_dir=output_dir,
+                mode=mode,
+                complexity=complexity,
+            )
+            return result
+        
+        result = asyncio.run(run())
+        
+        if result.success:
+            print(f"\n✅ Created application at {output_dir}")
+            print(f"\nNext steps:")
+            print(f"  cd {output_dir.name}")
+            print(f"  pynext db init   # If using database")
+            print(f"  pynext dev       # Start development server")
+            return 0
+        else:
+            print(f"\n❌ Failed to create application: {result.error}")
+            return 1
+    
+    elif args.app_command == "add":
+        # Add feature to existing project
+        from pynext.app import AppGenerator
+        from pynext.generator.config import AIConfig
+        
+        feature = args.feature
+        project_path = Path(args.dir).resolve()
+        mode = args.mode
+        
+        print(f"\n🔧 Adding feature to {project_path}...")
+        print(f"   Feature: {feature}")
+        print(f"   Mode: {mode}")
+        print()
+        
+        config = AIConfig.from_env()
+        if args.model:
+            config.model = args.model
+        
+        generator = AppGenerator(config)
+        
+        async def run():
+            result = await generator.add_feature(
+                feature=feature,
+                project_path=project_path,
+                mode=mode,
+            )
+            return result
+        
+        result = asyncio.run(run())
+        
+        if result.success:
+            print(f"\n✅ Feature added successfully!")
+            print(f"   Created {len(result.generated_files)} file(s)")
+            return 0
+        else:
+            print(f"\n❌ Failed to add feature: {result.error}")
+            return 1
+    
+    elif args.app_command == "chat":
+        # Interactive session
+        from pynext.app.session import run_session
+        
+        project_path = args.dir if args.dir != "." else None
+        
+        asyncio.run(run_session(project_path))
+        return 0
+    
+    else:
+        # No subcommand - show help
+        print("\n🤖 PyNext App Builder\n")
+        print("  Commands:")
+        print("    pynext app new <description>    Create new application")
+        print("    pynext app add <feature>        Add feature to existing project")
+        print("    pynext app chat                 Interactive chat session")
+        print()
+        print("  Examples:")
+        print('    pynext app new "blog with auth and comments"')
+        print('    pynext app new "e-commerce site" --complexity medium')
+        print('    pynext app add "dark mode toggle"')
+        print('    pynext app add "admin dashboard" --mode ask')
+        print()
+        print("  Modes:")
+        print("    plan   Show plan, wait for approval (default)")
+        print("    agent  Execute autonomously")
+        print("    ask    Ask for approval at each step")
+        print()
         return 0
 
 
