@@ -134,12 +134,24 @@ pynext memory export --format json > history.json
 ### Clear Memory
 
 ```bash
-# With confirmation
+# With confirmation (shows file status)
 pynext memory clear
+# Output: Clear all memory (file exists: True)? This cannot be undone. [y/N] y
+#         ✅ Memory cleared (in-memory + disk)
+#            File: /path/to/.pynext/session.mem
 
 # Without confirmation
 pynext memory clear --force
+
+# Only delete the .mem file (keep in-memory state)
+pynext memory clear --disk-only
+# Output: ✅ Deleted memory file: /path/to/.pynext/session.mem
 ```
+
+The clear command:
+- Shows whether the `.mem` file exists before prompting
+- Displays the full path to the deleted file
+- With `--disk-only`: only deletes the file, preserves in-memory state (useful for testing)
 
 ### Checkpoints
 
@@ -162,10 +174,18 @@ In `pynext app chat`, use `/memory` commands:
 /memory show              Show recent entries
 /memory show --all        Show everything
 /memory show --search X   Search memory
-/memory clear             Clear memory
+/memory clear             Clear memory (shows file path)
 /memory flush             Save to disk
 /memory stats             Show statistics
 /memory sync --status     Sync status
+```
+
+Example `/memory clear` output:
+```
+> /memory clear
+Clear all memory (file exists)? This cannot be undone. [y/N] y
+✓ Memory cleared
+  Deleted: /path/to/project/.pynext/session.mem
 ```
 
 ## Sync Configuration
@@ -316,8 +336,12 @@ await memory.summarize_old(keep_recent=10)
 # Export
 markdown = memory.export("markdown")
 
-# Clear
-memory.clear()
+# Clear all (in-memory + disk file)
+deleted_path = memory.clear()
+print(f"Deleted: {deleted_path}")
+
+# Clear only the disk file, keep in-memory state
+deleted_path = memory.clear(disk_only=True)
 ```
 
 ### SyncConfig Options
