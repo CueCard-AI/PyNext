@@ -234,8 +234,10 @@ Achieving complete feature parity with Next.js while maintaining SolidJS princip
 | 6 | Advanced (CSS Modules, MDX, Proxy, Instrumentation, Edge) | ✅ Complete | 541 |
 
 **Completed**: All 6 Phases with 1,948+ tests
-**Total Test Suite**: 6,319 tests
+**Total Test Suite**: 6,708+ tests
 **Status**: Next.js Feature Parity Achieved 🎉
+
+**Data Layer Status**: Phases 1-6 Complete (3,588+ tests including live queries)
 
 ---
 
@@ -447,7 +449,7 @@ This eliminates the need for:
 
 ##### Phase 5: Database Adapters (PostgreSQL & Supabase)
 
-**Status:** Phases 5.1-5.6 Complete ✅ (2,808 tests), Phase 5.7 Planned
+**Status:** Phases 5.1-5.7 Complete ✅ (3,199 tests), Phase 6 Complete ✅ (389 tests)
 
 **Design Philosophy:**
 - PyNext > asyncpg: Simpler API, same performance
@@ -677,8 +679,11 @@ pynext/db/
 | `storage3>=0.7.0` | Storage client | Supabase Storage |
 | `realtime>=2.0.0` | Realtime client | Supabase Realtime |
 
-##### Phase 6: Reactive Frontend Integration
-- [ ] **Model.live()** — Queries that auto-update when data changes
+##### Phase 6: Reactive Frontend Integration ✅ COMPLETE (389 tests)
+
+**Status:** Complete with comprehensive implementation and documentation.
+
+- [x] **Model.live()** — Queries that auto-update when data changes ✅
   ```python
   def Dashboard():
       # Server state (reactive) - auto-updates when DB changes
@@ -696,6 +701,70 @@ pynext/db/
           button("Add", on_click=lambda: User.insert(name="New"))
       )
   ```
+
+**6.1 Core Live Query API** ✅
+- [x] `LiveQuery` class extending `Signal` with `loading` and `error` signals
+- [x] Chainable query methods: `.where()`, `.order_by()`, `.limit()`, `.offset()`, `.select()`
+- [x] `QuerySignature` for query deduplication
+- [x] `LiveQueryConfig` for transport, detection, granularity settings
+- [x] Files: `pynext/db/live/query.py`, `pynext/db/live/config.py`
+
+**6.2 Change Detection** ✅
+- [x] `ChangeDetector` abstract base with `ChangeEvent` dataclass
+- [x] `PostgresNotifyDetector` - PostgreSQL LISTEN/NOTIFY integration
+- [x] `SupabaseRealtimeDetector` - Supabase Realtime integration
+- [x] `PollingDetector` - Fallback polling strategy
+- [x] `DetectorRegistry` with auto-selection based on available infrastructure
+- [x] Files: `pynext/db/live/detection/` (base.py, postgres.py, supabase.py, polling.py, registry.py)
+
+**6.3 Transport Layer** ✅
+- [x] `Transport` abstract base with message queuing
+- [x] `SSETransport` - Server-Sent Events implementation
+- [x] `WebSocketTransport` - WebSocket with `websocket.js` integration
+- [x] `TransportSelector` with auto-selection (prefer WS if available)
+- [x] `TransportManager` for connection lifecycle management
+- [x] Files: `pynext/db/live/transport/` (base.py, sse.py, websocket.py, selector.py, manager.py)
+
+**6.4 Update Strategies** ✅
+- [x] `UpdateStrategy` abstract base with `UpdateResult`
+- [x] `SurgicalUpdateStrategy` - Row-level INSERT/UPDATE/DELETE
+- [x] `FullRefreshStrategy` - Complete data refresh with debouncing
+- [x] `StrategySelector` with auto-selection based on query complexity
+- [x] Files: `pynext/db/live/updates/` (base.py, surgical.py, refresh.py, selector.py)
+
+**6.5 Subscription Manager** ✅
+- [x] `SubscriptionManager` for server-side subscription tracking
+- [x] Query deduplication via `QuerySignature`
+- [x] Client subscription tracking and cleanup
+- [x] Files: `pynext/db/live/subscriptions.py`
+
+**6.6 PostgreSQL Integration** ✅
+- [x] `TriggerManager` for NOTIFY trigger creation/management
+- [x] `PostgresAdapter` methods: `get_listen_connection()`, `supports_listen_notify()`, `execute_trigger_sql()`, `check_trigger_exists()`
+- [x] `enable_live_queries()` / `disable_live_queries()` convenience functions
+- [x] Files: `pynext/db/live/triggers.py`, `pynext/db/adapters/postgres.py`
+
+**6.7 Supabase Integration** ✅
+- [x] Native Supabase Realtime support via `SupabaseRealtimeDetector`
+- [x] Automatic channel management and subscription handling
+
+**6.8 Client Runtime** ✅
+- [x] `pynext/runtime/live.js` - Client-side live query manager
+- [x] Integration with `pynext/runtime/websocket.js` for shared connections
+- [x] Auto-reconnection and message queuing
+
+**6.9 Server Integration** ✅
+- [x] SSE endpoint: `/_pynext/live/sse`
+- [x] WebSocket endpoint: `/_pynext/live/ws`
+- [x] Subscription endpoints: `/_pynext/live/subscribe`, `/_pynext/live/unsubscribe`
+- [x] Files: `pynext/server/live.py`
+
+**Documentation:** [docs/database/12-live-queries.md](./database/12-live-queries.md) (672 lines)
+
+**Test Coverage:** 389 tests across 8 test files:
+- `test_live_query.py`, `test_live_config.py`, `test_live_detection.py`
+- `test_live_transport.py`, `test_live_updates.py`, `test_live_subscriptions.py`
+- `test_live_server.py`, `test_live_integration.py`
 
 ##### Phase 7: Advanced Relationships (Target: 800+ tests)
 
