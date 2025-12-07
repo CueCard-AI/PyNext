@@ -26,7 +26,16 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set
-import tomllib
+import sys
+
+# tomllib is Python 3.11+, use tomli as fallback for 3.10
+if sys.version_info >= (3, 11):
+    import tomllib
+else:
+    try:
+        import tomli as tomllib
+    except ImportError:
+        tomllib = None  # type: ignore
 
 
 # =============================================================================
@@ -139,28 +148,29 @@ def load_config(project_path: Path) -> PyNextLintConfig:
     """
     config = get_default_config()
     
-    # Try pyproject.toml first
-    pyproject = project_path / "pyproject.toml"
-    if pyproject.exists():
-        try:
-            with open(pyproject, "rb") as f:
-                data = tomllib.load(f)
-            
-            pynext_lint = data.get("tool", {}).get("pynext", {}).get("lint", {})
-            _merge_config(config, pynext_lint)
-        except Exception:
-            pass  # Ignore parse errors
-    
-    # Check for .ruff.toml to extend
-    ruff_toml = project_path / ".ruff.toml"
-    if ruff_toml.exists():
-        try:
-            with open(ruff_toml, "rb") as f:
-                ruff_data = tomllib.load(f)
-            
-            config.ruff_extend = ruff_data
-        except Exception:
-            pass
+    # Try pyproject.toml first (requires tomllib/tomli)
+    if tomllib is not None:
+        pyproject = project_path / "pyproject.toml"
+        if pyproject.exists():
+            try:
+                with open(pyproject, "rb") as f:
+                    data = tomllib.load(f)
+                
+                pynext_lint = data.get("tool", {}).get("pynext", {}).get("lint", {})
+                _merge_config(config, pynext_lint)
+            except Exception:
+                pass  # Ignore parse errors
+        
+        # Check for .ruff.toml to extend
+        ruff_toml = project_path / ".ruff.toml"
+        if ruff_toml.exists():
+            try:
+                with open(ruff_toml, "rb") as f:
+                    ruff_data = tomllib.load(f)
+                
+                config.ruff_extend = ruff_data
+            except Exception:
+                pass
     
     return config
 
