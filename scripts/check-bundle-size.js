@@ -29,6 +29,20 @@ const LIMITS = {
     'toast.js': 14000,       // 14 KB
     'toast.slim.js': 6000,
     
+    // Additional runtime modules
+    'dev-reload.js': 11000,  // 11 KB - HMR dev tools
+    'i18n.js': 12000,        // 12 KB - internationalization
+    'islands.js': 19000,     // 19 KB - partial hydration
+    'lazy.js': 15000,        // 15 KB - lazy loading
+    'live.js': 22000,        // 22 KB - live queries
+    'navigation.js': 18500,  // 18.5 KB - client-side nav
+    'react-bridge.js': 9000, // 9 KB - React interop
+    'resource.js': 8000,     // 8 KB - data fetching
+    'suspense.js': 10000,    // 10 KB - async boundaries
+    'template.js': 9000,     // 9 KB - template engine
+    'websocket.js': 11000,   // 11 KB - WebSocket client
+    'ui.js': 75000,          // 75 KB - combined UI bundle
+    
     // UI component modules
     'ui/core.js': 3500,
     'ui/dialog.js': 4000,
