@@ -24,7 +24,7 @@ const LIMITS = {
     'focus.slim.js': 4000,
     'sse.js': 8000,          // 8 KB
     'sse.slim.js': 3000,
-    'browser.js': 6000,      // 6 KB
+    'browser.js': 21000,     // 21 KB - full browser APIs with docs
     'browser.slim.js': 2000,
     'toast.js': 14000,       // 14 KB
     'toast.slim.js': 6000,
