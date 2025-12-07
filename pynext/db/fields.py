@@ -71,6 +71,7 @@ class FieldInfo:
         auto_now_add: Set to current time on first save only
         max_length: Maximum length for VARCHAR
         foreign_key: Target table for FK (e.g., "users")
+        fk_on_delete: ON DELETE action for FK (CASCADE, SET NULL, RESTRICT, NO ACTION)
         unique: Whether value must be unique
         index: Whether to create an index
         validators: List of validator functions
@@ -87,6 +88,7 @@ class FieldInfo:
     auto_now_add: bool = False
     max_length: Optional[int] = None
     foreign_key: Optional[str] = None
+    fk_on_delete: str = "NO ACTION"
     unique: bool = False
     index: bool = False
     validators: List[Callable[[Any], Any]] = dataclass_field(default_factory=list)

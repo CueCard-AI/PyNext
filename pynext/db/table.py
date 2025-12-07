@@ -36,6 +36,32 @@ from pynext.db.exceptions import (
     ValidationError,
 )
 
+
+# =============================================================================
+# FK On Delete Mapping (Phase 7.4.1)
+# =============================================================================
+
+# Map PyNext on_delete values to PostgreSQL ON DELETE actions
+_ON_DELETE_MAP = {
+    "cascade": "CASCADE",
+    "nullify": "SET NULL",
+    "protect": "RESTRICT",
+    "none": "NO ACTION",
+}
+
+
+def _map_on_delete_to_postgres(on_delete: str) -> str:
+    """
+    Map PyNext on_delete value to PostgreSQL ON DELETE action.
+    
+    Args:
+        on_delete: PyNext value ("cascade", "nullify", "protect", "none")
+    
+    Returns:
+        PostgreSQL action ("CASCADE", "SET NULL", "RESTRICT", "NO ACTION")
+    """
+    return _ON_DELETE_MAP.get(on_delete.lower(), "NO ACTION")
+
 if TYPE_CHECKING:
     from pynext.db.query import Query
     from pynext.db.adapters.base import Adapter
@@ -44,6 +70,71 @@ T = TypeVar("T", bound="Table")
 
 # Global registry of all models
 _model_registry: Dict[str, Type["Table"]] = {}
+
+
+def _extract_list_table_type(type_hint: Any) -> Optional[type]:
+    """
+    Extract Table type from a List[Model] type hint for M2M auto-detection.
+    
+    Returns the Model class if:
+    - type_hint is List[SomeTable] where SomeTable is a Table subclass
+    - type_hint is list[SomeTable] (Python 3.9+)
+    
+    Returns None if:
+    - Not a List type
+    - List of primitives (List[str], List[int])
+    - List of non-Table classes
+    
+    Examples:
+        List[User] → User (if User is Table subclass)
+        List[str] → None
+        List["Post"] → "Post" (string for forward reference)
+        int → None
+    """
+    import typing
+    
+    # Get origin for generic types
+    origin = getattr(type_hint, "__origin__", None)
+    
+    # Check for List or list
+    if origin is not list and origin is not List:
+        return None
+    
+    # Get type arguments
+    args = getattr(type_hint, "__args__", ())
+    if not args:
+        return None
+    
+    inner_type = args[0]
+    
+    # Handle string forward references
+    if isinstance(inner_type, str):
+        # Return the string - will be resolved later
+        return inner_type
+    
+    # Handle ForwardRef
+    if isinstance(inner_type, typing.ForwardRef):
+        return inner_type.__forward_arg__
+    
+    # Check if it's a Table subclass
+    # Import here to avoid circular imports
+    try:
+        if isinstance(inner_type, type):
+            # Check if it has Table-like attributes
+            # We can't import Table here due to circular imports
+            # So we check for _fields which Table subclasses have
+            if hasattr(inner_type, "_fields") or hasattr(inner_type, "__table_name__"):
+                return inner_type
+            
+            # Also check if it's defined in user code (not primitives)
+            if inner_type.__module__ != "builtins":
+                # Could be a Table subclass that's not yet fully defined
+                # Return it and let the metaclass handle it
+                return inner_type
+    except Exception:
+        pass
+    
+    return None
 
 # Global adapter (set via configure_db)
 _adapter: Optional["Adapter"] = None
@@ -89,6 +180,7 @@ class TableMeta(type):
     2. Adds auto-fields (id, created_at, updated_at)
     3. Registers the model in the global registry
     4. Sets up relationships
+    5. Processes backref definitions for bidirectional sync
     """
     
     def __new__(mcs, name: str, bases: tuple, namespace: dict) -> Type["Table"]:
@@ -107,6 +199,12 @@ class TableMeta(type):
         # Parse fields from type hints
         fields: Dict[str, FieldInfo] = {}
         
+        # Track relationship descriptors for later processing
+        relationship_attrs: Dict[str, Any] = {}
+        
+        # Collect List[Model] fields for potential M2M auto-detection
+        potential_m2m_fields: Dict[str, type] = {}
+        
         # Process user-defined fields first
         for field_name, type_hint in annotations.items():
             # Skip private attributes
@@ -124,6 +222,23 @@ class TableMeta(type):
             # Get default value
             default = namespace.get(field_name, ...)
             
+            # Check if it's a relationship descriptor
+            from pynext.db.relationships import BelongsTo, HasMany, HasOne, ManyToMany
+            if isinstance(default, (BelongsTo, HasMany, HasOne, ManyToMany)):
+                # Set the rel_name now that we know it
+                default.rel_name = field_name
+                default._cache_attr = f"_cached_{field_name}"
+                relationship_attrs[field_name] = default
+                continue
+            
+            # Check for List[Model] pattern for M2M auto-detection
+            # Only if no explicit descriptor is assigned
+            if default is ... or default is None:
+                target_model = _extract_list_table_type(type_hint)
+                if target_model is not None:
+                    potential_m2m_fields[field_name] = target_model
+                    continue  # Don't process as regular field
+            
             # Check if it's an explicit Field()
             if isinstance(default, Field):
                 field_info = default.to_field_info(field_name, type_hint)
@@ -131,6 +246,27 @@ class TableMeta(type):
                 field_info = parse_type_hint(field_name, type_hint, default)
             
             fields[field_name] = field_info
+        
+        # Auto-create M2M relationships for List[Model] fields
+        # This happens after all fields are processed
+        for field_name, target_model in potential_m2m_fields.items():
+            from pynext.db.relationships import ManyToMany
+            
+            # Check if this is actually a has_many (target has FK to us)
+            # For now, we treat bare List[Model] as M2M
+            # has_many must be explicit: has_many(Model, backref="x")
+            
+            m2m_descriptor = ManyToMany(
+                rel_name=field_name,
+                model=target_model,
+                through=None,  # Auto-create junction
+                backref=None,  # Auto-generate from class name
+                back_populates=None,
+                lazy="select",
+            )
+            m2m_descriptor._cache_attr = f"_cached_{field_name}"
+            relationship_attrs[field_name] = m2m_descriptor
+            namespace[field_name] = m2m_descriptor
         
         # Add auto-fields LAST so they're guaranteed to be correct
         auto_fields = create_auto_fields()
@@ -149,7 +285,119 @@ class TableMeta(type):
         # Register in global registry
         _model_registry[cls.__table_name__] = cls
         
+        # Process backrefs after class creation
+        # This needs to happen after registration so forward references can resolve
+        _process_model_backrefs(cls)
+        
+        # Resolve any pending backrefs waiting for this model
+        _resolve_pending_backrefs(cls)
+        
+        # Sync cascade on_delete to FK fields (Phase 7.4.1)
+        # This propagates relationship cascade settings to FK field constraints
+        _sync_cascade_to_fk_fields(cls)
+        
         return cls
+
+
+def _process_model_backrefs(model: Type["Table"]) -> None:
+    """
+    Process backref definitions on a model.
+    
+    This scans the model's attributes for relationship descriptors
+    with backref or back_populates set, and registers them.
+    
+    Args:
+        model: The model class to process
+    """
+    from pynext.db.relationships import (
+        BelongsTo,
+        HasMany,
+        HasOne,
+        process_backrefs,
+    )
+    
+    # Process backrefs using the relationships module function
+    process_backrefs(model, _model_registry)
+
+
+def _sync_cascade_to_fk_fields(model: Type["Table"]) -> None:
+    """
+    Sync on_delete cascade settings from relationships to FK fields.
+    
+    This is called after a model is created to propagate the on_delete
+    setting from relationship descriptors (has_many, has_one) to the
+    FK field's fk_on_delete attribute.
+    
+    Example:
+        class User(Table):
+            posts: List[Post] = has_many(Post, on_delete="cascade")
+        
+        # This syncs to Post._fields["author_id"].fk_on_delete = "CASCADE"
+    
+    Args:
+        model: The model class to process
+    """
+    from pynext.db.relationships import HasMany, HasOne, ManyToMany
+    
+    # Scan for relationship descriptors with on_delete
+    for attr_name in dir(model):
+        if attr_name.startswith("_"):
+            continue
+        
+        attr = getattr(model, attr_name, None)
+        if attr is None:
+            continue
+        
+        # Check for HasMany/HasOne with on_delete
+        if isinstance(attr, (HasMany, HasOne)):
+            on_delete = getattr(attr, "on_delete", "none")
+            cascade = getattr(attr, "cascade", None)
+            
+            # Get the actual on_delete action
+            if on_delete and on_delete != "none":
+                pg_on_delete = _map_on_delete_to_postgres(on_delete)
+            elif cascade and cascade.on_delete:
+                pg_on_delete = "CASCADE"
+            else:
+                continue  # No on_delete to sync
+            
+            # Find the related model and update its FK field
+            related_model = getattr(attr, "_model", None)
+            if related_model is None:
+                continue
+            
+            # Resolve string model name
+            if isinstance(related_model, str):
+                related_model = _model_registry.get(related_model.lower() + "s")
+                if related_model is None:
+                    continue
+            
+            # Get FK field name (e.g., "author_id" for User -> Post)
+            fk_field = getattr(attr, "foreign_key", None)
+            if fk_field is None:
+                # Auto-detect from model name
+                fk_field = model.__name__.lower() + "_id"
+            
+            # Update the FK field's fk_on_delete
+            if hasattr(related_model, "_fields") and fk_field in related_model._fields:
+                related_model._fields[fk_field].fk_on_delete = pg_on_delete
+
+
+def _resolve_pending_backrefs(model: Type["Table"]) -> None:
+    """
+    Resolve any pending backrefs that were waiting for this model.
+    
+    When a model defines has_many("Post", backref="author") but Post
+    doesn't exist yet, the backref is deferred. This function resolves
+    those deferred backrefs when Post is finally created.
+    
+    Args:
+        model: The newly created model
+    """
+    from pynext.db.relationships.backref import get_backref_registry
+    
+    registry = get_backref_registry()
+    registry.resolve_pending(model)
 
 
 class Table(metaclass=TableMeta):
@@ -222,14 +470,22 @@ class Table(metaclass=TableMeta):
         return f"{self.__class__.__name__}({', '.join(fields)})"
     
     def __eq__(self, other: Any) -> bool:
-        """Compare by id."""
+        """Compare by id, or by identity if ids are not set."""
         if not isinstance(other, self.__class__):
             return False
-        return self.id == other.id
+        # For unsaved objects (no id), compare by identity
+        self_id = getattr(self, "id", None)
+        other_id = getattr(other, "id", None)
+        if self_id is None or other_id is None:
+            return self is other
+        return self_id == other_id
     
     def __hash__(self) -> int:
-        """Hash by id."""
-        return hash((self.__class__.__name__, self.id))
+        """Hash by id, or by identity if id is not set."""
+        self_id = getattr(self, "id", None)
+        if self_id is None:
+            return id(self)  # Use object identity for unsaved objects
+        return hash((self.__class__.__name__, self_id))
     
     # Class methods for CRUD operations
     
@@ -605,11 +861,12 @@ class Table(metaclass=TableMeta):
         
         return self
     
-    async def save(self: T) -> T:
+    async def save(self: T, _skip_cascade: bool = False) -> T:
         """
         Save this record (insert or update).
         
         If the record has an id, it updates. Otherwise, it inserts.
+        Cascades save to related objects if cascade.on_save=True.
         
         Examples:
             user = User(name="John", email="john@example.com")
@@ -617,6 +874,19 @@ class Table(metaclass=TableMeta):
             
             user.name = "Jane"
             await user.save()  # Updates
+            
+            # With cascade configured:
+            class User(Table):
+                posts: List[Post] = has_many(Post, cascade=CascadeOptions(on_save=True))
+            
+            user.posts[0].title = "Updated"
+            await user.save()  # Also saves the modified post
+        
+        Args:
+            _skip_cascade: Internal flag to skip cascade (prevents recursion)
+        
+        Returns:
+            The saved model instance (self)
         """
         adapter = get_adapter()
         
@@ -642,19 +912,53 @@ class Table(metaclass=TableMeta):
             for key, value in row.items():
                 setattr(self, key, value)
         
+        # Handle cascade save unless skipped
+        if not _skip_cascade:
+            from pynext.db.relationships.cascade import get_cascade_manager
+            manager = get_cascade_manager()
+            await manager.cascade_save(self)
+        
         return self
     
-    async def delete(self) -> bool:
+    async def delete(self, _skip_cascade: bool = False) -> bool:
         """
         Delete this record.
         
+        Handles cascade operations based on relationship configuration:
+        - on_delete="cascade": Delete related records
+        - on_delete="nullify": Set FK to NULL on related records
+        - on_delete="protect": Raise error if related records exist
+        
         Examples:
             await user.delete()
+            
+            # With cascade configured on User.posts as on_delete="cascade":
+            await user.delete()  # Also deletes all posts
+        
+        Args:
+            _skip_cascade: Internal flag to skip cascade (prevents recursion)
         
         Returns:
             True if deleted, False if not found
+        
+        Raises:
+            ProtectedDeleteError: If trying to delete with protected relationships
         """
         adapter = get_adapter()
+        
+        # Handle cascades unless skipped (internal recursive call)
+        if not _skip_cascade:
+            from pynext.db.relationships.cascade import get_cascade_manager
+            manager = get_cascade_manager()
+            
+            # Check for protected relationships first
+            protected_error = await manager.check_protected(self)
+            if protected_error:
+                raise protected_error
+            
+            # Execute cascades (delete related, nullify FKs)
+            await manager.cascade_delete(self)
+        
         return await adapter.delete(self.__table_name__, self.id)
     
     async def refresh(self: T) -> T:

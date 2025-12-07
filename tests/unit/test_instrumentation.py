@@ -241,7 +241,7 @@ class TestTraceDecorator:
         async def async_function():
             return "async result"
         
-        result = asyncio.get_event_loop().run_until_complete(async_function())
+        result = asyncio.run(async_function())
         
         assert result == "async result"
     

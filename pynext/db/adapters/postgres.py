@@ -625,9 +625,18 @@ class PostgresAdapter(Adapter):
     async def create_table(self, table: str, fields: Dict[str, "FieldInfo"]) -> None:
         """Create a table with the given fields.
         
+        Includes FK constraints with ON DELETE actions from cascade configuration.
+        
         Args:
             table: Table name
             fields: Field definitions
+        
+        Example:
+            # With on_delete="cascade" set on parent relationship:
+            CREATE TABLE "posts" (
+                "id" SERIAL PRIMARY KEY,
+                "author_id" INTEGER NOT NULL REFERENCES "users"("id") ON DELETE CASCADE
+            )
         """
         columns = []
         
@@ -649,6 +658,14 @@ class PostgresAdapter(Adapter):
                 if field_info.default is not None:
                     default_val = self._format_default(field_info.default)
                     col_def += f" DEFAULT {default_val}"
+                
+                # Add FK constraint with ON DELETE (Phase 7.4.1)
+                if field_info.foreign_key:
+                    col_def += f' REFERENCES "{field_info.foreign_key}"("id")'
+                    # Add ON DELETE clause if not default
+                    fk_on_delete = getattr(field_info, 'fk_on_delete', 'NO ACTION')
+                    if fk_on_delete and fk_on_delete != "NO ACTION":
+                        col_def += f" ON DELETE {fk_on_delete}"
             
             columns.append(col_def)
         
@@ -665,6 +682,213 @@ class PostgresAdapter(Adapter):
         """
         await self._execute(f'DROP TABLE IF EXISTS "{table}" CASCADE')
         logger.info(f"Dropped table: {table}")
+    
+    # =========================================================================
+    # FK Constraint Operations (Phase 7.4.1)
+    # =========================================================================
+    
+    async def get_foreign_keys(self, table: str) -> List[Dict[str, Any]]:
+        """
+        Get all FK constraints for a table.
+        
+        This is useful for introspecting the database schema.
+        
+        Args:
+            table: Table name
+        
+        Returns:
+            List of dicts with FK info:
+            [
+                {
+                    "constraint_name": "posts_author_id_fkey",
+                    "column_name": "author_id",
+                    "foreign_table": "users",
+                    "foreign_column": "id",
+                    "on_delete": "CASCADE"
+                }
+            ]
+        
+        Example:
+            fks = await adapter.get_foreign_keys("posts")
+            for fk in fks:
+                print(f"{fk['column_name']} -> {fk['foreign_table']}.{fk['foreign_column']}")
+        """
+        sql = """
+            SELECT
+                tc.constraint_name,
+                kcu.column_name,
+                ccu.table_name AS foreign_table,
+                ccu.column_name AS foreign_column,
+                rc.delete_rule AS on_delete
+            FROM information_schema.table_constraints tc
+            JOIN information_schema.key_column_usage kcu
+                ON tc.constraint_name = kcu.constraint_name
+                AND tc.table_schema = kcu.table_schema
+            JOIN information_schema.constraint_column_usage ccu
+                ON ccu.constraint_name = tc.constraint_name
+                AND ccu.table_schema = tc.table_schema
+            JOIN information_schema.referential_constraints rc
+                ON rc.constraint_name = tc.constraint_name
+                AND rc.constraint_schema = tc.table_schema
+            WHERE tc.constraint_type = 'FOREIGN KEY'
+                AND tc.table_name = $1
+        """
+        
+        rows = await self._fetch(sql, table)
+        return [
+            {
+                "constraint_name": row["constraint_name"],
+                "column_name": row["column_name"],
+                "foreign_table": row["foreign_table"],
+                "foreign_column": row["foreign_column"],
+                "on_delete": row["on_delete"],
+            }
+            for row in rows
+        ]
+    
+    async def has_constraint(self, table: str, constraint_name: str) -> bool:
+        """
+        Check if a constraint exists on a table.
+        
+        Args:
+            table: Table name
+            constraint_name: Name of the constraint to check
+        
+        Returns:
+            True if constraint exists, False otherwise
+        
+        Example:
+            if await adapter.has_constraint("posts", "posts_author_id_fkey"):
+                print("FK constraint exists")
+        """
+        sql = """
+            SELECT 1 FROM information_schema.table_constraints
+            WHERE table_name = $1 AND constraint_name = $2
+            LIMIT 1
+        """
+        
+        result = await self._fetchrow(sql, table, constraint_name)
+        return result is not None
+    
+    async def add_fk_constraint(
+        self,
+        table: str,
+        column: str,
+        ref_table: str,
+        ref_column: str = "id",
+        on_delete: str = "NO ACTION",
+        constraint_name: Optional[str] = None,
+    ) -> None:
+        """
+        Add a FK constraint to an existing table.
+        
+        Use this for migrations or when adding FK constraints after table creation.
+        
+        Args:
+            table: Table with the FK column
+            column: FK column name
+            ref_table: Referenced table
+            ref_column: Referenced column (default: "id")
+            on_delete: ON DELETE action (CASCADE, SET NULL, RESTRICT, NO ACTION)
+            constraint_name: Custom constraint name (auto-generated if None)
+        
+        Example:
+            # Add FK with CASCADE
+            await adapter.add_fk_constraint(
+                "posts", "author_id", "users",
+                on_delete="CASCADE"
+            )
+            
+            # Add FK with custom name
+            await adapter.add_fk_constraint(
+                "posts", "author_id", "users",
+                constraint_name="posts_author_fk"
+            )
+        """
+        if constraint_name is None:
+            constraint_name = f"{table}_{column}_fkey"
+        
+        sql = f"""
+            ALTER TABLE "{table}"
+            ADD CONSTRAINT "{constraint_name}"
+            FOREIGN KEY ("{column}")
+            REFERENCES "{ref_table}"("{ref_column}")
+            ON DELETE {on_delete}
+        """
+        
+        await self._execute(sql)
+        logger.info(f"Added FK constraint: {constraint_name} on {table}.{column}")
+    
+    async def alter_fk_on_delete(
+        self,
+        table: str,
+        column: str,
+        on_delete: str,
+        constraint_name: Optional[str] = None,
+    ) -> None:
+        """
+        Change the ON DELETE action for an existing FK constraint.
+        
+        This drops the existing constraint and recreates it with the new action.
+        
+        Args:
+            table: Table with the FK column
+            column: FK column name
+            on_delete: New ON DELETE action (CASCADE, SET NULL, RESTRICT, NO ACTION)
+            constraint_name: Constraint name (auto-detected if None)
+        
+        Example:
+            # Change from NO ACTION to CASCADE
+            await adapter.alter_fk_on_delete("posts", "author_id", "CASCADE")
+        """
+        # Find the constraint if name not provided
+        if constraint_name is None:
+            fks = await self.get_foreign_keys(table)
+            for fk in fks:
+                if fk["column_name"] == column:
+                    constraint_name = fk["constraint_name"]
+                    ref_table = fk["foreign_table"]
+                    ref_column = fk["foreign_column"]
+                    break
+            
+            if constraint_name is None:
+                raise ValueError(f"No FK constraint found for {table}.{column}")
+        else:
+            # Need to look up ref table/column
+            fks = await self.get_foreign_keys(table)
+            for fk in fks:
+                if fk["constraint_name"] == constraint_name:
+                    ref_table = fk["foreign_table"]
+                    ref_column = fk["foreign_column"]
+                    break
+            else:
+                raise ValueError(f"Constraint {constraint_name} not found on {table}")
+        
+        # Drop and recreate
+        await self._execute(f'ALTER TABLE "{table}" DROP CONSTRAINT "{constraint_name}"')
+        await self.add_fk_constraint(
+            table, column, ref_table, ref_column, on_delete, constraint_name
+        )
+        
+        logger.info(f"Altered FK constraint {constraint_name}: ON DELETE {on_delete}")
+    
+    async def drop_fk_constraint(
+        self,
+        table: str,
+        constraint_name: str,
+    ) -> None:
+        """
+        Drop a FK constraint.
+        
+        Args:
+            table: Table with the constraint
+            constraint_name: Name of the constraint to drop
+        
+        Example:
+            await adapter.drop_fk_constraint("posts", "posts_author_id_fkey")
+        """
+        await self._execute(f'ALTER TABLE "{table}" DROP CONSTRAINT "{constraint_name}"')
+        logger.info(f"Dropped FK constraint: {constraint_name}")
     
     # =========================================================================
     # CRUD Operations
@@ -861,16 +1085,46 @@ class PostgresAdapter(Adapter):
     async def delete(self, table: str, id: int) -> bool:
         """Delete a row by id.
         
+        Handles FK constraint violations by translating them to ProtectedDeleteError.
+        This happens when on_delete="protect" (RESTRICT) is set on a relationship
+        and there are related records.
+        
         Args:
             table: Table name
             id: Row id
         
         Returns:
             True if deleted, False if not found
+        
+        Raises:
+            ForeignKeyViolationError: When deletion violates a RESTRICT constraint
         """
         sql = f'DELETE FROM "{table}" WHERE "id" = $1'
-        result = await self._execute(sql, id)
-        return "DELETE 1" in result
+        try:
+            result = await self._execute(sql, id)
+            return "DELETE 1" in result
+        except Exception as e:
+            # Handle FK violation (RESTRICT)
+            error_str = str(e).lower()
+            if "foreign" in error_str and ("violates" in error_str or "constraint" in error_str):
+                from pynext.db.relationships.cascade import ProtectedDeleteError
+                
+                # Extract constraint info from error message
+                constraint_name = self._extract_constraint_name(str(e))
+                related_table = self._extract_related_table(str(e))
+                
+                # Create a placeholder instance for the error
+                class DummyInstance:
+                    def __init__(self, table_name, row_id):
+                        self.id = row_id
+                        self.__class__.__name__ = table_name.rstrip('s').title()
+                
+                raise ProtectedDeleteError(
+                    instance=DummyInstance(table, id),
+                    relationship=related_table or constraint_name or "related",
+                    related_count=1,  # We don't know exact count from DB error
+                )
+            raise  # Re-raise other exceptions
     
     async def delete_many(self, table: str, query: "Query") -> int:
         """Delete multiple rows.
@@ -1178,6 +1432,65 @@ class PostgresAdapter(Adapter):
         else:
             escaped = str(value).replace("'", "''")
             return f"'{escaped}'"
+    
+    def _extract_constraint_name(self, error_msg: str) -> Optional[str]:
+        """
+        Extract FK constraint name from PostgreSQL error message.
+        
+        Args:
+            error_msg: PostgreSQL error message
+        
+        Returns:
+            Constraint name or None if not found
+        
+        Example:
+            Error: "violates foreign key constraint 'posts_author_id_fkey'"
+            Returns: "posts_author_id_fkey"
+        """
+        import re
+        
+        # Pattern: constraint "constraint_name" or constraint 'constraint_name'
+        patterns = [
+            r'constraint\s*["\'](\w+)["\']',
+            r'constraint\s+(\w+)',
+        ]
+        
+        for pattern in patterns:
+            match = re.search(pattern, error_msg, re.IGNORECASE)
+            if match:
+                return match.group(1)
+        
+        return None
+    
+    def _extract_related_table(self, error_msg: str) -> Optional[str]:
+        """
+        Extract related table name from PostgreSQL FK error message.
+        
+        Args:
+            error_msg: PostgreSQL error message
+        
+        Returns:
+            Table name or None if not found
+        
+        Example:
+            Error: "on table 'posts' violates foreign key constraint"
+            Returns: "posts"
+        """
+        import re
+        
+        # Pattern: on table "tablename" or table 'tablename'
+        patterns = [
+            r'on\s+table\s*["\'](\w+)["\']',
+            r'table\s*["\'](\w+)["\']',
+            r'from\s+table\s*["\'](\w+)["\']',
+        ]
+        
+        for pattern in patterns:
+            match = re.search(pattern, error_msg, re.IGNORECASE)
+            if match:
+                return match.group(1)
+        
+        return None
     
     # =========================================================================
     # Pool Stats

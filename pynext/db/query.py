@@ -90,6 +90,7 @@ class Query(Generic[T]):
         self._offset: Optional[int] = None
         self._with_related: List[str] = []
         self._select_columns: Optional[List[str]] = None
+        self._load_options: List[Any] = []  # LoadOption objects for eager loading
     
     def _clone(self) -> "Query[T]":
         """Create a copy of this query."""
@@ -109,6 +110,7 @@ class Query(Generic[T]):
         clone._offset = self._offset
         clone._with_related = list(self._with_related)
         clone._select_columns = list(self._select_columns) if self._select_columns else None
+        clone._load_options = list(self._load_options)
         return clone
     
     # Filter methods
@@ -290,9 +292,46 @@ class Query(Generic[T]):
             .with_related("author")
             .with_related("author", "comments")
             .with_related("author__profile")
+        
+        Note: Consider using .options() with loading functions for more control:
+            .options(selectinload("author"), joinedload("profile"))
         """
         clone = self._clone()
         clone._with_related.extend(relations)
+        return clone
+    
+    def options(self, *load_options) -> "Query[T]":
+        """
+        Apply loading options to control how relationships are loaded.
+        
+        This provides fine-grained control over relationship loading strategies,
+        overriding any model-level defaults.
+        
+        Args:
+            *load_options: LoadOption objects from joinedload(), selectinload(), etc.
+        
+        Examples:
+            # Basic eager loading
+            users = await User.select().options(
+                selectinload("posts"),      # Use SELECT IN for posts
+                joinedload("profile"),      # Use JOIN for profile
+            )
+            
+            # Nested loading
+            users = await User.select().options(
+                selectinload("posts").joinedload("author"),
+            )
+            
+            # Prevent N+1 errors
+            users = await User.select().options(
+                raiseload("audit_logs"),  # Will raise if accessed
+            )
+        
+        Returns:
+            Query with loading options applied
+        """
+        clone = self._clone()
+        clone._load_options.extend(load_options)
         return clone
     
     # Column selection
@@ -316,15 +355,35 @@ class Query(Generic[T]):
         
         Examples:
             users = await User.select().where(role="admin").all()
+            users = await User.select().options(selectinload("posts")).all()
         """
         rows = await self._adapter.select(self._table, self, self._fields)
         instances = [self._model._from_row(row) for row in rows]
         
-        # Load related models
+        # Apply loading options (new API)
+        if self._load_options:
+            await self._apply_load_options(instances)
+        
+        # Load related models (legacy API)
         if self._with_related:
             await self._load_related(instances)
         
         return instances
+    
+    async def _apply_load_options(self, instances: List[T]) -> None:
+        """
+        Apply loading options to instances.
+        
+        Uses RelationshipLoader to load relationships based on the
+        specified strategies.
+        """
+        if not instances or not self._load_options:
+            return
+        
+        from pynext.db.relationships.loading import get_loader
+        
+        loader = get_loader(self._adapter)
+        await loader.load(instances, self._load_options, self._model)
     
     async def first(self) -> Optional[T]:
         """

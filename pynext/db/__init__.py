@@ -96,19 +96,61 @@ from pynext.db.builder import (
     sql,
 )
 
-# Relationships
+# Relationships (core + backref + collections + loading)
 from pynext.db.relationships import (
+    # Core types
     RelationshipType,
     RelationshipInfo,
     BelongsTo,
     HasMany,
     HasOne,
+    ManyToMany,
     belongs_to,
     has_many,
     has_one,
+    many_to_many,
     setup_relationships,
     detect_relationships,
     detect_reverse_relationships,
+    process_backrefs,
+    # Backref
+    BackrefConfig,
+    BackrefRegistry,
+    RelationshipSyncManager,
+    get_backref_registry,
+    get_sync_manager,
+    reset_backref_registry,
+    reset_sync_manager,
+    # Collections
+    SyncedList,
+    ManyToManyCollection,
+    # Many-to-Many
+    JunctionConfig,
+    JunctionTableFactory,
+    JunctionManager,
+    get_junction_factory,
+    reset_junction_factory,
+    DynamicManyToMany,
+    AssociationProxy,
+    # Loading strategies
+    LoadStrategy,
+    LoadOption,
+    LazyLoadError,
+    RelationshipLoader,
+    get_loader,
+    reset_loader,
+    # Loading option functions
+    joinedload,
+    selectinload,
+    subqueryload,
+    raiseload,
+    noload,
+    lazyload,
+    immediateload,
+    eagerload,
+    Load,
+    # Dynamic relationships
+    DynamicRelationship,
 )
 
 # Validation
@@ -212,12 +254,59 @@ __all__ = [
     "BelongsTo",
     "HasMany",
     "HasOne",
+    "ManyToMany",
     "belongs_to",
     "has_many",
     "has_one",
+    "many_to_many",
     "setup_relationships",
     "detect_relationships",
     "detect_reverse_relationships",
+    "process_backrefs",
+    
+    # Backref (bidirectional relationships)
+    "BackrefConfig",
+    "BackrefRegistry",
+    "RelationshipSyncManager",
+    "get_backref_registry",
+    "get_sync_manager",
+    "reset_backref_registry",
+    "reset_sync_manager",
+    
+    # Synced Collections
+    "SyncedList",
+    "ManyToManyCollection",
+    
+    # Many-to-Many
+    "JunctionConfig",
+    "JunctionTableFactory",
+    "JunctionManager",
+    "get_junction_factory",
+    "reset_junction_factory",
+    "DynamicManyToMany",
+    "AssociationProxy",
+    
+    # Loading strategies
+    "LoadStrategy",
+    "LoadOption",
+    "LazyLoadError",
+    "RelationshipLoader",
+    "get_loader",
+    "reset_loader",
+    
+    # Loading option functions
+    "joinedload",
+    "selectinload",
+    "subqueryload",
+    "raiseload",
+    "noload",
+    "lazyload",
+    "immediateload",
+    "eagerload",
+    "Load",
+    
+    # Dynamic relationships
+    "DynamicRelationship",
     
     # Validation
     "validate_type",

@@ -373,6 +373,107 @@ class Adapter(ABC):
     async def rollback_to_savepoint(self, name: str) -> None:
         """Rollback to a savepoint."""
         await self.execute(f"ROLLBACK TO SAVEPOINT {name}")
+    
+    # =========================================================================
+    # FK Constraint Operations (Phase 7.4.1)
+    # =========================================================================
+    
+    async def get_foreign_keys(self, table: str) -> List[Dict[str, Any]]:
+        """
+        Get all FK constraints for a table.
+        
+        Args:
+            table: Table name
+        
+        Returns:
+            List of dicts with FK info containing:
+            - constraint_name: Name of the FK constraint
+            - column_name: Column with the FK
+            - foreign_table: Referenced table
+            - foreign_column: Referenced column
+            - on_delete: ON DELETE action
+        
+        Note:
+            Default implementation returns empty list.
+            Override in specific adapters for full support.
+        """
+        return []
+    
+    async def has_constraint(self, table: str, constraint_name: str) -> bool:
+        """
+        Check if a constraint exists on a table.
+        
+        Args:
+            table: Table name
+            constraint_name: Constraint name to check
+        
+        Returns:
+            True if exists, False otherwise
+        
+        Note:
+            Default implementation returns False.
+            Override in specific adapters for full support.
+        """
+        return False
+    
+    async def add_fk_constraint(
+        self,
+        table: str,
+        column: str,
+        ref_table: str,
+        ref_column: str = "id",
+        on_delete: str = "NO ACTION",
+        constraint_name: Optional[str] = None,
+    ) -> None:
+        """
+        Add a FK constraint to an existing table.
+        
+        Args:
+            table: Table with the FK column
+            column: FK column name
+            ref_table: Referenced table
+            ref_column: Referenced column (default: "id")
+            on_delete: ON DELETE action
+            constraint_name: Custom constraint name
+        
+        Raises:
+            NotImplementedError: If not supported by adapter
+        """
+        raise NotImplementedError("FK constraints not supported by this adapter")
+    
+    async def alter_fk_on_delete(
+        self,
+        table: str,
+        column: str,
+        on_delete: str,
+        constraint_name: Optional[str] = None,
+    ) -> None:
+        """
+        Change the ON DELETE action for an existing FK constraint.
+        
+        Args:
+            table: Table with the FK column
+            column: FK column name
+            on_delete: New ON DELETE action
+            constraint_name: Constraint name (auto-detected if None)
+        
+        Raises:
+            NotImplementedError: If not supported by adapter
+        """
+        raise NotImplementedError("FK constraint alteration not supported by this adapter")
+    
+    async def drop_fk_constraint(self, table: str, constraint_name: str) -> None:
+        """
+        Drop a FK constraint.
+        
+        Args:
+            table: Table with the constraint
+            constraint_name: Constraint name to drop
+        
+        Raises:
+            NotImplementedError: If not supported by adapter
+        """
+        raise NotImplementedError("FK constraint dropping not supported by this adapter")
 
 
 class TransactionContext:

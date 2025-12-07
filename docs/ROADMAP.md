@@ -234,10 +234,10 @@ Achieving complete feature parity with Next.js while maintaining SolidJS princip
 | 6 | Advanced (CSS Modules, MDX, Proxy, Instrumentation, Edge) | ✅ Complete | 541 |
 
 **Completed**: All 6 Phases with 1,948+ tests
-**Total Test Suite**: 6,708+ tests
+**Total Test Suite**: 10,813+ tests
 **Status**: Next.js Feature Parity Achieved 🎉
 
-**Data Layer Status**: Phases 1-6 Complete (3,588+ tests including live queries)
+**Data Layer Status**: Phases 1-6 Complete + Phase 7.1-7.5 Complete (5,625+ tests including live queries, bidirectional relationships, loading strategies, many-to-many relationships, cascade options, and custom join conditions)
 
 ---
 
@@ -449,7 +449,7 @@ This eliminates the need for:
 
 ##### Phase 5: Database Adapters (PostgreSQL & Supabase)
 
-**Status:** Phases 5.1-5.7 Complete ✅ (3,199 tests), Phase 6 Complete ✅ (389 tests)
+**Status:** Phases 5.1-5.7 Complete ✅ (3,199 tests), Phase 6 Complete ✅ (389 tests), Phase 7.1 Complete ✅ (182 tests), Phase 7.2 Complete ✅ (437 tests), Phase 7.3 Complete ✅ (329 tests), Phase 7.4 Complete ✅ (601 tests), Phase 7.5 Complete ✅ (488 tests)
 
 **Design Philosophy:**
 - PyNext > asyncpg: Simpler API, same performance
@@ -766,15 +766,21 @@ pynext/db/
 - `test_live_transport.py`, `test_live_updates.py`, `test_live_subscriptions.py`
 - `test_live_server.py`, `test_live_integration.py`
 
-##### Phase 7: Advanced Relationships (Target: 800+ tests)
+##### Phase 7: Advanced Relationships (1,549+ tests)
 
 A complete relationship system that matches SQLAlchemy's power while keeping PyNext's simple definition advantage.
 
-**7.1 Bidirectional Relationships (backref)**
-- [ ] `backref` parameter for automatic reverse relationship creation
-- [ ] `back_populates` for explicit bidirectional linking
-- [ ] Automatic sync when either side is modified
-- [ ] Cascade relationship updates through the graph
+**7.1 Bidirectional Relationships (backref)** ✅
+- [x] `backref` parameter for automatic reverse relationship creation
+- [x] `back_populates` for explicit bidirectional linking
+- [x] Automatic sync when either side is modified
+- [x] Cascade relationship updates through the graph
+- [x] `BackrefConfig` dataclass for configuration
+- [x] `BackrefRegistry` for tracking bidirectional pairs
+- [x] `RelationshipSyncManager` with loop prevention via `ContextVar`
+- [x] `SyncedList` collection with automatic sync on `append`, `remove`, `extend`, `clear`, `pop`, `insert`, `__setitem__`, `__delitem__`
+- [x] Forward reference resolution for models defined in any order
+- [x] Safe handling of unsaved objects (no `id` attribute)
 
 ```python
 class User(Table):
@@ -789,13 +795,31 @@ user.posts.append(post)  # Also sets post.author = user
 post.author = user       # Also adds to user.posts
 ```
 
-**7.2 Loading Strategies**
-- [ ] `lazy="select"` - Default lazy loading (query on access)
-- [ ] `lazy="joined"` - JOIN in same query (eager)
-- [ ] `lazy="subquery"` - Separate subquery (good for collections)
-- [ ] `lazy="selectin"` - SELECT IN (ids) (best for batches)
-- [ ] `lazy="raise"` - Raise error if accessed (prevent N+1)
-- [ ] `lazy="dynamic"` - Return query instead of results
+**Files Created/Modified:**
+- `pynext/db/relationships/__init__.py` - Package exports
+- `pynext/db/relationships/backref.py` - BackrefConfig, BackrefRegistry, RelationshipSyncManager
+- `pynext/db/relationships/collections.py` - SyncedList implementation
+- `pynext/db/relationships/core.py` - Updated with backref/back_populates support
+- `pynext/db/table.py` - Updated `__eq__`/`__hash__` for unsaved objects
+
+**Documentation:** [docs/database/11-relationships.md](./database/11-relationships.md) (788 lines)
+
+**Test Coverage:** 182 tests across 4 test files:
+- `test_backref_basic.py` - BackrefConfig, BackrefRegistry, descriptor attributes (58 tests)
+- `test_backref_sync.py` - Bidirectional sync behavior, loop prevention (44 tests)
+- `test_backref_collections.py` - SyncedList operations (40 tests)
+- `test_backref_edge_cases.py` - Null values, self-referential, performance (40 tests)
+
+**7.2 Loading Strategies** ✅ (437 tests)
+- [x] `lazy="select"` - Default lazy loading (query on access)
+- [x] `lazy="joined"` - JOIN in same query (eager)
+- [x] `lazy="subquery"` - Separate subquery (good for collections)
+- [x] `lazy="selectin"` - SELECT IN (ids) (best for batches)
+- [x] `lazy="raise"` - Raise error if accessed (prevent N+1)
+- [x] `lazy="dynamic"` - Return query instead of results
+- [x] Query-level override with `options()` and chaining
+- [x] `LazyLoadError` for N+1 prevention
+- [x] Documentation: `docs/database/13-loading-strategies.md`
 
 ```python
 class User(Table):
@@ -804,17 +828,20 @@ class User(Table):
     audit_logs: List[Log] = has_many(Log, lazy="dynamic") # Query builder
 
 # Query-level override
-users = await User.all().options(
-    joinedload(User.posts),
-    selectinload(User.posts.comments),
+users = await User.select().options(
+    selectinload("posts").joinedload("author"),
+    joinedload("profile"),
+    raiseload("audit_logs"),  # Raises if accessed
 )
 ```
 
-**7.3 Many-to-Many Relationships**
-- [ ] `through` parameter for junction/association tables
-- [ ] Support for extra columns on junction table
-- [ ] Association proxy for direct access through relationship
-- [ ] Bidirectional many-to-many with backref
+**7.3 Many-to-Many Relationships** ✅ COMPLETE (329 tests)
+- [x] `through` parameter for junction/association tables
+- [x] Support for extra columns on junction table
+- [x] Association proxy for direct access through relationship
+- [x] Bidirectional many-to-many with backref
+- [x] Loading strategies (select, selectin, raise, dynamic)
+- [x] DynamicManyToMany query builder for large collections
 
 ```python
 class Student(Table):
@@ -838,137 +865,280 @@ student.courses.append(course, grade="A")  # With extra data
 course.students  # Access from either side
 ```
 
-**7.4 Cascade Options**
-- [ ] `cascade="save-update"` - Cascade saves to related
-- [ ] `cascade="delete"` - Delete related when parent deleted
-- [ ] `cascade="delete-orphan"` - Delete when removed from collection
-- [ ] `cascade="merge"` - Cascade merge operations
-- [ ] `cascade="all"` - All of the above
+**7.4 Cascade Options** ✅ (601 tests)
+- [x] `on_delete="cascade"` - Delete related when parent deleted
+- [x] `on_delete="nullify"` - Set FK to NULL when parent deleted
+- [x] `on_delete="protect"` - Raise error if related exist
+- [x] `on_delete="none"` - Do nothing (default)
+- [x] `CascadeOptions` for fine-grained control (on_save, on_delete, on_orphan, on_merge)
+- [x] `CascadeOptions.all()`, `.delete_only()`, `.delete_orphan()`, `.save_only()` presets
+- [x] `CascadeManager` for executing cascades
+- [x] `ProtectedDeleteError` for protected relationships
+- [x] Hooked into `Table.delete()` and `Table.save()`
+- [x] Orphan handling in `SyncedList` and `ManyToManyCollection`
 
 ```python
+# PyNext - Simpler than SQLAlchemy!
 class User(Table):
-    posts: List[Post] = has_many(
-        Post, 
-        cascade="all, delete-orphan"  # Delete posts when user deleted
-    )
-    profile: Profile = has_one(
-        Profile,
-        cascade="all, delete-orphan"  # Delete profile too
-    )
-
-# Now deletion cascades automatically
-await user.delete()  # Also deletes all posts and profile
-```
-
-**7.5 Custom Join Conditions**
-- [ ] `primaryjoin` for custom join expressions
-- [ ] `secondaryjoin` for many-to-many custom joins
-- [ ] Support for non-foreign-key relationships
-- [ ] Filtered relationships (e.g., only active posts)
-
-```python
-class User(Table):
-    # Only load active posts
-    active_posts: List[Post] = has_many(
-        Post,
-        primaryjoin="and_(User.id == Post.author_id, Post.is_active == True)"
-    )
+    # Simple preset - delete posts when user deleted
+    posts: List[Post] = has_many(Post, on_delete="cascade")
     
-    # Load posts from last 30 days
-    recent_posts: List[Post] = has_many(
-        Post,
-        primaryjoin="and_(User.id == Post.author_id, Post.created_at > now() - interval '30 days')"
-    )
+    # Nullify - set FK to NULL (anonymous content)
+    comments: List[Comment] = has_many(Comment, on_delete="nullify")
+    
+    # Protect - cannot delete if has related
+    orders: List[Order] = has_many(Order, on_delete="protect")
+    
+    # Fine-grained control
+    logs: List[Log] = has_many(Log, cascade=CascadeOptions(
+        on_save=True,     # Save logs when user saved
+        on_delete=True,   # Delete logs when user deleted
+        on_orphan=True,   # Delete log when removed from collection
+    ))
 
-class Comment(Table):
-    # Self-referential for replies
-    parent_id: Optional[int] = ForeignKey("Comment")
-    parent: Optional["Comment"] = belongs_to("Comment", foreign_key="parent_id")
-    replies: List["Comment"] = has_many("Comment", foreign_key="parent_id")
+# Usage - just works!
+await user.delete()  # Cascades automatically based on on_delete
+
+# Protect check
+try:
+    await user.delete()
+except ProtectedDeleteError as e:
+    print(f"Cannot delete: has {e.related_count} {e.relationship}")
 ```
 
-**7.6 Self-Referential Relationships**
-- [ ] Parent-child hierarchies (e.g., categories, org charts)
-- [ ] Adjacency list pattern
-- [ ] Path enumeration helpers
-- [ ] Recursive query support
+**7.4.1 Database-Level Cascade Integration** ✅
+- [x] Add `fk_on_delete` attribute to `FieldInfo`
+- [x] Sync relationship `on_delete` to FK field in `TableMeta`
+- [x] Update `PostgresAdapter.create_table()` to generate FK constraints with `ON DELETE`
+- [x] Add error translation for FK violations → `ProtectedDeleteError`
+- [x] Add `get_foreign_keys()` and `has_constraint()` introspection methods
+- [x] Add `add_fk_constraint()`, `alter_fk_on_delete()`, `drop_fk_constraint()` methods
+- [x] Add FK method signatures to base adapter
+- [x] Update `CascadeManager` for hybrid execution (DB handles on_delete)
+- [x] 123 tests for DB-level cascade integration
+- [x] Documentation with FK introspection and migration examples
 
 ```python
-class Category(Table):
+# Same simple code - now with database-level performance!
+class User(Table):
+    posts: List[Post] = has_many(Post, on_delete="cascade")
+
+# PyNext auto-generates PostgreSQL FK constraints:
+# CREATE TABLE "posts" (
+#     "author_id" INTEGER NOT NULL REFERENCES "users"("id") ON DELETE CASCADE
+# )
+
+# Delete 10,000 posts in 1 query instead of 10,001!
+await user.delete()  # Database handles cascade automatically
+
+# Introspect FK constraints
+fks = await adapter.get_foreign_keys("posts")
+# [{"constraint_name": "posts_author_id_fkey", "on_delete": "CASCADE", ...}]
+
+# Migrate FK constraints
+await adapter.alter_fk_on_delete("posts", "author_id", "SET NULL")
+```
+
+**7.5 Custom Join Conditions** ✅ Complete (488 tests)
+- [x] Condition functions: `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `like`, `ilike`, `is_in`, `not_in`, `is_null`
+- [x] Tuple syntax: `("field", ">=", value)` for SQL-like conditions
+- [x] `filter` parameter on all relationship types (`has_many`, `has_one`, `belongs_to`, `many_to_many`)
+- [x] Date/time helpers: `days_ago`, `hours_ago`, `weeks_ago`, `start_of_today`, etc.
+- [x] Full integration with loading strategies
+- [x] Comprehensive documentation
+
+**Why This is Better Than SQLAlchemy:**
+```python
+# SQLAlchemy (string-based, error-prone, no IDE help):
+class User(Base):
+    active_posts = relationship(
+        "Post",
+        primaryjoin="and_(User.id == Post.author_id, Post.is_active == true())"
+    )
+
+# PyNext (type-safe, IDE autocomplete, two syntaxes):
+from pynext.db import eq, gte, days_ago
+
+class User(Table):
+    # Function syntax (IDE autocomplete)
+    active_posts: List[Post] = has_many(Post, filter=[
+        eq("is_active", True)
+    ])
+    
+    # Tuple syntax (SQL-like)
+    recent_posts: List[Post] = has_many(Post, filter=[
+        ("created_at", ">=", days_ago(30))
+    ])
+    
+    # Mix both + multiple conditions
+    trending: List[Post] = has_many(Post, filter=[
+        eq("is_active", True),
+        ("views", ">=", 100),
+        gte("created_at", days_ago(7))
+    ])
+```
+
+**Files:**
+- `pynext/db/relationships/conditions.py` — Condition class and functions
+- `pynext/db/relationships/filter.py` — RelationshipFilter class
+- `pynext/db/relationships/helpers.py` — Date/time helper functions
+- `docs/database/17-custom-join-conditions.md` — Comprehensive documentation
+
+**7.6 Self-Referential Relationships** ✅ COMPLETE (315 tests)
+- [x] Parent-child hierarchies (e.g., categories, org charts)
+- [x] Adjacency list pattern with auto-detection
+- [x] Path enumeration helpers (path, path_ids)
+- [x] Recursive query support (CTE for PostgreSQL, app-level fallback)
+- [x] TreeMixin with all tree traversal methods
+- [x] Move operations with cycle prevention
+
+```python
+from pynext.db import Table, TreeMixin
+
+class Category(Table, TreeMixin):
     name: str
-    parent_id: Optional[int] = ForeignKey("Category")
+    parent_id: Optional[int]  # Auto-detected as self-referential
     
-    parent: Optional["Category"] = belongs_to("Category")
-    children: List["Category"] = has_many("Category", foreign_key="parent_id")
+    # All these methods are now available:
+    # Sync properties:
+    # - is_root: bool
+    # - path: str ("Electronics/Computers/Laptops")
+    # - path_ids: List[int]
     
-    # Helper methods
-    async def ancestors(self) -> List["Category"]:
-        """Get all parent categories up to root."""
-        ...
-    
-    async def descendants(self) -> List["Category"]:
-        """Get all child categories recursively."""
-        ...
-    
-    @property
-    def path(self) -> str:
-        """Get path like 'Electronics/Computers/Laptops'."""
-        ...
+    # Async methods:
+    # - ancestors() -> List[Category]
+    # - descendants() -> List[Category]
+    # - root() -> Category
+    # - depth() -> int
+    # - is_leaf() -> bool
+    # - siblings() -> List[Category]
+    # - subtree() -> List[Category]
+    # - children() -> List[Category]
+    # - parent() -> Optional[Category]
+    # - move_to(new_parent) -> None
+    # - make_root() -> None
 ```
 
-**7.7 Polymorphic Relationships**
-- [ ] Single table inheritance
-- [ ] Joined table inheritance
-- [ ] Concrete table inheritance
-- [ ] Generic foreign keys
+**Files:**
+- `pynext/db/relationships/tree.py` — TreeMixin class with all tree methods
+- `pynext/db/relationships/tree_query.py` — CTE query builders for PostgreSQL
+- `docs/database/18-self-referential.md` — Comprehensive documentation
+
+**7.7 Polymorphic Relationships** ✅
+- [x] Single table inheritance with `@polymorphic("type")` decorator
+- [x] Joined table inheritance with `strategy="joined"`
+- [x] Concrete table inheritance with `strategy="concrete"`
+- [x] Generic foreign keys with `Union[A, B, C] = generic_fk()`
+- [x] Automatic type inference from discriminator values
+- [x] `without_polymorphism()` for explicit control
+- [x] `where_target_type()` for generic FK filtering
 
 ```python
+from pynext.db.polymorphic import polymorphic, generic_fk
+from typing import Union
+
+# Single Table Inheritance (default)
+@polymorphic("type")
 class Content(Table):
-    __polymorphic_on__ = "type"
-    type: str
     title: str
 
+@polymorphic.subtype("article")
 class Article(Content):
-    __polymorphic_identity__ = "article"
     body: str
 
+@polymorphic.subtype("video")
 class Video(Content):
-    __polymorphic_identity__ = "video"
     url: str
     duration: int
 
-# Query returns mixed types
+# Automatic type inference
 contents = await Content.all()  # [Article(...), Video(...), ...]
-
-# Type-specific queries
 articles = await Article.all()  # Only articles
+
+# Generic Foreign Keys
+class Comment(Table):
+    content: str
+    target: Union[Article, Video, Photo] = generic_fk()
+
+comment = await Comment.create(content="Great!", target=article)
+target = await comment.target  # Returns Article, Video, or Photo
 ```
 
-**7.8 Relationship Events/Hooks**
-- [ ] `@on_append` - When item added to collection
-- [ ] `@on_remove` - When item removed from collection
-- [ ] `@on_set` - When scalar relationship set
-- [ ] `@before_delete` - Before cascade delete
+**Files Created:**
+- `pynext/db/polymorphic/__init__.py` — Package exports
+- `pynext/db/polymorphic/base.py` — `@polymorphic` and `@polymorphic.subtype` decorators
+- `pynext/db/polymorphic/registry.py` — Type registry for polymorphic models
+- `pynext/db/polymorphic/strategies.py` — STI, Joined, Concrete strategies
+- `pynext/db/polymorphic/generic_fk.py` — Union-type generic foreign keys
+- `pynext/db/polymorphic/query.py` — Query extensions for polymorphic
+- `docs/database/19-polymorphic.md` — Comprehensive documentation
+
+**Test Coverage:** 438 tests across 15 test files:
+- `test_poly_sti_basic.py`, `test_poly_sti_queries.py`, `test_poly_sti_advanced.py`
+- `test_poly_joined_basic.py`, `test_poly_joined_queries.py`
+- `test_poly_concrete_basic.py`, `test_poly_concrete_queries.py`
+- `test_poly_generic_fk.py`, `test_poly_gfk_advanced.py`
+- `test_poly_registry.py`, `test_poly_query.py`, `test_poly_edge_cases.py`
+- `test_poly_integration.py`, `test_poly_patterns.py`, `test_poly_sql.py`
+- `test_poly_strategy.py`, `test_poly_type_checking.py`
+- `test_poly_instantiation.py`, `test_poly_decorator.py`, `test_poly_advanced.py`
+
+**7.8 Relationship Events/Hooks** ✅ COMPLETE
+- [x] `@on_append` - When item added to collection
+- [x] `@on_remove` - When item removed from collection
+- [x] `@on_set` - When scalar relationship set
+- [x] `@before_delete` - Before cascade delete
 
 ```python
 class User(Table):
     posts: List[Post] = has_many(Post)
+    profile: Profile = has_one(Profile)
     
-    @posts.on_append
+    @on_append("posts")
     def on_post_added(self, post: Post):
         """Called when a post is added to user.posts."""
         send_notification(f"New post by {self.name}")
     
-    @posts.on_remove
+    @on_remove("posts")
     def on_post_removed(self, post: Post):
         """Called when a post is removed."""
         log_audit(f"Post {post.id} removed from {self.name}")
+    
+    @on_set("profile")
+    def on_profile_changed(self, old_profile: Profile, new_profile: Profile):
+        """Called when profile is set or changed."""
+        if old_profile and new_profile:
+            log_audit(f"Profile changed")
+    
+    @before_delete()
+    def cleanup(self):
+        """Called before cascade delete starts."""
+        archive_user_data(self)
 ```
 
-**7.9 Association Proxy**
-- [ ] Access attributes through relationships
-- [ ] Simplify many-to-many access
-- [ ] Scalar and collection proxies
+**Implementation Files:**
+- `pynext/db/relationships/hooks.py` - Core decorators and HookRegistry
+- `pynext/db/relationships/hook_executor.py` - Synchronous hook execution
+- `docs/database/20-relationship-hooks.md` - Comprehensive documentation
+
+**Tests (249 tests):**
+- `test_hook_on_append.py` - on_append hook tests
+- `test_hook_on_remove.py` - on_remove hook tests  
+- `test_hook_on_set.py` - on_set hook tests
+- `test_hook_before_delete.py` - before_delete hook tests
+- `test_hook_registry.py` - HookRegistry tests
+- `test_hook_execution.py` - Execution order and error handling tests
+- `test_hook_edge_cases.py` - Edge cases and inheritance tests
+- `test_hook_integration.py` - Real-world pattern tests
+
+**7.9 Association Proxy** ✅
+- [x] Access attributes through relationships
+- [x] Simplify many-to-many access
+- [x] Scalar and collection proxies
+- [x] Dot-notation path traversal
+- [x] Creator functions for mutations
+- [x] Auto-detect scalar vs collection
+- [x] 323 comprehensive tests
 
 ```python
 class User(Table):
@@ -979,16 +1149,51 @@ class User(Table):
     
     # Access courses directly
     courses: List[Course] = association_proxy("enrollments", "course")
+    
+    # With creator for adding
+    courses_with_add: List[Course] = association_proxy(
+        "enrollments",
+        "course",
+        creator=lambda c: Enrollment(course=c)
+    )
+
+class Post(Table):
+    author: User = belongs_to(User, "author_id")
+    
+    # Scalar proxy - returns single value, not list!
+    author_name: str = association_proxy("author", "name")
 
 # Usage
 user.course_names  # ["Math", "Physics", "Chemistry"]
 user.courses       # [Course(...), Course(...), ...]
+post.author_name   # "Alice" (string, not list)
 ```
 
-**7.10 Relationship Ordering**
-- [ ] Default ordering on relationships
-- [ ] Multiple order columns
-- [ ] Ascending/descending
+**Files Created:**
+- `pynext/db/relationships/association_proxy.py` - Core implementation
+- `docs/database/21-association-proxy.md` - Comprehensive documentation
+
+**Test Files (323 tests):**
+- `test_assoc_proxy_basic.py` - Basic proxy functionality
+- `test_assoc_proxy_collection.py` - Collection operations
+- `test_assoc_proxy_scalar.py` - Scalar proxy behavior
+- `test_assoc_proxy_nested.py` - Nested path traversal
+- `test_assoc_proxy_creator.py` - Creator functions
+- `test_assoc_proxy_m2m.py` - Many-to-many integration
+- `test_assoc_proxy_belongs_to.py` - belongs_to/has_one proxies
+- `test_assoc_proxy_caching.py` - Caching behavior
+- `test_assoc_proxy_edge_cases.py` - Edge cases
+- `test_assoc_proxy_integration.py` - Real-world patterns
+
+**7.10 Relationship Ordering** ✅
+- [x] Default ordering on relationships
+- [x] Multiple order columns
+- [x] Ascending/descending
+- [x] NULLS FIRST/LAST support
+- [x] Query-time ordering override
+- [x] OrderSpec class and OrderingConfig
+- [x] Integration with has_many and many_to_many
+- [x] SQL generation with table aliases
 
 ```python
 class User(Table):
@@ -1003,7 +1208,25 @@ class User(Table):
         Comment,
         order_by=["pinned desc", "created_at desc"]
     )
+    
+    # NULLS handling
+    tasks: List[Task] = has_many(
+        Task,
+        order_by=["priority desc nulls first", "due_date nulls last"]
+    )
 ```
+
+**Test Files (382 tests):**
+- `test_order_spec.py` - OrderSpec parsing and validation
+- `test_order_has_many.py` - has_many with ordering
+- `test_order_m2m.py` - many_to_many ordering
+- `test_order_eager_load.py` - Eager loading with ordering
+- `test_order_multiple.py` - Multiple order columns
+- `test_order_direction.py` - asc/desc handling
+- `test_order_nulls.py` - NULLS FIRST/LAST
+- `test_order_override.py` - Query-time override
+- `test_order_edge_cases.py` - Edge cases
+- `test_order_integration.py` - Real-world patterns
 
 **Files to Create/Modify:**
 ```
@@ -1034,10 +1257,10 @@ pynext/db/
 | 7.1 Backref | 80 | Sync, cycles, deletion |
 | 7.2 Loading strategies | 120 | All 6 strategies, nested |
 | 7.3 Many-to-many | 100 | Through, extra cols, proxy |
-| 7.4 Cascade | 80 | All cascade types, combinations |
+| 7.4 Cascade | 601 | All cascade types, combinations, patterns ✅ |
 | 7.5 Custom joins | 80 | Expressions, filters, complex |
-| 7.6 Self-referential | 80 | Hierarchies, recursion |
-| 7.7 Polymorphic | 100 | All 3 inheritance patterns |
+| 7.6 Self-referential | 315 | Hierarchies, recursion, CTE, app-level |
+| 7.7 Polymorphic | 438 | STI, Joined, Concrete, Generic FK |
 | 7.8 Events | 60 | All event types |
 | 7.9 Association proxy | 50 | Scalar, collection |
 | 7.10 Ordering | 50 | Single, multiple, desc |
@@ -1082,6 +1305,577 @@ pynext/db/
 
 ---
 
+##### Phase 8: Query System & Go Bridge (1700+ tests)
+
+A revolutionary database layer: Go-powered query engine with Python's simplicity. True parallelism via embedded Go runtime, zero-copy data transfer via Apache Arrow, and enterprise-grade features.
+
+**Architecture:**
+```
+┌─────────────────────────────────────────────────────────────┐
+│                        PYTHON LAYER                         │
+│  • Query building (AST)           • Model definitions       │
+│  • Result mapping to objects      • Migrations              │
+│  • L1 Cache (app-level, Redis)    • Error handling          │
+└─────────────────────────┬───────────────────────────────────┘
+                          │ Apache Arrow (zero-copy)
+                          ▼
+┌─────────────────────────────────────────────────────────────┐
+│                         GO LAYER                            │
+│  • Query optimization             • Query execution         │
+│  • Connection pooling             • L2 Cache (results)      │
+│  • Replica routing                • Health monitoring       │
+│  • Timeouts & retries             • True parallelism        │
+└─────────────────────────┬───────────────────────────────────┘
+                          │
+                          ▼
+┌─────────────────────────────────────────────────────────────┐
+│                       DATABASES                             │
+│  Primary │ Replica 1 │ Replica 2 │ Analytics │ Shards      │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**8.1 Go Bridge Core**
+- [ ] Go shared library (.so/.dylib/.dll) for Linux/macOS/Windows
+- [ ] Apache Arrow data format (zero-copy Python↔Go)
+- [ ] Connection pool management (Go owns all connections)
+- [ ] Lazy startup with optional `pynext.warmup()`
+- [ ] Auto cleanup + explicit `pynext.close()`
+- [ ] Python fallback when Go unavailable
+
+```python
+# Embedded Go runtime - pip install just works
+import pynext  # Go bridge starts lazily on first query
+
+# Optional warmup for production
+await pynext.warmup()
+
+# Configuration
+pynext.config(
+    primary="postgres://...",
+    replicas=["postgres://replica1...", "postgres://replica2..."],
+    pool_size=50,
+)
+```
+
+**8.2 Query Builder Core**
+- [ ] Query AST builder (Python)
+- [ ] Query optimizer (Go)
+- [ ] SQL generator (Go)
+- [ ] Prepared statement auto-caching (threshold configurable)
+- [ ] Query complexity limits (configurable)
+- [ ] SQL injection prevention (strict mode)
+
+```python
+# Dead simple API - NO __ pattern!
+
+# Three ways to query (all work together):
+
+# 1. Tuple syntax (explicit operators)
+users = User.q(("age", ">", 18), ("status", "=", "active"))
+
+# 2. SQL string (familiar to SQL users)
+users = User.q("age > 18 AND status = 'active'")
+
+# 3. Condition functions (type-safe)
+users = User.q(gt("age", 18), eq("status", "active"))
+
+# Chainable for complex queries
+users = (User.q(("age", ">", 18))
+         .include("posts", "comments")
+         .order("-created_at")
+         .page(1, per_page=20))
+
+# Join through relationships (dot notation)
+posts = Post.q(("author.age", ">", 18))
+```
+
+**8.3 DataFrame Integration**
+- [ ] Arrow table result wrapper
+- [ ] Pandas integration (pyarrow backend)
+- [ ] Polars integration (native Arrow)
+- [ ] NumPy array conversion
+- [ ] Dict/list serialization
+
+```python
+# Zero-copy via Apache Arrow:
+df = User.q("age > 18").to_pandas()
+pl_df = User.q("age > 18").to_polars()
+arr = User.q("age > 18").to_numpy()
+records = User.q("age > 18").to_dicts()
+data = User.q("age > 18").to_list()
+```
+
+**8.4 Read Replicas & Smart Routing**
+- [ ] Replica configuration (named, tagged, geographic)
+- [ ] Smart routing (read/write detection)
+- [ ] Round-robin, least-connections, geographic routing
+- [ ] Replica health monitoring
+- [ ] Automatic failover
+- [ ] Replication lag awareness
+
+```python
+# Configuration
+pynext.config(
+    primary="postgres://primary...",
+    replicas=[
+        {"url": "postgres://replica1...", "name": "us-east-1", "tags": ["fast"]},
+        {"url": "postgres://replica2...", "name": "us-west-2", "tags": ["analytics"]},
+    ],
+    routing="smart"  # or "round_robin", "least_connections"
+)
+
+# Automatic routing (default)
+User.q().all()  # Reads → replica, writes → primary
+
+# Explicit routing
+User.q().replica("us-east-1").all()
+User.q().replica(tags=["analytics"]).all()
+User.q().replica("nearest").all()  # Geographic
+User.q().primary().all()  # Force primary
+```
+
+**8.5 Two-Tier Caching**
+- [ ] Go-level result cache (L2)
+- [ ] Python-level cache interface (L1)
+- [ ] Redis backend support
+- [ ] In-memory backend
+- [ ] TTL management
+- [ ] Cache invalidation
+
+```python
+# L1: Python/Redis (app-level, shared)
+# L2: Go (query results, fast)
+
+User.q(id=1).cache(ttl=60)  # Cache for 60s
+User.q("status = 'active'").cache("active_users", ttl=300)
+
+pynext.config(cache_backend="redis://localhost:6379")
+```
+
+**8.6 REST/API Response Formatting**
+- [ ] Offset pagination
+- [ ] Cursor-based pagination
+- [ ] Streaming large results
+- [ ] JSON serialization
+- [ ] Response metadata
+- [ ] Framework integrations (FastAPI, Flask)
+
+```python
+# Pagination
+users = User.q().page(1, per_page=20)
+# Returns: {"data": [...], "meta": {"page": 1, "total": 100, "pages": 5}}
+
+# Cursor-based (for large datasets)
+users = User.q().cursor(after="abc123", limit=20)
+
+# Streaming (millions of rows)
+async for batch in User.q().stream(batch_size=1000):
+    process(batch)
+
+# Direct JSON response
+return User.q().page(1).to_response()  # FastAPI/Flask ready
+```
+
+**8.7 Live Queries & Server Actions**
+- [ ] Query subscription (WebSocket)
+- [ ] Change detection
+- [ ] Server action decorator
+- [ ] Frontend SDK generation
+- [ ] Optimistic updates
+
+```python
+# WebSocket subscription
+@app.websocket("/users")
+async def user_updates(ws):
+    async for change in User.subscribe("status = 'active'"):
+        await ws.send(change.to_json())
+
+# Server Actions (callable from frontend)
+@server_action
+async def get_users(age_min: int):
+    return User.q(("age", ">", age_min)).all()
+
+# Frontend calls directly:
+# const users = await serverActions.get_users({ age_min: 18 })
+```
+
+**8.8 Batch Operations**
+- [ ] Bulk insert (COPY protocol)
+- [ ] Bulk update
+- [ ] Bulk delete
+- [ ] Upsert/merge
+- [ ] DataFrame input support
+- [ ] Batch size configuration
+
+```python
+# Bulk insert from DataFrame
+User.bulk_insert(df)  # From pandas
+User.bulk_insert(records)  # From dicts
+
+# Bulk update
+User.q("status = 'old'").update(status="archived")
+
+# Bulk delete
+User.q("created_at < '2020-01-01'").delete()
+
+# Upsert
+User.bulk_upsert(records, conflict_keys=["email"])
+```
+
+**8.9 Transactions**
+- [ ] Transaction context manager
+- [ ] Transaction decorator
+- [ ] Savepoints
+- [ ] Isolation levels
+- [ ] Deadlock detection
+- [ ] Transaction timeout
+
+```python
+# Context manager
+async with db.transaction() as tx:
+    user = User.create(name="John")
+    Post.create(author=user, title="Hello")
+    # Auto-commit on exit, rollback on exception
+
+# Decorator
+@transactional
+async def create_user_with_posts(name, posts):
+    user = User.create(name=name)
+    for p in posts:
+        Post.create(author=user, **p)
+    return user
+
+# Savepoints
+async with db.transaction() as tx:
+    User.create(name="A")
+    async with tx.savepoint():
+        User.create(name="B")
+        raise ValueError()  # Only B rolls back
+    User.create(name="C")  # A and C commit
+```
+
+**Async/Sync Strategy:**
+```python
+# Auto-detect context - SAME API works everywhere:
+user = User.get(1)  # Works in sync AND async contexts!
+
+# Framework detects:
+# - In FastAPI route? → async
+# - In script? → sync
+# - In Celery task? → sync
+
+# Explicit override when needed:
+user = User.get(1, mode="sync")   # Force sync
+user = User.get(1, mode="async")  # Force async
+```
+
+**Error Handling:**
+```python
+# Default: Exceptions (familiar to Python devs)
+user = User.get(1)  # Raises UserNotFoundError if not found
+
+# Safe mode: Result type
+result = User.get(1, safe=True)
+# Returns: Ok(user) or Err(UserNotFoundError)
+
+match result:
+    case Ok(user):
+        print(user.name)
+    case Err(e):
+        print(f"Error: {e}")
+```
+
+---
+
+##### Phase 9: Observability & Operations (200+ tests)
+
+Production-ready monitoring, tracing, and health checks.
+
+**9.1 Comprehensive Metrics**
+- [ ] Query metrics (count, latency histograms)
+- [ ] Connection pool metrics
+- [ ] Cache metrics (L1/L2 hit rates)
+- [ ] Replica metrics (queries, lag)
+- [ ] Error tracking
+- [ ] Prometheus exporter
+- [ ] Grafana dashboards
+
+```python
+metrics = db.metrics()
+# Returns:
+{
+    "queries": {
+        "total": 150000,
+        "per_second": 250,
+        "latency_p50_ms": 2,
+        "latency_p95_ms": 15,
+        "latency_p99_ms": 45,
+        "errors": 12
+    },
+    "connections": {
+        "active": 20,
+        "idle": 30,
+        "max": 50
+    },
+    "cache": {
+        "l1_hits": 5000,
+        "l2_hits": 8000,
+        "hit_rate": 0.92
+    },
+    "replicas": {
+        "replica-1": {"queries": 50000, "lag_ms": 10},
+        "replica-2": {"queries": 48000, "lag_ms": 15}
+    }
+}
+
+# Prometheus export
+@app.get("/metrics")
+def metrics():
+    return db.metrics_prometheus()
+```
+
+**9.2 Distributed Tracing**
+- [ ] OpenTelemetry integration
+- [ ] Span creation (Python → Go → DB)
+- [ ] Context propagation
+- [ ] Jaeger/Zipkin export
+- [ ] Query attribution
+- [ ] Sampling configuration
+
+```python
+# Automatic tracing
+pynext.config(tracing=True, service_name="my-app")
+
+# Trace: Python → Go → Database
+# Each span shows:
+# - Query text (parameterized)
+# - Execution time
+# - Rows affected
+# - Connection used
+# - Replica selected
+
+# Custom spans
+with db.trace("complex_operation"):
+    users = User.q().all()
+    posts = Post.q().all()
+```
+
+**9.3 Query Logging**
+- [ ] Slow query logging (configurable threshold)
+- [ ] Query analysis (EXPLAIN)
+- [ ] Query pattern detection
+- [ ] Index suggestions
+- [ ] Custom handlers/alerts
+
+```python
+pynext.config(
+    slow_query_threshold_ms=100,  # Log queries >100ms
+    log_all_queries=False,        # Or log everything (dev)
+    query_log_format="json"       # or "text"
+)
+
+# Custom slow query handler
+@pynext.on_slow_query
+def handle_slow(query_info):
+    alert_team(query_info)
+
+# Query analysis
+analysis = db.analyze_query("SELECT * FROM users WHERE...")
+# Returns: execution plan, index usage, suggestions
+```
+
+**9.4 Health Checks**
+- [ ] Health check API
+- [ ] Primary/replica status
+- [ ] Connection pool status
+- [ ] Go bridge status
+- [ ] Kubernetes probe helpers
+
+```python
+# Detailed health
+health = db.health()
+# Returns:
+{
+    "status": "healthy",  # or "degraded" or "unhealthy"
+    "primary": {"status": "ok", "latency_ms": 2},
+    "replicas": {
+        "replica-1": {"status": "ok", "lag_ms": 50},
+        "replica-2": {"status": "degraded", "lag_ms": 2000}
+    },
+    "go_bridge": {"status": "ok", "goroutines": 12}
+}
+
+# Quick checks for load balancers
+db.is_healthy()  # bool
+db.is_ready()    # bool
+
+# Kubernetes probes
+@app.get("/health/live")
+def liveness():
+    return {"status": "ok"}
+
+@app.get("/health/ready")  
+def readiness():
+    return db.health()
+```
+
+---
+
+##### Phase 10: Multi-Tenancy & Scaling (200+ tests)
+
+Enterprise-ready multi-tenant support with flexible isolation strategies. Perfect for SaaS, CRMs, and white-label platforms.
+
+**10.1 Tenant Strategies**
+- [ ] Row-level isolation (WHERE tenant_id = X)
+- [ ] Schema-level isolation (separate schemas)
+- [ ] Database-level isolation (separate databases)
+- [ ] Mixed strategy support (by tier)
+- [ ] Tenant context propagation
+- [ ] Cross-tenant queries (admin)
+
+```python
+# Row-level (shared everything) - for small tenants
+pynext.config(
+    tenant_strategy="row_level",
+    tenant_column="tenant_id"
+)
+# All queries get: WHERE tenant_id = 'current'
+
+# Schema-level (separate schemas) - for medium tenants
+pynext.config(tenant_strategy="schema")
+# Queries go to: tenant_schema.users
+
+# Database-level (separate databases) - for enterprise
+pynext.config(tenant_strategy="database")
+# Connects to: tenant_database
+
+# Mixed strategies by tier
+pynext.config(tenant_strategy={
+    "free": "row_level",
+    "pro": "schema",
+    "enterprise": "database"
+})
+
+# Tenant context
+@app.middleware
+def add_tenant(request):
+    tenant_id = get_tenant_from_token(request)
+    pynext.set_tenant(tenant_id)
+
+# Queries automatically scoped
+users = User.q().all()  # Only current tenant's users
+
+# Admin: cross-tenant query
+users = User.q().all_tenants()
+```
+
+**10.2 Tenant Upgrades**
+- [ ] Row → Schema migration
+- [ ] Schema → Database migration
+- [ ] Background migration worker
+- [ ] Zero-downtime cutover
+- [ ] Rollback support
+
+```python
+# Upgrade tenant from row_level to schema
+await tenant.upgrade_to("schema")
+
+# Upgrade to dedicated database
+await tenant.upgrade_to("database")
+
+# Migration runs in background, zero downtime
+status = await tenant.upgrade_status()
+# {"progress": 75, "eta_seconds": 120}
+```
+
+**10.3 Sharding Support**
+- [ ] Hash-based sharding
+- [ ] Range-based sharding
+- [ ] Lookup table sharding
+- [ ] Shard routing
+- [ ] Cross-shard queries (scatter-gather)
+- [ ] Shard rebalancing
+
+```python
+pynext.config(
+    sharding={
+        "strategy": "hash",  # or "range", "lookup"
+        "key": "user_id",
+        "shards": [
+            "postgres://shard1...",
+            "postgres://shard2...",
+            "postgres://shard3...",
+        ]
+    }
+)
+
+# Automatic routing
+User.q(user_id=123).all()  # Routes to correct shard
+
+# Cross-shard queries (when needed)
+User.q().all_shards().all()  # Scatter-gather
+```
+
+**10.4 Rate Limiting & Quotas**
+- [ ] Query rate limiting per tenant
+- [ ] Connection quotas per tenant
+- [ ] Query timeout enforcement
+- [ ] Complexity scoring
+- [ ] Quota exceeded handling
+
+```python
+pynext.config(
+    rate_limits={
+        "free": {"queries_per_second": 10, "connections": 5},
+        "pro": {"queries_per_second": 100, "connections": 20},
+        "enterprise": {"queries_per_second": 1000, "connections": 50},
+    }
+)
+
+# Per-query timeout
+User.q().timeout(5000).all()  # 5 second timeout
+
+# Global defaults
+pynext.config(
+    default_query_timeout_ms=30000,
+    max_query_complexity=100
+)
+```
+
+---
+
+**Phase 8-10 Integration with Phase 7:**
+
+| Phase 7 Feature | Query System Integration |
+|-----------------|--------------------------|
+| 7.1-7.3 M2M | Query builder supports M2M joins via dot notation |
+| 7.4 Cascades | Batch operations respect cascade rules |
+| 7.5 Filters | Query builder uses same filter syntax |
+| 7.6 Trees | Hierarchical queries via `User.ancestors()` |
+| 7.7 Polymorphic | Query across polymorphic types |
+| 7.8 Hooks | All operations fire appropriate hooks |
+| 7.9 Proxies | Query through association proxies |
+| 7.10 Ordering | Query builder uses same `order()` syntax |
+
+**Test Targets:**
+
+| Sub-Phase | Tests |
+|-----------|-------|
+| 8.1 Go Bridge | 200+ |
+| 8.2 Query Builder | 300+ |
+| 8.3 DataFrame | 100+ |
+| 8.4 Replicas | 150+ |
+| 8.5 Caching | 100+ |
+| 8.6 REST/API | 100+ |
+| 8.7 Live Queries | 150+ |
+| 8.8 Batch Ops | 100+ |
+| 8.9 Transactions | 100+ |
+| 9.x Observability | 200+ |
+| 10.x Multi-tenant | 200+ |
+| **Total** | **1700+** |
+
+---
+
 ### React Feature Parity (SolidJS Principles)
 
 Achieve everything React can do, but faster, simpler, and more Pythonic - using SolidJS's fine-grained reactivity instead of React's virtual DOM and hooks.
@@ -1099,9 +1893,9 @@ Achieve everything React can do, but faster, simpler, and more Pythonic - using 
 
 ---
 
-#### Phase 8: Core Reactivity (Target: 400+ tests)
+#### Phase 11: Core Reactivity (Target: 400+ tests)
 
-**8.1 Signals (React's useState equivalent)**
+**11.1 Signals (React's useState equivalent)**
 - [x] `Signal(initial)` - Reactive primitive (ALREADY IMPLEMENTED)
 - [ ] `signal()` - Shorthand factory function
 - [ ] Batch updates with `batch()`
@@ -1129,7 +1923,7 @@ def reset():
     ])
 ```
 
-**8.2 Computed/Derived State (React's useMemo)**
+**11.2 Computed/Derived State (React's useMemo)**
 - [x] `Computed(fn)` - Auto-tracking derived values (ALREADY IMPLEMENTED)
 - [ ] `memo(fn)` - Shorthand alias
 - [ ] Lazy evaluation option
@@ -1149,7 +1943,7 @@ def Profile():
     return div(f"Hello, {full_name()}")  # Updates automatically
 ```
 
-**8.3 Effects (React's useEffect)**
+**11.3 Effects (React's useEffect)**
 - [x] `Effect(fn)` - Run side effects when dependencies change (ALREADY IMPLEMENTED)
 - [ ] `on_mount(fn)` - Run once on mount (like useEffect(fn, []))
 - [ ] `on_cleanup(fn)` - Cleanup when component unmounts
@@ -1175,7 +1969,7 @@ def SearchResults():
     return ul(For(results, lambda r: li(r.title)))
 ```
 
-**8.4 Resources (React's data fetching patterns)**
+**11.4 Resources (React's data fetching patterns)**
 - [ ] `Resource(fetcher)` - Async data with loading/error states
 - [ ] `resource.loading` - Boolean loading state
 - [ ] `resource.error` - Error if failed
@@ -1204,9 +1998,9 @@ def UserProfile():
 
 ---
 
-#### Phase 9: Component Patterns (Target: 300+ tests)
+#### Phase 12: Component Patterns (Target: 300+ tests)
 
-**9.1 Context (React's useContext)**
+**12.1 Context (React's useContext)**
 - [ ] `create_context(default)` - Create a context
 - [ ] `Provider(value=...)` - Provide value to descendants
 - [ ] `use_context(ctx)` - Read context value (reactive!)
@@ -1240,7 +2034,7 @@ def Dashboard():
     )
 ```
 
-**9.2 Error Boundaries (React's componentDidCatch)**
+**12.2 Error Boundaries (React's componentDidCatch)**
 - [ ] `ErrorBoundary(fallback=...)` - Catch errors in children
 - [ ] `fallback` receives error and reset function
 - [ ] Nested error boundaries
@@ -1260,7 +2054,7 @@ def App():
     )
 ```
 
-**9.3 Suspense (React's Suspense)**
+**12.3 Suspense (React's Suspense)**
 - [x] `Suspense(fallback=...)` - Show fallback while loading (PARTIALLY IMPLEMENTED)
 - [ ] Nested suspense boundaries
 - [ ] `SuspenseList` for coordinated loading
@@ -1282,7 +2076,7 @@ def Dashboard():
     )
 ```
 
-**9.4 Portals (React's createPortal)**
+**12.4 Portals (React's createPortal)**
 - [ ] `Portal(mount=selector)` - Render children elsewhere in DOM
 - [ ] Default mount to document.body
 - [ ] Event bubbling through portal
@@ -1311,7 +2105,7 @@ def Modal():
     )
 ```
 
-**9.5 Refs (React's useRef)**
+**12.5 Refs (React's useRef)**
 - [ ] `ref=` attribute for DOM element access
 - [ ] `Ref()` for mutable values that don't trigger updates
 - [ ] Forward refs through components
@@ -1337,9 +2131,9 @@ def FancyInput(ref=None):
 
 ---
 
-#### Phase 10: Control Flow (Target: 200+ tests)
+#### Phase 13: Control Flow (Target: 200+ tests)
 
-**10.1 Conditional Rendering**
+**13.1 Conditional Rendering**
 - [x] `Show(when, children)` - Conditional render (ALREADY IMPLEMENTED)
 - [ ] `Show(when, children, fallback=...)` - With else branch
 - [ ] `Switch/Match` - Multiple conditions
@@ -1358,7 +2152,7 @@ def StatusDisplay():
     )
 ```
 
-**10.2 List Rendering**
+**13.2 List Rendering**
 - [x] `For(items, render)` - Efficient list rendering (ALREADY IMPLEMENTED)
 - [ ] `Index(items, render)` - When index matters more than identity
 - [ ] Keyed vs non-keyed rendering
@@ -1382,7 +2176,7 @@ def ItemList():
     )
 ```
 
-**10.3 Dynamic Components**
+**13.3 Dynamic Components**
 - [ ] `Dynamic(component=...)` - Render component dynamically
 - [ ] Props spreading
 
@@ -1403,9 +2197,9 @@ def App():
 
 ---
 
-#### Phase 11: Advanced Patterns (Target: 300+ tests)
+#### Phase 14: Advanced Patterns (Target: 300+ tests)
 
-**11.1 Stores (Complex State)**
+**14.1 Stores (Complex State)**
 - [ ] `Store(initial)` - Nested reactive objects
 - [ ] `store.path.to.value` - Deep reactivity
 - [ ] `produce(store, fn)` - Immer-style updates
@@ -1431,7 +2225,7 @@ def Settings():
     )
 ```
 
-**11.2 Transitions (Concurrent UI)**
+**14.2 Transitions (Concurrent UI)**
 - [ ] `start_transition(fn)` - Mark updates as non-urgent
 - [ ] `use_transition()` - Get pending state
 - [ ] Keep old UI while new one loads
@@ -1454,7 +2248,7 @@ def TabContainer():
     )
 ```
 
-**11.3 Deferred Values**
+**14.3 Deferred Values**
 - [ ] `deferred(signal)` - Lag behind for expensive renders
 - [ ] `deferred(signal, timeout_ms=)` - With timeout
 
@@ -1472,7 +2266,7 @@ def Search():
     )
 ```
 
-**11.4 Streaming & Progressive Rendering**
+**14.4 Streaming & Progressive Rendering**
 - [x] Streaming HTML (ALREADY IMPLEMENTED)
 - [ ] Progressive hydration
 - [ ] Selective hydration based on visibility
@@ -1480,20 +2274,20 @@ def Search():
 
 ---
 
-#### Phase 12: Developer Experience (Target: 200+ tests)
+#### Phase 15: Developer Experience (Target: 200+ tests)
 
-**12.1 DevTools Integration**
+**15.1 DevTools Integration**
 - [ ] Signal inspection in browser devtools
 - [ ] Component tree visualization
 - [ ] Reactivity graph visualization
 - [ ] Time-travel debugging
 
-**12.2 Hot Module Replacement**
+**15.2 Hot Module Replacement**
 - [x] HMR for components (ALREADY IMPLEMENTED)
 - [ ] Preserve signal state across HMR
 - [ ] Component state persistence
 
-**12.3 TypeScript-style Type Hints**
+**15.3 TypeScript-style Type Hints**
 - [ ] Full type inference for signals
 - [ ] Generic Signal[T]
 - [ ] Typed props with dataclass
@@ -1880,9 +2674,9 @@ def LoginPage():
 
 ---
 
-#### Phase 13: Native Authentication (Target: 600+ tests)
+#### Phase 16: Native Authentication (Target: 600+ tests)
 
-**13.1 One-Line Setup**
+**16.1 One-Line Setup**
 - [ ] `Auth.setup(secret=, providers=, session=)` - Configure everything
 - [ ] Auto-generate routes: `/login`, `/logout`, `/register`, `/forgot-password`, `/verify-email`, `/reset-password`
 - [ ] Auto-create database tables if needed
@@ -1909,7 +2703,7 @@ Auth.setup(
 )
 ```
 
-**13.2 Signal-Based Auth State**
+**16.2 Signal-Based Auth State**
 - [ ] `current_user()` - Reactive Signal with user data
 - [ ] `is_authenticated()` - Reactive boolean Signal
 - [ ] `auth_loading()` - Loading state Signal
@@ -1934,7 +2728,7 @@ def Header():
     )
 ```
 
-**13.3 Route Protection**
+**16.3 Route Protection**
 - [ ] `@login_required` - Protect any route
 - [ ] `@login_required(redirect="/login")` - Custom redirect
 - [ ] `@role_required("admin")` - Role-based access
@@ -1967,7 +2761,7 @@ Auth.setup(
 )
 ```
 
-**13.4 Built-In Auth Forms**
+**16.4 Built-In Auth Forms**
 - [ ] `Auth.login_form()` - Complete login form with validation
 - [ ] `Auth.register_form()` - Registration with password strength
 - [ ] `Auth.forgot_password_form()` - Password reset request
@@ -1995,7 +2789,7 @@ def CustomLogin():
     )
 ```
 
-**13.5 OAuth Providers**
+**16.5 OAuth Providers**
 - [ ] Google, GitHub, Apple, Microsoft, Discord, Twitter, Facebook
 - [ ] `Auth.oauth_button("google")` - Styled button
 - [ ] Automatic callback handling
@@ -2026,7 +2820,7 @@ def LoginPage():
     )
 ```
 
-**13.6 Magic Links (Passwordless)**
+**16.6 Magic Links (Passwordless)**
 - [ ] `Auth.send_magic_link(email)` - Send login link
 - [ ] Automatic token generation and validation
 - [ ] Configurable expiry
@@ -2042,7 +2836,7 @@ async def send_link():
     await Auth.send_magic_link(email())
 ```
 
-**13.7 Session Management**
+**16.7 Session Management**
 - [ ] JWT sessions (stateless, scalable) - default
 - [ ] Database sessions (revocable, audit trail)
 - [ ] Redis sessions (fast + revocable)
@@ -2068,7 +2862,7 @@ await Auth.revoke_session(session_id)
 await Auth.revoke_all_sessions(user_id)
 ```
 
-**13.8 Email Verification**
+**16.8 Email Verification**
 - [ ] `Auth.send_verification_email(email)` - Send verification
 - [ ] Auto-generated `/verify-email` route
 - [ ] Configurable expiry
@@ -2085,7 +2879,7 @@ if not current_user().email_verified:
     return redirect("/verify-email")
 ```
 
-**13.9 Password Reset**
+**16.9 Password Reset**
 - [ ] `Auth.send_reset_email(email)` - Send reset link
 - [ ] Auto-generated `/reset-password` route
 - [ ] Secure token with expiry
@@ -2096,7 +2890,7 @@ await Auth.send_reset_email(email)
 await Auth.reset_password(token, new_password)
 ```
 
-**13.10 Two-Factor Authentication (2FA/MFA)**
+**16.10 Two-Factor Authentication (2FA/MFA)**
 - [ ] TOTP support (Google Authenticator, Authy)
 - [ ] SMS codes (optional)
 - [ ] Backup codes generation
@@ -2116,7 +2910,7 @@ is_valid = await Auth.verify_2fa(user_id, code)
 def SecureDashboard(): ...
 ```
 
-**13.11 Account Linking**
+**16.11 Account Linking**
 - [ ] Same email = same account (automatic)
 - [ ] Link additional providers
 - [ ] Unlink providers (keep at least one)
@@ -2127,7 +2921,7 @@ providers = await Auth.get_linked_providers(user_id)
 await Auth.unlink_provider(user_id, "github")
 ```
 
-**13.12 Role & Permission System**
+**16.12 Role & Permission System**
 - [ ] Built-in Role model
 - [ ] Permission strings (e.g., "posts:write")
 - [ ] Role inheritance
@@ -2145,7 +2939,7 @@ if await Auth.has_permission(user_id, "posts:write"):
     # Can write posts
 ```
 
-**13.13 API Route Protection**
+**16.13 API Route Protection**
 - [ ] `@api_auth_required` for API endpoints
 - [ ] API key authentication option
 - [ ] Scoped access tokens
@@ -2163,7 +2957,7 @@ async def api_get_profile(request):
 async def api_create_post(request): ...
 ```
 
-**13.14 Data Access Layer Integration**
+**16.14 Data Access Layer Integration**
 - [ ] Automatic user context in queries
 - [ ] Row-level security helpers
 - [ ] Audit logging
@@ -2177,7 +2971,7 @@ async def get_my_posts():
     return await Post.all()
 ```
 
-**13.15 Seamless ORM Integration**
+**16.15 Seamless ORM Integration**
 
 Auth uses PyNext's existing database layer - no separate config needed!
 
@@ -2232,7 +3026,7 @@ async def my_dashboard():
     return {"posts": my_posts, "recent": recent}
 ```
 
-**13.16 Auto-Generated Migrations**
+**16.16 Auto-Generated Migrations**
 - [ ] `pynext db migrate` creates auth tables automatically
 - [ ] Version-tracked with your app migrations
 - [ ] Customizable table names
@@ -2253,7 +3047,7 @@ Auth.setup(
 )
 ```
 
-**13.17 Session Storage with Adapters**
+**16.17 Session Storage with Adapters**
 - [ ] JWT (stateless) - no database needed
 - [ ] Database sessions use your `PostgresAdapter`
 - [ ] Redis sessions via optional adapter
@@ -2287,7 +3081,7 @@ Auth.setup(
 )
 ```
 
-**13.18 Validation Integration**
+**16.18 Validation Integration**
 - [ ] Uses PyNext's validation system
 - [ ] Custom validators for auth fields
 - [ ] Clear error messages
@@ -2314,7 +3108,7 @@ except ValidationError as e:
     # {"email": "Invalid email format", "password": "Must be at least 8 characters"}
 ```
 
-**13.19 Query Builder Integration**
+**16.19 Query Builder Integration**
 - [ ] Auth queries use PyNext's query builder
 - [ ] Chainable, type-safe queries
 - [ ] Raw SQL escape hatch
@@ -2347,7 +3141,7 @@ result = await db.sql("""
 """)
 ```
 
-**13.20 Security Built-In**
+**16.20 Security Built-In**
 - [ ] Password hashing (argon2 default, bcrypt option)
 - [ ] CSRF protection automatic
 - [ ] Rate limiting built-in
@@ -2590,6 +3384,64 @@ Making components easier to test:
 ---
 
 ## Recently Completed
+
+#### Phase 7.5: Custom Join Conditions ✅
+
+- [x] **Condition functions** — `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `like`, `ilike`, `is_in`, `not_in`, `is_null` for type-safe filtering
+- [x] **Tuple syntax** — `("field", ">=", value)` for SQL-like conditions
+- [x] **`filter` parameter** — Works on all relationship types (`has_many`, `has_one`, `belongs_to`, `many_to_many`)
+- [x] **Date/time helpers** — `days_ago`, `hours_ago`, `weeks_ago`, `start_of_today`, `start_of_month`, etc.
+- [x] **Loading strategy integration** — Filters work with all loading strategies
+- [x] **Mixed syntax support** — Combine function and tuple syntax in same filter list
+
+**Implementation Details:**
+- Files: `pynext/db/relationships/` (conditions.py, filter.py, helpers.py)
+- Classes: `Condition`, `RelationshipFilter`, date/time helper functions
+- Tests: **488 comprehensive tests** across 9 test files
+- Documentation: `docs/database/17-custom-join-conditions.md`
+
+**Why This is Better Than SQLAlchemy:**
+- Type-safe conditions with IDE autocomplete (vs string-based expressions)
+- Two syntaxes: function calls and SQL-like tuples
+- Clear validation errors instead of cryptic runtime failures
+- Easy for LLMs to understand and generate
+
+---
+
+#### Phase 7.2: Loading Strategies ✅
+
+- [x] **`lazy` parameter** — Control loading behavior: select, joined, subquery, selectin, raise, dynamic
+- [x] **Query options** — `options(selectinload(), joinedload(), raiseload())` for query-level control
+- [x] **N+1 prevention** — `LazyLoadError` raised when accessing `lazy="raise"` relationships
+- [x] **Dynamic relationships** — `DynamicRelationship` returns query builder for large collections
+- [x] **Nested loading** — Chain options: `selectinload("posts").joinedload("author")`
+
+**Implementation Details:**
+- Files: `pynext/db/relationships/` (loading.py, options.py, dynamic.py)
+- Classes: `LoadStrategy`, `LoadOption`, `LazyLoadError`, `RelationshipLoader`, `DynamicRelationship`
+- Tests: **300 comprehensive tests** across 6 files
+- Documentation: `docs/database/13-loading-strategies.md` (800 lines)
+
+---
+
+#### Phase 7.1: Bidirectional Relationships (backref) ✅
+
+- [x] **`backref` parameter** — Automatic reverse relationship creation
+- [x] **`back_populates`** — Explicit bidirectional linking between models
+- [x] **Automatic sync** — Modifying either side syncs the other automatically
+- [x] **Loop prevention** — ContextVar-based guard prevents infinite recursion
+- [x] **`SyncedList` collection** — Auto-syncs on append, remove, extend, clear, pop, insert, etc.
+- [x] **Forward references** — Models can be defined in any order with lazy resolution
+
+**Implementation Details:**
+- Files: `pynext/db/relationships/` (backref.py, collections.py, core.py, __init__.py)
+- Classes: `BackrefConfig`, `BackrefRegistry`, `RelationshipSyncManager`, `SyncedList`
+- Tests: **182 comprehensive tests** across 4 test files:
+  - `test_backref_basic.py` (58 tests) — Config, registry, descriptor attributes
+  - `test_backref_sync.py` (44 tests) — Bidirectional sync, loop prevention
+  - `test_backref_collections.py` (40 tests) — SyncedList operations
+  - `test_backref_edge_cases.py` (40 tests) — Null values, self-referential, performance
+- Docs: [docs/database/11-relationships.md](./database/11-relationships.md) (788 lines)
 
 #### Phase 6: Advanced Features (P2) ✅
 
