@@ -41,6 +41,13 @@ from pynext.db.live.transport.base import TransportMessage, MessageType
 from pynext.db.live.transport.sse import SSETransport, create_sse_response
 from pynext.db.live.transport.websocket import WebSocketTransport
 
+# Import FastAPI types for annotations (optional dependency)
+try:
+    from fastapi import Request, WebSocket
+except ImportError:
+    Request = Any  # type: ignore
+    WebSocket = Any  # type: ignore
+
 if TYPE_CHECKING:
     pass
 
@@ -387,7 +394,7 @@ def create_live_router():
         app.include_router(create_live_router())
     """
     try:
-        from fastapi import APIRouter, WebSocket, Request
+        from fastapi import APIRouter
         from fastapi.responses import StreamingResponse, JSONResponse
     except ImportError:
         raise RuntimeError("fastapi required for live query router")
