@@ -220,7 +220,12 @@ node --version    # v16.0.0 or higher (optional)
 ### Option 1: Install from PyPI (Recommended)
 
 ```bash
-pip install pynext
+# From GitHub (PyPI coming soon)
+pip install git+https://github.com/CueCard-AI/PyNext.git
+
+# Or from source (recommended for contributors)
+git clone https://github.com/CueCard-AI/PyNext.git
+cd PyNext && pip install -e ".[dev]"
 ```
 
 ### Option 2: Install from Source

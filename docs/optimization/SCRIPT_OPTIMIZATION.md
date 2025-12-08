@@ -63,7 +63,8 @@ Script(src="...", strategy="worker")      # ~100 bytes
 ### Installation
 
 ```bash
-pip install pynext
+# From GitHub (PyPI coming soon)
+pip install git+https://github.com/CueCard-AI/PyNext.git
 ```
 
 No additional dependencies required for script optimization.

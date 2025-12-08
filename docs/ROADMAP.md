@@ -3456,6 +3456,488 @@ pynext/auth/
 
 ---
 
+#### Phase 17: SolidJS-Like Reactive System (Build-Time Compiled)
+
+**Status:** Planned  
+**Priority:** P0 (Critical)  
+**Target Tests:** 1,000+
+
+This phase represents a complete rebuild of PyNext's client-side reactivity to achieve true SolidJS-level performance through **build-time compilation**. This is a clean break from the current runtime-based approach.
+
+**Why This Phase Is Critical:**
+
+The current PyNext reactivity system has fundamental limitations:
+
+| Gap | Current State | Impact |
+|-----|---------------|--------|
+| List reconciliation | Server-rendered only | Lists don't update client-side |
+| Conditional rendering | No Show/When | Can't toggle visibility reactively |
+| Python-to-JS compilation | Runtime regex hacks | Unreliable, slow, limited patterns |
+| Event handler transpilation | Spy mechanism workarounds | Only simple Signal ops work |
+| Component lifecycle | Basic/incomplete | No proper mount/cleanup |
+| Form binding | Missing | No two-way input binding |
+| Client-side routing | Missing | Full page reloads required |
+| DevTools | None | No debugging support |
+
+**Architecture:**
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    PYNEXT COMPILER ARCHITECTURE                          │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  Python Source           Build Time                Runtime               │
+│  ─────────────           ──────────                ───────               │
+│                                                                          │
+│  @component              ┌──────────────┐         ┌──────────────┐      │
+│  def Counter():     ──>  │ Python AST   │    ──>  │ Optimized JS │      │
+│    count = Signal(0)     │ Parser       │         │ Bundle       │      │
+│    return button(...)    │              │         │ (<10KB)      │      │
+│                          │ Template     │         │              │      │
+│                          │ Analyzer     │         │ Fine-grained │      │
+│                          │              │         │ DOM Updates  │      │
+│                          │ JS Generator │         │              │      │
+│                          └──────────────┘         └──────────────┘      │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+**Success Criteria:**
+
+| Metric | Target |
+|--------|--------|
+| Bundle size | < 10KB gzipped |
+| Time to Interactive | < 500ms |
+| Update performance | < 1ms for 1000 list items |
+| Memory | No leaks after 10k updates |
+| Compilation speed | < 100ms per component |
+| Test coverage | > 90% |
+
+---
+
+**17.1 Core Reactive Primitives (Rewrite)**
+
+Complete rewrite of reactive primitives from scratch:
+
+- [ ] `pynext/reactive/signal.py` - New Signal with automatic dependency tracking
+- [ ] `pynext/reactive/effect.py` - Effect with proper cleanup and disposal
+- [ ] `pynext/reactive/memo.py` - Memoized computations with lazy evaluation
+- [ ] `pynext/reactive/store.py` - Deep reactive stores with proxy
+- [ ] `pynext/reactive/batch.py` - Microtask batching for update coalescing
+- [ ] `pynext/reactive/context.py` - Dependency tracking context
+
+**Key Features:**
+- Automatic dependency tracking (no dependency arrays like React)
+- Glitch-free updates (topological sorting)
+- Batched updates with microtask scheduling
+- Memory-efficient weak references
+- TypeScript-quality type inference
+
+```python
+# New Signal API (same syntax, better internals)
+from pynext.reactive import Signal, Effect, Memo
+
+count = Signal(0)
+doubled = Memo(lambda: count() * 2)
+
+@Effect
+def log_changes():
+    print(f"Count is now: {count()}, doubled: {doubled()}")
+
+count.set(5)  # Logs: "Count is now: 5, doubled: 10"
+```
+
+---
+
+**17.2 DOM Primitives**
+
+SolidJS-equivalent DOM control flow components:
+
+- [ ] `Show(when, fallback)` - Conditional rendering
+- [ ] `For(each, fallback)` - Keyed list with reconciliation
+- [ ] `Index(each)` - Index-based iteration (for non-keyed lists)
+- [ ] `Switch/Match` - Multi-branch conditionals
+- [ ] `Portal(mount)` - Render outside component tree
+- [ ] `Dynamic(component)` - Dynamic component switching
+- [ ] `ErrorBoundary(fallback)` - Error catching and recovery
+
+**Files:**
+- `pynext/reactive/control_flow.py` - Python API
+- `pynext/runtime/control_flow.js` - JS runtime
+
+```python
+from pynext.reactive import Show, For, Switch, Match
+
+@component
+def TodoList():
+    todos = Store({"items": [], "filter": "all"})
+    
+    return div()[
+        # Conditional rendering
+        Show(
+            when=lambda: len(todos.items) > 0,
+            fallback=p()["No todos yet!"]
+        )[
+            # Keyed list with proper reconciliation
+            For(
+                each=lambda: todos.items,
+                fallback=p()["Loading..."]
+            )[
+                lambda todo, index: TodoItem(todo=todo, index=index)
+            ]
+        ],
+        
+        # Multi-branch conditional
+        Switch()[
+            Match(when=lambda: todos.filter == "all")[p()["Showing all"]],
+            Match(when=lambda: todos.filter == "active")[p()["Showing active"]],
+            Match(when=lambda: todos.filter == "done")[p()["Showing done"]],
+        ]
+    ]
+```
+
+---
+
+**17.3 Python-to-JS Compiler**
+
+Build-time compilation of Python components to optimized JavaScript:
+
+**Compiler Pipeline:**
+```
+Python Source
+     │
+     ▼
+┌─────────────────┐
+│ 1. AST Parser   │  Parse Python into AST
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ 2. IR Generator │  Convert to intermediate representation
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ 3. Analyzer     │  Track reactive dependencies
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ 4. Optimizer    │  Dead code elimination, hoisting
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ 5. JS Emitter   │  Generate optimized JavaScript
+└────────┬────────┘
+         │
+         ▼
+   JavaScript + Source Map
+```
+
+**Files:**
+- [ ] `pynext/compiler/__init__.py` - Compiler entry point
+- [ ] `pynext/compiler/parser.py` - Python AST analysis
+- [ ] `pynext/compiler/ir.py` - Intermediate representation
+- [ ] `pynext/compiler/analyzer.py` - Reactive dependency analysis
+- [ ] `pynext/compiler/optimizer.py` - Dead code elimination, constant folding
+- [ ] `pynext/compiler/emitter.py` - JS code generation
+- [ ] `pynext/compiler/source_map.py` - Source map generation for debugging
+
+**Example Transformation:**
+```python
+# Input (Python)
+@component
+def Counter():
+    count = Signal(0)
+    doubled = Memo(lambda: count() * 2)
+    
+    return div()[
+        p()[f"Count: {count}"],
+        p()[f"Doubled: {doubled}"],
+        button(onclick=lambda: count.update(lambda x: x + 1))["Increment"]
+    ]
+```
+
+```javascript
+// Output (JavaScript) - Compiled at build time
+function Counter() {
+    const count = createSignal(0);
+    const doubled = createMemo(() => count() * 2);
+    
+    const _el1 = document.createElement("div");
+    const _el2 = document.createElement("p");
+    const _el3 = document.createElement("p");
+    const _el4 = document.createElement("button");
+    
+    _el1.appendChild(_el2);
+    _el1.appendChild(_el3);
+    _el1.appendChild(_el4);
+    
+    _el4.textContent = "Increment";
+    _el4.addEventListener("click", () => count.update(x => x + 1));
+    
+    createEffect(() => _el2.textContent = "Count: " + count());
+    createEffect(() => _el3.textContent = "Doubled: " + doubled());
+    
+    return _el1;
+}
+```
+
+---
+
+**17.4 Template Compiler**
+
+Compile Python HTML templates to efficient DOM creation code:
+
+- [ ] Static analysis of template structure
+- [ ] Compile-time detection of reactive insertions
+- [ ] Template literal optimization for static parts
+- [ ] Event handler extraction and binding
+- [ ] Attribute spreading optimization
+
+**Files:**
+- `pynext/compiler/template.py` - Template analysis
+- `pynext/compiler/dom.py` - DOM creation code generation
+
+---
+
+**17.5 Component System**
+
+Full component lifecycle and composition:
+
+- [ ] `onMount(callback)` - Run after DOM insertion
+- [ ] `onCleanup(callback)` - Cleanup on unmount
+- [ ] `createContext(default)` - Create context
+- [ ] `useContext(Context)` - Consume context
+- [ ] Props validation and defaults
+- [ ] Children handling (`props.children`)
+- [ ] Ref forwarding
+
+**Files:**
+- `pynext/reactive/lifecycle.py` - Lifecycle hooks
+- `pynext/reactive/context_api.py` - Context system
+- `pynext/reactive/refs.py` - Ref system
+
+```python
+from pynext.reactive import onMount, onCleanup, createContext, useContext
+
+ThemeContext = createContext("light")
+
+@component
+def App():
+    return ThemeContext.Provider(value="dark")[
+        Dashboard()
+    ]
+
+@component
+def Dashboard():
+    theme = useContext(ThemeContext)
+    
+    onMount(lambda: print("Dashboard mounted!"))
+    onCleanup(lambda: print("Dashboard unmounting..."))
+    
+    return div(class_=theme())[
+        h1()["Dashboard"]
+    ]
+```
+
+---
+
+**17.6 Form Handling**
+
+Two-way binding and form state management:
+
+- [ ] `bind:value` - Two-way input binding
+- [ ] `bind:checked` - Checkbox/radio binding
+- [ ] `bind:group` - Radio group binding
+- [ ] Form validation with reactive errors
+- [ ] Controlled vs uncontrolled modes
+- [ ] Submit handling
+
+**Files:**
+- `pynext/reactive/forms.py` - Form primitives
+- `pynext/runtime/forms.js` - Form runtime
+
+```python
+from pynext.reactive import Signal, createForm
+
+@component
+def LoginForm():
+    form = createForm({
+        "email": "",
+        "password": "",
+    }, validators={
+        "email": [required, email],
+        "password": [required, min_length(8)],
+    })
+    
+    async def handle_submit():
+        if form.validate():
+            await Auth.login(form.values)
+    
+    return form_()[
+        input_(type="email", bind_value=form.email),
+        Show(when=form.errors.email)[
+            span(class_="error")[form.errors.email]
+        ],
+        
+        input_(type="password", bind_value=form.password),
+        Show(when=form.errors.password)[
+            span(class_="error")[form.errors.password]
+        ],
+        
+        button(onclick=handle_submit, disabled=form.submitting)[
+            "Login"
+        ]
+    ]
+```
+
+---
+
+**17.7 Build System Integration**
+
+Seamless development and production builds:
+
+- [ ] `pynext build` - Production compilation with optimization
+- [ ] `pynext dev` - Watch mode with incremental compilation
+- [ ] Source maps for debugging Python → JS
+- [ ] Tree shaking (remove unused code)
+- [ ] Code splitting (lazy load routes)
+- [ ] CSS extraction and minification
+- [ ] Asset fingerprinting
+
+**Files:**
+- `pynext/build/compiler_integration.py` - Build system hooks
+- `pynext/cli/build.py` - CLI commands
+
+```bash
+# Development (watch mode, fast compilation)
+pynext dev
+
+# Production (optimized build)
+pynext build
+
+# Analyze bundle
+pynext build --analyze
+```
+
+---
+
+**17.8 Client-Side Router**
+
+SPA navigation without full page reloads:
+
+- [ ] `Router` - Router container
+- [ ] `Route` - Route definition
+- [ ] `Link` - Navigation link
+- [ ] `useNavigate()` - Programmatic navigation
+- [ ] `useParams()` - Route parameters
+- [ ] `useSearchParams()` - Query parameters
+- [ ] Dynamic route parameters
+- [ ] Nested routes
+- [ ] Route guards (auth, roles)
+- [ ] Transitions and animations
+- [ ] Scroll restoration
+- [ ] Route prefetching
+
+**Files:**
+- `pynext/reactive/router.py` - Router Python API
+- `pynext/runtime/router.js` - Router runtime
+
+```python
+from pynext.reactive import Router, Route, Link, useNavigate, useParams
+
+@component
+def App():
+    return Router()[
+        Route(path="/", component=Home),
+        Route(path="/about", component=About),
+        Route(path="/users/:id", component=UserProfile),
+        Route(path="/admin/*", component=AdminLayout, guard=is_admin)[
+            Route(path="dashboard", component=AdminDashboard),
+            Route(path="users", component=AdminUsers),
+        ],
+    ]
+
+@component
+def UserProfile():
+    params = useParams()
+    navigate = useNavigate()
+    
+    return div()[
+        h1()[f"User {params.id}"],
+        button(onclick=lambda: navigate("/"))["Back to Home"]
+    ]
+
+@component
+def Nav():
+    return nav()[
+        Link(href="/")["Home"],
+        Link(href="/about")["About"],
+        Link(href="/users/123")["User 123"],
+    ]
+```
+
+---
+
+**17.9 DevTools**
+
+Browser extension for debugging PyNext applications:
+
+- [ ] Component tree inspector
+- [ ] Signal value viewer with live updates
+- [ ] Effect dependency graph visualization
+- [ ] Performance profiler (render times, update counts)
+- [ ] Time-travel debugging (state history)
+- [ ] Network inspector (server actions)
+
+**Files:**
+- `pynext/devtools/` - DevTools browser extension
+
+**Features:**
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  PyNext DevTools                                            [x]  │
+├──────────────────────────────────────────────────────────────────┤
+│  Components │ Signals │ Effects │ Performance │ Network          │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                   │
+│  ▼ App                           Signal: count                   │
+│    ▼ Dashboard                   ────────────────                │
+│      ▼ Counter                   Value: 5                        │
+│        • p "Count: 5"            Subscribers: 2                  │
+│        • p "Doubled: 10"         Updates: 12                     │
+│        • button "Increment"                                      │
+│      ▼ TodoList                  [Set Value] [+1] [-1]           │
+│        • Show (visible)                                          │
+│        • For (3 items)           History:                        │
+│                                  ─────────                       │
+│                                  0 → 1 → 2 → 3 → 4 → 5           │
+│                                                                   │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+**Test Coverage Target: 1,000+ tests**
+
+| Sub-Phase | Tests |
+|-----------|-------|
+| 17.1 Core Primitives | 150 |
+| 17.2 DOM Primitives | 150 |
+| 17.3 Python-to-JS Compiler | 200 |
+| 17.4 Template Compiler | 100 |
+| 17.5 Component System | 100 |
+| 17.6 Form Handling | 100 |
+| 17.7 Build System | 50 |
+| 17.8 Client-Side Router | 100 |
+| 17.9 DevTools | 50 |
+
+**Documentation:** `docs/reactive/` (~5,000 lines)
+
+---
+
 ### Figma Integration
 
 Connecting Figma to the component registry would streamline designer-developer collaboration:

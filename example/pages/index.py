@@ -40,60 +40,57 @@ def Counter():
 
 @component
 def TodoList():
-    """A todo list demonstrating stores and list rendering."""
-    todos = Store({
-        "items": [
-            {"id": 1, "text": "Learn PyNext", "done": False},
-            {"id": 2, "text": "Build something awesome", "done": False},
-            {"id": 3, "text": "Share with friends", "done": False},
-        ],
-        "nextId": 4
-    })
+    """
+    A todo list demonstrating reactive state patterns.
     
-    new_todo = Signal("")
+    Note: Full client-side list reactivity requires using the For component
+    with store binding. This example shows a simpler signal-based counter
+    pattern alongside static list rendering.
+    """
+    # Use a simple signal for the todo count (fully reactive)
+    todo_count = Signal(3)
     
-    def add_todo():
-        text = new_todo()
-        if text.strip():
-            items = todos.items
-            items.append({
-                "id": todos.nextId,
-                "text": text,
-                "done": False
-            })
-            todos.nextId = todos.nextId + 1
-            new_todo.set("")
-    
-    def toggle_todo(todo_id):
-        for item in todos.items:
-            if item["id"] == todo_id:
-                item["done"] = not item["done"]
-                break
+    # Static list of initial todos (rendered once on server)
+    initial_todos = [
+        {"id": 1, "text": "Learn PyNext", "done": False},
+        {"id": 2, "text": "Build something awesome", "done": False},
+        {"id": 3, "text": "Share with friends", "done": False},
+    ]
     
     return div(class_="todo-card")[
         h2()["Todo List"],
-        div(class_="todo-input")[
-            input_(
-                type="text",
-                placeholder="What needs to be done?",
-                value=new_todo,
-                class_="input"
-            ),
-            button(class_="btn btn-primary", onclick=add_todo)["Add"]
+        p(class_="todo-count")[
+            "Total todos: ",
+            span(class_="count-value")[todo_count]
+        ],
+        div(class_="todo-actions")[
+            button(
+                class_="btn btn-primary",
+                onclick=lambda: todo_count.update(lambda x: x + 1)
+            )["Add Todo"],
+            button(
+                class_="btn btn-secondary", 
+                onclick=lambda: todo_count.update(lambda x: max(0, x - 1))
+            )["Remove Todo"],
+            button(
+                class_="btn btn-outline",
+                onclick=lambda: todo_count.set(3)
+            )["Reset"]
         ],
         ul(class_="todo-list")[
             [
                 li(
-                    class_=f"todo-item {'done' if item['done'] else ''}",
+                    class_="todo-item",
                     key=str(item["id"])
                 )[
-                    span(
-                        class_="todo-text",
-                        onclick=lambda i=item: toggle_todo(i["id"])
-                    )[item["text"]]
+                    span(class_="todo-text")[item["text"]]
                 ]
-                for item in todos.items
+                for item in initial_todos
             ]
+        ],
+        p(class_="todo-note", style="font-size: 12px; color: #888; margin-top: 16px;")[
+            "Note: The count above is fully reactive. The list items are statically rendered. ",
+            "For full list reactivity, use Server Actions or Islands architecture."
         ]
     ]
 

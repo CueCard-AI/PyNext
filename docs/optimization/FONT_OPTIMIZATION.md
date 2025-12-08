@@ -66,8 +66,8 @@ Font(font_signal())  # JS needed to update
 ### Installation
 
 ```bash
-# Core PyNext
-pip install pynext
+# Core PyNext (from GitHub until PyPI release)
+pip install git+https://github.com/CueCard-AI/PyNext.git
 
 # Font processing dependencies (recommended)
 pip install fonttools brotli  # For subsetting and WOFF2

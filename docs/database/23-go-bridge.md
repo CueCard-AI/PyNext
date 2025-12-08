@@ -96,6 +96,19 @@ Go's goroutines bypass Python's GIL entirely:
 
 ## Installation
 
+> **Note:** PyNext is not yet published to PyPI. Install from GitHub or source.
+
+```bash
+# From GitHub
+pip install git+https://github.com/CueCard-AI/PyNext.git
+
+# Or from source
+git clone https://github.com/CueCard-AI/PyNext.git
+cd PyNext
+pip install -e ".[dev]"
+```
+
+**Coming Soon (PyPI):**
 ```bash
 pip install pynext-go
 ```

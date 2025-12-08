@@ -74,8 +74,8 @@ Before starting, make sure you have:
 # Python 3.9 or higher
 python --version  # Should be 3.9+
 
-# PyNext installed
-pip install pynext
+# PyNext installed (from GitHub until PyPI release)
+pip install git+https://github.com/CueCard-AI/PyNext.git
 
 # Node.js (for Tailwind CSS)
 node --version  # Should be 18+

@@ -392,7 +392,12 @@ await QueryBuilder.parallel(
 ### Installation
 
 ```bash
-pip install pynext
+# From GitHub (PyPI coming soon)
+pip install git+https://github.com/CueCard-AI/PyNext.git
+
+# Or from source
+git clone https://github.com/CueCard-AI/PyNext.git
+cd PyNext && pip install -e ".[dev]"
 ```
 
 ### Define Models

@@ -148,7 +148,9 @@ Do you need a DataFrame?
 ### Installation
 
 ```bash
-pip install pynext-go polars numpy pandas pyarrow
+# From GitHub (PyPI coming soon)
+pip install git+https://github.com/CueCard-AI/PyNext.git
+pip install polars numpy pandas pyarrow
 ```
 
 ### Basic Usage

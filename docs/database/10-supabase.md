@@ -117,7 +117,8 @@ Think of Supabase as "Firebase for SQL lovers". It provides:
 ### Installation
 
 ```bash
-pip install pynext[supabase]
+# From GitHub (PyPI coming soon)
+pip install "git+https://github.com/CueCard-AI/PyNext.git#egg=pynext[supabase]"
 ```
 
 This installs:

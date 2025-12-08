@@ -510,8 +510,8 @@ RUN apt-get update && apt-get install -y \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Install PyNext
-RUN pip install pynext
+# Install PyNext (from GitHub until PyPI release)
+RUN pip install git+https://github.com/CueCard-AI/PyNext.git
 
 # Copy application
 COPY . .

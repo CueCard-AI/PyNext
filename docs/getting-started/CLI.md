@@ -22,7 +22,8 @@ PyNext provides a command-line interface for project scaffolding, development, a
 The CLI is installed automatically with PyNext:
 
 ```bash
-pip install pynext
+# From GitHub (PyPI coming soon)
+pip install git+https://github.com/CueCard-AI/PyNext.git
 ```
 
 Verify installation:
@@ -543,7 +544,7 @@ Solutions:
 Error: No module named 'pynext'
 
 Solutions:
-1. Install PyNext: pip install pynext
+1. Install PyNext: pip install git+https://github.com/CueCard-AI/PyNext.git
 2. Check virtual environment is activated
 3. Reinstall: pip install -e .
 ```

@@ -231,7 +231,7 @@ def main():
 
 ```python
 <Steps>
-    <Step title="Install">pip install pynext</Step>
+    <Step title="Install">pip install git+https://github.com/CueCard-AI/PyNext.git</Step>
     <Step title="Create Project">pynext init my-app</Step>
     <Step title="Run">pynext dev</Step>
 </Steps>

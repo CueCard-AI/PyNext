@@ -79,12 +79,12 @@ db = [
 pynext = "pynext.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/pynext/pynext"
-Documentation = "https://pynext.dev"
-Repository = "https://github.com/pynext/pynext"
+Homepage = "https://github.com/CueCard-AI/PyNext"
+Documentation = "https://github.com/CueCard-AI/PyNext/tree/main/docs"
+Repository = "https://github.com/CueCard-AI/PyNext"
 
 [tool.hatch.build.targets.wheel]
-packages = ["pynext"]
+packages = ["pynext", "pynext_go"]
 
 [tool.ruff]
 line-length = 100

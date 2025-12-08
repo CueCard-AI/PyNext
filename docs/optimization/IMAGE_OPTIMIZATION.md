@@ -26,8 +26,8 @@ PyNext's image optimization is fundamentally different from Next.js:
 ### Installation
 
 ```bash
-# Core dependencies
-pip install pynext
+# Core dependencies (from GitHub until PyPI release)
+pip install git+https://github.com/CueCard-AI/PyNext.git
 
 # Optional: For full image processing (recommended)
 pip install Pillow blurhash-python

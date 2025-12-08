@@ -77,6 +77,7 @@
             id,
             read,
             write,
+            set: write,  // Alias for write - matches Python Signal.set()
             update,
             subscribe: (fn) => {
                 subscribers.add({ execute: fn, dependencies: new Set() });
@@ -212,12 +213,32 @@
      */
     function createStore(id, initialValue) {
         const subscribers = new Set();
+        const listRenderers = new Map();  // path -> {element, renderFn}
+        
+        const notifyAll = () => {
+            // Notify effects
+            for (const effect of subscribers) {
+                if (batchDepth > 0) {
+                    batchQueue.add(effect);
+                } else {
+                    effect.execute();
+                }
+            }
+            // Re-render any registered lists
+            for (const [path, renderer] of listRenderers) {
+                const array = getNestedValue(store, path);
+                if (Array.isArray(array)) {
+                    renderList(renderer.element, array, renderer.renderFn, renderer.keyFn);
+                }
+            }
+        };
         
         const createProxy = (target, path = []) => {
             return new Proxy(target, {
                 get(obj, prop) {
                     if (prop === '__isProxy') return true;
                     if (prop === '__path') return path;
+                    if (prop === '__store') return store;
                     
                     const value = obj[prop];
                     
@@ -225,6 +246,18 @@
                     if (currentEffect && typeof prop !== 'symbol') {
                         subscribers.add(currentEffect);
                         currentEffect.dependencies.add(() => obj[prop]);
+                    }
+                    
+                    // For arrays, wrap mutating methods
+                    if (Array.isArray(obj) && typeof value === 'function') {
+                        const mutatingMethods = ['push', 'pop', 'shift', 'unshift', 'splice', 'sort', 'reverse'];
+                        if (mutatingMethods.includes(prop)) {
+                            return function(...args) {
+                                const result = Array.prototype[prop].apply(obj, args);
+                                notifyAll();
+                                return result;
+                            };
+                        }
                     }
                     
                     // Wrap nested objects
@@ -237,15 +270,7 @@
                 set(obj, prop, value) {
                     if (obj[prop] !== value) {
                         obj[prop] = value;
-                        
-                        // Notify subscribers
-                        for (const effect of subscribers) {
-                            if (batchDepth > 0) {
-                                batchQueue.add(effect);
-                            } else {
-                                effect.execute();
-                            }
-                        }
+                        notifyAll();
                     }
                     return true;
                 }
@@ -257,14 +282,82 @@
         // Register in global store
         __pynext__.stores[id] = {
             proxy: store,
+            raw: initialValue,
             subscribe: (fn) => {
                 const effect = { execute: fn, dependencies: new Set() };
                 subscribers.add(effect);
                 return () => subscribers.delete(effect);
+            },
+            // Register a list renderer for reactive list updates
+            registerList: (path, element, renderFn, keyFn) => {
+                listRenderers.set(path, { element, renderFn, keyFn: keyFn || (item => item.id || JSON.stringify(item)) });
             }
         };
 
         return store;
+    }
+    
+    /**
+     * Get a nested value from an object using a path array
+     */
+    function getNestedValue(obj, path) {
+        let current = obj;
+        for (const key of path) {
+            if (current == null) return undefined;
+            current = current[key];
+        }
+        return current;
+    }
+    
+    /**
+     * Render a list of items to a container element
+     */
+    function renderList(container, items, renderFn, keyFn) {
+        if (!container || !items) return;
+        
+        const fragment = document.createDocumentFragment();
+        
+        for (let i = 0; i < items.length; i++) {
+            const item = items[i];
+            const key = keyFn(item);
+            const html = renderFn(item, i);
+            
+            const wrapper = document.createElement('div');
+            wrapper.innerHTML = html;
+            wrapper.firstElementChild?.setAttribute('data-key', key);
+            
+            while (wrapper.firstChild) {
+                fragment.appendChild(wrapper.firstChild);
+            }
+        }
+        
+        container.innerHTML = '';
+        container.appendChild(fragment);
+    }
+    
+    /**
+     * Register a reactive list that updates when store changes
+     */
+    function reactiveList(storeId, path, containerId, renderFn, keyFn) {
+        const storeData = __pynext__.stores[storeId];
+        if (!storeData) {
+            console.warn(`[PyNext] Store ${storeId} not found`);
+            return;
+        }
+        
+        const container = document.getElementById(containerId);
+        if (!container) {
+            console.warn(`[PyNext] Container ${containerId} not found`);
+            return;
+        }
+        
+        storeData.registerList(path, container, renderFn, keyFn);
+        
+        // Initial render
+        const items = getNestedValue(storeData.proxy, path);
+        if (Array.isArray(items)) {
+            renderList(container, items, renderFn, keyFn);
+        }
     }
 
     /**
@@ -516,6 +609,8 @@
         untrack,
         onMount,
         onCleanup,
+        reactiveList,
+        renderList,
 
         // Server communication
         callAction,

@@ -88,7 +88,7 @@ Before starting tutorials, you should:
 
 1. **Have Python 3.9+** installed
 2. **Understand Python basics** (functions, classes, decorators)
-3. **Have PyNext installed**: `pip install pynext`
+3. **Have PyNext installed**: `pip install git+https://github.com/CueCard-AI/PyNext.git`
 4. **Basic HTML/CSS knowledge** (helpful but not required)
 
 No prior React, Next.js, or frontend framework experience needed!

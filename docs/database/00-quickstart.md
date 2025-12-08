@@ -37,12 +37,29 @@ docker run -d --name postgres -p 5432:5432 \
 
 ### Install pynext-go
 
+> **Note:** PyNext is not yet published to PyPI. Install from GitHub or source.
+
+**Option A: Install from GitHub**
 ```bash
-# Core package
-pip install pynext-go
+pip install git+https://github.com/CueCard-AI/PyNext.git
 
 # Optional: DataFrame libraries
 pip install pandas polars numpy pyarrow
+```
+
+**Option B: Install from source**
+```bash
+git clone https://github.com/CueCard-AI/PyNext.git
+cd PyNext
+pip install -e ".[dev]"
+
+# Optional: DataFrame libraries
+pip install pandas polars numpy pyarrow
+```
+
+**Coming Soon (PyPI):**
+```bash
+pip install pynext-go
 ```
 
 ### Verify Installation
