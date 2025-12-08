@@ -93,6 +93,77 @@ jobs:
           name: coverage-report
           path: htmlcov/
 
+  # Database integration tests with PostgreSQL
+  db-tests:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: pynext
+          POSTGRES_PASSWORD: pynext
+          POSTGRES_DB: pynext_test
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd="pg_isready -U pynext -d pynext_test"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.21"
+      
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('go/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+      
+      - name: Build Go bridge
+        run: |
+          cd go
+          go build -buildmode=c-shared -o ../pynext_go/_lib/linux_amd64/libpynext.so ./cmd/pynext/main.go
+      
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[test,db]"
+          pip install psycopg[binary,pool] pyarrow
+      
+      - name: Wait for PostgreSQL
+        run: |
+          for i in {1..30}; do
+            pg_isready -h localhost -p 5433 -U pynext && break
+            echo "Waiting for PostgreSQL..."
+            sleep 1
+          done
+      
+      - name: Run database tests
+        env:
+          PYNEXT_TEST_DB_URL: postgresql://pynext:pynext@localhost:5433/pynext_test
+        timeout-minutes: 15
+        run: |
+          pytest tests/unit/test_go_*.py tests/integration/test_db_*.py -v --tb=short --timeout=60
+      
+      - name: Run Go tests
+        run: |
+          cd go
+          go test ./... -v -timeout=60s
+
   benchmark:
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'

@@ -67,8 +67,55 @@ from pynext.db.fields import (
     deserialize_value,
 )
 
-# Query
+# Query (legacy)
 from pynext.db.query import Query
+
+# Query Builder (new simple API)
+from pynext.db.query_builder import QueryBuilder, QueryBatch, DeferredQuery
+
+# Condition Functions (for User.q() syntax)
+from pynext.db.conditions import (
+    # Comparison operators
+    eq,
+    ne,
+    gt,
+    gte,
+    lt,
+    lte,
+    like,
+    ilike,
+    contains,
+    startswith,
+    endswith,
+    in_,
+    not_in,
+    isnull,
+    notnull,
+    between,
+    # PostgreSQL specific
+    json_contains,
+    json_contained_by,
+    array_overlaps,
+    # Logical operators
+    and_,
+    or_,
+    not_,
+    # Raw SQL escape hatch
+    raw,
+    # Classes (for type hints)
+    Condition,
+    LogicalCondition,
+    RawCondition,
+    Operator,
+    LogicalOp,
+)
+
+# AST (for debugging/advanced use)
+from pynext.db.ast import (
+    QueryAST,
+    QueryType,
+    OrderNode,
+)
 
 # Raw SQL
 from pynext.db.sql import (
@@ -199,6 +246,7 @@ from pynext.db.exceptions import (
     TransactionError,
     RelationshipError,
     ConfigurationError,
+    MultipleResultsError,
 )
 
 # Migrations (lazy import to avoid circular dependencies)
@@ -225,8 +273,48 @@ __all__ = [
     "serialize_value",
     "deserialize_value",
     
-    # Query
+    # Query (legacy)
     "Query",
+    
+    # Query Builder (new API)
+    "QueryBuilder",
+    "QueryBatch",
+    "DeferredQuery",
+    
+    # Condition functions
+    "eq",
+    "ne",
+    "gt",
+    "gte",
+    "lt",
+    "lte",
+    "like",
+    "ilike",
+    "contains",
+    "startswith",
+    "endswith",
+    "in_",
+    "not_in",
+    "isnull",
+    "notnull",
+    "between",
+    "json_contains",
+    "json_contained_by",
+    "array_overlaps",
+    "and_",
+    "or_",
+    "not_",
+    "raw",
+    "Condition",
+    "LogicalCondition",
+    "RawCondition",
+    "Operator",
+    "LogicalOp",
+    
+    # AST
+    "QueryAST",
+    "QueryType",
+    "OrderNode",
     
     # Raw SQL
     "Database",
@@ -349,6 +437,7 @@ __all__ = [
     "TransactionError",
     "RelationshipError",
     "ConfigurationError",
+    "MultipleResultsError",
     
     # Migrations (lazy import)
     "migrations",

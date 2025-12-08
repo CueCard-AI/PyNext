@@ -1,0 +1,85 @@
+# PyNext Go Bridge - Package Configuration
+#
+# This is a separate package from pynext that provides the Go bridge.
+# Users install both: pip install pynext pynext-go
+#
+# Build:
+#   pip install build
+#   python -m build -c pyproject-go.toml
+#
+# The package includes pre-built Go binaries for all platforms.
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pynext-go"
+version = "0.1.0"
+description = "High-performance Go database bridge for PyNext"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [
+    { name = "PyNext Contributors" }
+]
+keywords = ["database", "postgresql", "performance", "go", "arrow"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Framework :: AsyncIO",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Go",
+    "Topic :: Database",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+]
+dependencies = [
+    "pynext>=0.1.0",
+    "pyarrow>=14.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-benchmark>=4.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/pynext/pynext"
+Documentation = "https://pynext.dev/go-bridge"
+Repository = "https://github.com/pynext/pynext"
+
+[tool.hatch.build]
+# Include the pynext_go package
+packages = ["pynext_go"]
+
+[tool.hatch.build.targets.wheel]
+# Include pre-built Go binaries
+include = [
+    "pynext_go/**/*.py",
+    "pynext_go/_lib/**/*.so",
+    "pynext_go/_lib/**/*.dylib",
+    "pynext_go/_lib/**/*.dll",
+    "pynext_go/_lib/**/*.h",
+]
+
+[tool.hatch.build.targets.sdist]
+# Source distribution includes Go source
+include = [
+    "pynext_go/**/*.py",
+    "pynext_go/_lib/.gitkeep",
+    "go/**/*.go",
+    "go/go.mod",
+    "go/go.sum",
+    "scripts/build-go.sh",
+    "scripts/build-go-all.sh",
+]
+
+# Build hooks could be used to compile Go during install
+# For now, we ship pre-built binaries
+

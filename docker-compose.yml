@@ -1,0 +1,54 @@
+# Docker Compose for PyNext Testing
+# 
+# Usage:
+#   docker-compose up -d       # Start PostgreSQL
+#   docker-compose down        # Stop PostgreSQL
+#   docker-compose down -v     # Stop and remove data
+#
+# The test database will be available at:
+#   postgresql://pynext:pynext@localhost:5433/pynext_test
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: pynext_test_db
+    environment:
+      POSTGRES_USER: pynext
+      POSTGRES_PASSWORD: pynext
+      POSTGRES_DB: pynext_test
+    ports:
+      - "5433:5432"  # Use 5433 to avoid conflicts with local PostgreSQL
+    volumes:
+      - pynext_test_data:/var/lib/postgresql/data
+      - ./scripts/init-test-db.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pynext -d pynext_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    # Optimize for testing (faster, less durable)
+    command: >
+      postgres
+      -c fsync=off
+      -c synchronous_commit=off
+      -c full_page_writes=off
+      -c max_connections=200
+      -c shared_buffers=256MB
+
+  # Optional: pgAdmin for database inspection
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: pynext_pgadmin
+    profiles: ["admin"]  # Only starts with: docker-compose --profile admin up
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@pynext.dev
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+
+volumes:
+  pynext_test_data:
+

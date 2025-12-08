@@ -64,6 +64,7 @@ def _map_on_delete_to_postgres(on_delete: str) -> str:
 
 if TYPE_CHECKING:
     from pynext.db.query import Query
+    from pynext.db.query_builder import QueryBuilder
     from pynext.db.adapters.base import Adapter
 
 T = TypeVar("T", bound="Table")
@@ -608,6 +609,119 @@ class Table(metaclass=TableMeta):
         
         adapter = get_adapter()
         return Query(cls, adapter, cls._fields)
+    
+    @classmethod
+    def q(cls: Type[T], *args: Any, **kwargs: Any) -> "QueryBuilder[T]":
+        """
+        Start a query with the new simple syntax.
+        
+        Supports three syntax styles:
+        1. Tuple syntax: User.q(("age", ">", 18))
+        2. SQL string: User.q("age > $1", 18)
+        3. Condition functions: User.q(gt("age", 18))
+        
+        Chainable methods:
+            .select("id", "name")     - Column selection
+            .order("-created_at")     - Order (- = DESC)
+            .limit(10)                - Limit results
+            .offset(20)               - Skip results
+            .page(1, per_page=20)     - Pagination
+            .include("posts")         - Eager load relationships
+            .where(...)               - Add more conditions
+            .where_raw(sql, params)   - Raw SQL condition
+        
+        Execution:
+            users = await User.q(...)           # Execute and get all
+            user = await User.q(...).first()    # Get first or None
+            user = await User.q(...).one()      # Get exactly one
+            count = await User.q(...).count()   # Count matching
+            exists = await User.q(...).exists() # Check if any match
+        
+        Examples:
+            # Tuple syntax (explicit operators)
+            users = await User.q(("age", ">", 18), ("status", "=", "active"))
+            
+            # SQL string (familiar to SQL users)
+            users = await User.q("age > $1 AND status = $2", 18, "active")
+            
+            # Condition functions (type-safe)
+            from pynext.db import gt, eq
+            users = await User.q(gt("age", 18), eq("status", "active"))
+            
+            # Chainable
+            users = await (User.q(("age", ">", 18))
+                .select("id", "name", "email")
+                .include("posts", "comments")
+                .order("-created_at")
+                .page(1, per_page=20))
+            
+            # Complex conditions
+            from pynext.db import or_, and_
+            users = await User.q(
+                and_(
+                    gt("age", 18),
+                    or_(eq("role", "admin"), eq("role", "moderator"))
+                )
+            )
+        """
+        from pynext.db.query_builder import QueryBuilder
+        
+        try:
+            adapter = get_adapter()
+        except ConfigurationError:
+            adapter = None
+        
+        return QueryBuilder.for_model(cls, *args, adapter=adapter, **kwargs)
+    
+    @classmethod
+    def sql(cls: Type[T], query: str, *params: Any) -> "QueryBuilder[T]":
+        """
+        Execute raw SQL and map results to model instances.
+        
+        This is escape hatch Level 3: raw SQL with model mapping.
+        
+        Args:
+            query: Raw SQL SELECT query
+            *params: Query parameters
+        
+        Returns:
+            QueryBuilder that can be awaited for List[Model]
+        
+        Examples:
+            # Raw SQL with complex conditions
+            users = await User.sql('''
+                SELECT * FROM users
+                WHERE id IN (
+                    SELECT user_id FROM orders
+                    WHERE total > 1000
+                    GROUP BY user_id
+                    HAVING COUNT(*) > 5
+                )
+            ''')
+            
+            # With parameters
+            users = await User.sql(
+                "SELECT * FROM users WHERE created_at > $1",
+                datetime(2024, 1, 1)
+            )
+            
+            # Complex aggregation returning model instances
+            users = await User.sql('''
+                SELECT u.*, COUNT(o.id) as order_count
+                FROM users u
+                LEFT JOIN orders o ON o.user_id = u.id
+                GROUP BY u.id
+                HAVING COUNT(o.id) > $1
+            ''', 10)
+        """
+        from pynext.db.query_builder import QueryBuilder
+        
+        try:
+            adapter = get_adapter()
+        except ConfigurationError:
+            adapter = None
+        
+        return QueryBuilder.from_sql(cls, query, params, adapter=adapter)
     
     @classmethod
     async def count(cls: Type[T]) -> int:

@@ -113,6 +113,18 @@ from pynext.db.adapters.base import Adapter
 from pynext.db.adapters.memory import MemoryAdapter
 from pynext.db.adapters.mock import MockAdapter
 
+# Phase 8.1: Go Bridge Adapter
+try:
+    from pynext.db.adapters.go_adapter import (
+        GoPostgresAdapter,
+        is_go_available,
+    )
+    _HAS_GO_ADAPTER = True
+except ImportError:
+    _HAS_GO_ADAPTER = False
+    GoPostgresAdapter = None  # type: ignore
+    is_go_available = lambda: False  # type: ignore
+
 # PostgreSQL adapter (optional - requires asyncpg)
 try:
     from pynext.db.adapters.postgres import PostgresAdapter
@@ -665,10 +677,82 @@ except ImportError:
     cancel = None  # type: ignore
     get_running_queries = None  # type: ignore
 
+def get_best_adapter(
+    dsn: str,
+    *,
+    prefer_go: bool = True,
+    require_go: bool = False,
+    **kwargs,
+):
+    """
+    Get the best available PostgreSQL adapter.
+    
+    Auto-selects between GoPostgresAdapter (if available) and PostgresAdapter.
+    
+    Args:
+        dsn: PostgreSQL connection string
+        prefer_go: Prefer Go bridge if available (default: True)
+        require_go: Raise error if Go not available (default: False)
+        **kwargs: Adapter configuration options
+        
+    Returns:
+        GoPostgresAdapter or PostgresAdapter instance
+        
+    Raises:
+        ImportError: If require_go=True and Go unavailable
+        
+    Example:
+        # Auto-select best adapter
+        adapter = get_best_adapter("postgresql://localhost/mydb")
+        
+        # Require Go bridge
+        adapter = get_best_adapter("postgresql://...", require_go=True)
+        
+        # Force asyncpg even if Go available
+        adapter = get_best_adapter("postgresql://...", prefer_go=False)
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    # Check Go availability
+    go_available = _HAS_GO_ADAPTER and is_go_available()
+    
+    if require_go and not go_available:
+        raise ImportError(
+            "Go bridge required but not available. "
+            "Install pynext-go: pip install pynext-go"
+        )
+    
+    if prefer_go and go_available:
+        logger.info("Using Go bridge adapter (high performance)")
+        return GoPostgresAdapter(dsn, **kwargs)
+    
+    if go_available and not prefer_go:
+        logger.info("Using asyncpg adapter (Go available but not preferred)")
+    else:
+        logger.warning(
+            "Go bridge not available, using asyncpg. "
+            "Install pynext-go for better performance."
+        )
+    
+    # Fall back to asyncpg adapter
+    if PostgresAdapter is not None:
+        return PostgresAdapter(dsn, **kwargs)
+    
+    raise ImportError(
+        "No PostgreSQL adapter available. "
+        "Install asyncpg: pip install asyncpg"
+    )
+
+
 __all__ = [
     "Adapter",
     "MemoryAdapter", 
     "MockAdapter",
+    # Phase 8.1: Go Bridge
+    "GoPostgresAdapter",
+    "is_go_available",
+    "get_best_adapter",
     # PostgreSQL (optional)
     "PostgresAdapter",
     "PostgresConfig",

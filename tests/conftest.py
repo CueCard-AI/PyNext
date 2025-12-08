@@ -328,6 +328,35 @@ def test_layout(children):
 
 
 # =============================================================================
+# Database Fixtures (imported from tests/fixtures/database.py)
+# =============================================================================
+
+# Import database fixtures - these are auto-registered with pytest
+try:
+    from tests.fixtures.database import (
+        db_url,
+        test_db_url,
+        db_engine,
+        db_pool,
+        db_connection,
+        db_transaction,
+        clean_tables,
+        go_bridge,
+        go_bridge_session,
+        seed_users,
+        seed_orders,
+        create_test_tables,
+        async_db_connection,
+        async_db_transaction,
+        requires_db,
+        requires_go,
+    )
+except ImportError:
+    # Database fixtures not available (missing dependencies)
+    pass
+
+
+# =============================================================================
 # Event Loop Configuration
 # =============================================================================
 

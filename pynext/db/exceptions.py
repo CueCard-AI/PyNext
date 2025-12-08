@@ -211,3 +211,21 @@ class ConfigurationError(DatabaseError):
     """
     pass
 
+
+class MultipleResultsError(DatabaseError):
+    """
+    Raised when .one() finds multiple results.
+    
+    Examples:
+        MultipleResultsError("Multiple Users found, expected one")
+    """
+    
+    def __init__(self, message: str, count: Optional[int] = None):
+        self.count = count
+        
+        details = {}
+        if count is not None:
+            details["count"] = count
+        
+        super().__init__(message, details)
+

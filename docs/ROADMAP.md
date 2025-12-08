@@ -1334,36 +1334,197 @@ A revolutionary database layer: Go-powered query engine with Python's simplicity
 └─────────────────────────────────────────────────────────────┘
 ```
 
-**8.1 Go Bridge Core**
-- [ ] Go shared library (.so/.dylib/.dll) for Linux/macOS/Windows
-- [ ] Apache Arrow data format (zero-copy Python↔Go)
-- [ ] Connection pool management (Go owns all connections)
-- [ ] Lazy startup with optional `pynext.warmup()`
-- [ ] Auto cleanup + explicit `pynext.close()`
-- [ ] Python fallback when Go unavailable
+**8.1 Go Bridge Core** ✅ COMPLETE
+- [x] Go shared library (.so/.dylib/.dll) for Linux/macOS/Windows
+- [x] Apache Arrow data format (zero-copy Python↔Go)
+- [x] Connection pool management (Go owns all connections)
+- [x] Lazy startup with optional `pynext.warmup()`
+- [x] Auto cleanup + explicit `pynext.close()`
+- [x] Python fallback when Go unavailable
+- [x] Parallel query execution (goroutines)
+- [x] Async API wrappers
+- [x] **batch()** context manager for parallel queries (2x faster)
+- [x] **execute_copy_df()** for DataFrames (2-3x faster)
+- [x] **execute_copy_rows()** for JSON APIs
+- [x] PostgreSQL COPY protocol (CSV format)
+- [x] Prepared statement caching (2048 capacity)
+- [x] Fast JSON with sonic (Go) and orjson (Python)
 
-```python
-# Embedded Go runtime - pip install just works
-import pynext  # Go bridge starts lazily on first query
+**Implementation Details:**
+- Go module: `go/pkg/bridge/`, `go/pkg/arrow/`
+- Python wrapper: `pynext_go/` package with ctypes interface
+- Adapter: `pynext/db/adapters/go_adapter.py` with auto-fallback
+- Build: `scripts/build-go.sh` and `scripts/build-go-all.sh`
+- Documentation:
+  - `docs/database/23-go-bridge.md` - Complete API reference
+  - `docs/database/24-asyncpg-vs-gobridge.md` - Comparison & migration guide
+  - `docs/database/25-gobridge-internals.md` - Deep technical implementation
+- Tests: 579+ tests (105 Go + 474+ Python)
+- Benchmarks: `tests/benchmarks/test_go_vs_asyncpg.py`
 
-# Optional warmup for production
-await pynext.warmup()
+**Performance Results (vs asyncpg) - Verified with 500 iterations:**
 
-# Configuration
-pynext.config(
-    primary="postgres://...",
-    replicas=["postgres://replica1...", "postgres://replica2..."],
-    pool_size=50,
-)
+| Use Case | Method | Speedup | Notes |
+|----------|--------|---------|-------|
+| Multi-query endpoint (3 queries) | `batch()` | **1.85x** | True parallel via goroutines |
+| Multi-query endpoint (5 queries) | `batch()` | **2.08x** | Each query gets own connection |
+| Multi-query endpoint (10 queries) | `batch()` | **2.07x** | Scales with query count |
+| DataFrame (1,000 rows) | `execute_copy_df()` | **1.11x** | COPY + pyarrow CSV |
+| DataFrame (5,000 rows) | `execute_copy_df()` | **2.30x** | Efficient bulk transfer |
+| DataFrame (10,000 rows) | `execute_copy_df()` | **2.79x** | Best for analytics |
+| Bulk export (50,000 rows) | `execute_copy()` | **3.24x** | Raw COPY protocol |
+| Bulk export (100,000 rows) | `execute_copy()` | **2.85x** | Stable at scale |
+| Single query (any size) | `execute()` | **~1x** | Network-bound, same as asyncpg |
+
+**Run benchmarks:**
+```bash
+pytest tests/benchmarks/test_go_vs_asyncpg.py -v --benchmark-only
 ```
 
-**8.2 Query Builder Core**
-- [ ] Query AST builder (Python)
-- [ ] Query optimizer (Go)
-- [ ] SQL generator (Go)
-- [ ] Prepared statement auto-caching (threshold configurable)
-- [ ] Query complexity limits (configurable)
-- [ ] SQL injection prevention (strict mode)
+**Usage Examples:**
+
+```python
+import pynext_go
+
+# Initialize
+pynext_go.init(
+    primary="postgresql://user:pass@localhost/mydb",
+    replicas=["postgresql://replica1/mydb"],
+    pool_min_size=5,
+    pool_max_size=20,
+)
+
+# ============================================================
+# 1. MULTI-QUERY ENDPOINTS - Use batch() (2x faster!)
+# ============================================================
+# Looks sequential, executes in parallel
+def get_dashboard(user_id: int):
+    with pynext_go.batch() as b:
+        user = b.query("SELECT * FROM users WHERE id = $1", [user_id])
+        orders = b.query("SELECT * FROM orders WHERE user_id = $1", [user_id])
+        notifications = b.query("SELECT * FROM notifications WHERE user_id = $1", [user_id])
+    
+    # All 3 queries ran in parallel!
+    return {
+        "user": user.rows[0] if user.rows else None,
+        "orders": orders.rows,
+        "notifications": notifications.rows,
+    }
+
+# Async version
+async def get_dashboard_async(user_id: int):
+    async with pynext_go.batch() as b:
+        user = b.query("SELECT * FROM users WHERE id = $1", [user_id])
+        orders = b.query("SELECT * FROM orders WHERE user_id = $1", [user_id])
+    return {"user": user.rows, "orders": orders.rows}
+
+# ============================================================
+# 2. DATAFRAMES - Use execute_copy_df() (2-3x faster!)
+# ============================================================
+def get_analytics():
+    # 10,000 rows: asyncpg takes 24.5ms, this takes 8.8ms
+    df = pynext_go.execute_copy_df("""
+        SELECT date_trunc('day', created_at) as day,
+               COUNT(*) as orders,
+               SUM(total) as revenue
+        FROM orders
+        GROUP BY 1
+        ORDER BY 1
+    """)
+    return df.to_dict()
+
+# ============================================================
+# 3. SINGLE QUERIES - Use execute() (same as asyncpg)
+# ============================================================
+result = pynext_go.execute("SELECT * FROM users WHERE id = $1", [user_id])
+print(result.rows)
+
+# ============================================================
+# 4. BULK EXPORT - Use execute_copy() (3x faster!)
+# ============================================================
+csv_data = pynext_go.execute_copy("SELECT * FROM orders")
+with open("export.csv", "wb") as f:
+    f.write(csv_data)
+
+# ============================================================
+# 5. PARALLEL QUERIES - Lower-level API
+# ============================================================
+results = pynext_go.execute_parallel([
+    ("SELECT * FROM users", []),
+    ("SELECT * FROM orders WHERE status = $1", ["active"]),
+    ("SELECT COUNT(*) FROM products", []),
+])
+users, orders, product_count = results
+
+# Health check
+health = pynext_go.health()
+print(f"Status: {health.status}")
+
+# Cleanup
+pynext_go.close()
+```
+
+**Decision Tree: Which Method to Use?**
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                     What's your use case?                           │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  Multiple queries per request?                                      │
+│  ├── YES → Use batch()                          ⚡ 2x faster        │
+│  └── NO ↓                                                           │
+│                                                                     │
+│  Need a DataFrame?                                                  │
+│  ├── YES (1000+ rows) → Use execute_copy_df()   ⚡ 2-3x faster      │
+│  └── NO ↓                                                           │
+│                                                                     │
+│  Bulk data export?                                                  │
+│  ├── YES → Use execute_copy()                   ⚡ 3x faster        │
+│  └── NO ↓                                                           │
+│                                                                     │
+│  Single query for JSON API?                                         │
+│  └── Use execute()                              Same as asyncpg     │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**8.2 Query Builder Core** ✅ COMPLETE
+- [x] Query AST builder (Python) - `pynext/db/conditions.py`, `pynext/db/ast.py`
+- [x] Query optimizer (Go) - `go/pkg/query/optimizer.go`
+- [x] SQL generator (Go) - `go/pkg/query/generator.go`
+- [x] Query executor (Go) - `go/pkg/query/executor.go`
+- [x] Query validator (Go) - `go/pkg/query/validator.go`
+- [x] Query complexity limits (configurable)
+- [x] SQL injection prevention (strict mode)
+- [x] 4 SQL escape hatch levels
+- [x] CGO bridge integration (`PynextQueryExecute`, `PynextQueryExplain`, `PynextQueryValidate`)
+
+**Documentation:**
+- `docs/database/26-query-builder.md` - Complete API reference (who/what/when/where/why)
+- `docs/database/27-query-security.md` - Security model, injection prevention
+- `docs/database/28-query-internals.md` - Deep technical: AST, Go optimization
+- `docs/database/29-parallel-execution.md` - **NEW**: Parallel execution complete guide (1000+ lines)
+  - The problem (GIL, asyncio limitations)
+  - The solution (Go goroutines, architecture diagrams)
+  - Who/What/When/Where/Why breakdown
+  - Implementation guide with patterns
+  - Performance benchmarks
+  - Debugging and troubleshooting
+  - Best practices and FAQ
+
+**Test Coverage: 500+ tests**
+- `tests/unit/db/test_conditions.py` - 81 tests (condition functions)
+- `tests/unit/db/test_query_builder.py` - 150+ tests (QueryBuilder API)
+- `tests/unit/db/test_query_builder_parallel.py` - 50 tests (parallel execution)
+- `tests/unit/db/test_query_builder_syntax.py` - 84 tests (syntax parsing)
+- `tests/unit/db/test_ast.py` - 50+ tests (AST generation)
+- `tests/integration/db/test_query_builder_postgres.py` - 43 tests (PostgreSQL integration)
+- `go/pkg/query/ast_test.go` - 25+ tests (Go AST parsing)
+- `go/pkg/query/generator_test.go` - 25+ tests (SQL generation)
+- `go/pkg/query/optimizer_test.go` - 20+ tests (query optimization)
+- `go/pkg/query/validator_test.go` - 20+ tests (validation)
+- `go/pkg/query/executor_test.go` - 10+ tests (execution)
 
 ```python
 # Dead simple API - NO __ pattern!
@@ -1371,39 +1532,93 @@ pynext.config(
 # Three ways to query (all work together):
 
 # 1. Tuple syntax (explicit operators)
-users = User.q(("age", ">", 18), ("status", "=", "active"))
+users = await User.q(("age", ">", 18), ("status", "=", "active"))
 
 # 2. SQL string (familiar to SQL users)
-users = User.q("age > 18 AND status = 'active'")
+users = await User.q("age > $1 AND status = $2", 18, "active")
 
 # 3. Condition functions (type-safe)
-users = User.q(gt("age", 18), eq("status", "active"))
+from pynext.db import gt, eq, contains, and_, or_
+users = await User.q(gt("age", 18), eq("status", "active"))
 
 # Chainable for complex queries
-users = (User.q(("age", ">", 18))
+users = await (User.q(gt("age", 18))
+         .select("id", "name", "email")
          .include("posts", "comments")
          .order("-created_at")
          .page(1, per_page=20))
 
-# Join through relationships (dot notation)
-posts = Post.q(("author.age", ">", 18))
+# Complex conditions with logical operators
+users = await User.q(
+    and_(
+        gt("age", 18),
+        or_(eq("role", "admin"), eq("role", "moderator"))
+    )
+)
+
+# SQL Escape Hatches (4 levels)
+# Level 1: SQL in .q()
+users = await User.q("custom_func(data) > $1", 10)
+
+# Level 2: Raw SQL (returns dicts)
+rows = await db.sql("SELECT * FROM users WHERE ...")
+
+# Level 3: Raw SQL with model mapping
+users = await User.sql("SELECT * FROM users WHERE ...")
+
+# Level 4: Hybrid (builder + raw)
+users = await User.q(gt("age", 18)).where_raw("jsonb_col @> $1", ['{"key": "val"}'])
 ```
 
-**8.3 DataFrame Integration**
-- [ ] Arrow table result wrapper
-- [ ] Pandas integration (pyarrow backend)
-- [ ] Polars integration (native Arrow)
-- [ ] NumPy array conversion
-- [ ] Dict/list serialization
+**8.3 DataFrame Integration** ✅ COMPLETE
+- [x] Arrow table result wrapper (`execute_arrow()`)
+- [x] Pandas integration via COPY protocol (`execute_copy_df()`)
+- [x] CSV/Dict serialization (`execute_copy_rows()`)
+- [x] Polars integration (native Arrow, zero-copy) - `execute_polars()`
+- [x] NumPy column-wise arrays (zero-copy for numerics) - `execute_numpy()`
+- [x] NumPy structured arrays (row-oriented) - `execute_numpy_structured()`
+- [x] pandas via Arrow (optimized) - `execute_pandas()`
+- [x] QueryBuilder methods: `.to_polars()`, `.to_pandas()`, `.to_numpy()`, `.to_numpy_structured()`, `.to_dicts()`, `.to_list()`
+- [x] Async versions for all methods
+- [x] Arrow type mapping utilities (`pynext_go/numpy_utils.py`)
+- [x] **600 comprehensive tests** across 8 test files
+- [x] **Documentation**: `docs/database/30-dataframe-integration.md`
 
 ```python
-# Zero-copy via Apache Arrow:
-df = User.q("age > 18").to_pandas()
-pl_df = User.q("age > 18").to_polars()
-arr = User.q("age > 18").to_numpy()
-records = User.q("age > 18").to_dicts()
-data = User.q("age > 18").to_list()
+# Standalone functions (fastest path)
+import pynext_go
+
+df = pynext_go.execute_polars("SELECT * FROM users WHERE age > $1", [18])  # Zero-copy!
+arrays = pynext_go.execute_numpy("SELECT id, score FROM users")  # Vectorized ops
+structured = pynext_go.execute_numpy_structured("SELECT * FROM users")  # Row iteration
+df = pynext_go.execute_pandas("SELECT * FROM orders")  # pandas compatibility
+
+# QueryBuilder methods (chainable)
+df = await User.q(("age", ">", 18)).to_polars()
+df = await User.q().select("id", "name", "score").order("-score").limit(100).to_pandas()
+arrays = await Product.q(("active", "=", True)).to_numpy()
+rows = await Order.q(("status", "=", "pending")).to_dicts()  # For JSON API
+
+# Async versions
+df = await pynext_go.execute_polars_async("SELECT * FROM large_table")
+arrays = await pynext_go.execute_numpy_async("SELECT * FROM metrics")
 ```
+
+**Performance (vs asyncpg + manual conversion) - MEASURED:**
+
+| Rows | Operation | asyncpg | pynext-go | Speedup |
+|------|-----------|---------|-----------|---------|
+| 100K | to_polars | 213ms | 49ms | **4.33x** |
+| 100K | to_pandas | 222ms | 49ms | **4.52x** |
+| 100K | to_numpy | 139ms | 50ms | **2.77x** |
+| 500K | to_polars | 1,031ms | 225ms | **4.59x** |
+| 500K | to_pandas | 1,381ms | 243ms | **5.69x** |
+| 1M | to_polars | 1,925ms | 498ms | **3.87x** |
+| 2M | to_polars | 4,477ms | 890ms | **5.03x** |
+
+**Average: 4.07x faster than asyncpg**
+
+See `docs/database/31-benchmark-methodology.md` for full methodology.
 
 **8.4 Read Replicas & Smart Routing**
 - [ ] Replica configuration (named, tagged, geographic)
@@ -1861,9 +2076,9 @@ pynext.config(
 
 | Sub-Phase | Tests |
 |-----------|-------|
-| 8.1 Go Bridge | 200+ |
-| 8.2 Query Builder | 300+ |
-| 8.3 DataFrame | 100+ |
+| 8.1 Go Bridge | 580+ (105 Go + 475 Python + benchmarks) |
+| 8.2 Query Builder | 300+ ✅ (81 conditions + 150 builder + 50 AST + 65 Go) |
+| 8.3 DataFrame | 600+ ✅ (80 Polars + 100 NumPy colwise + 100 NumPy struct + 120 QueryBuilder + 80 type mapping + 50 error + 40 benchmark + 30 integration) |
 | 8.4 Replicas | 150+ |
 | 8.5 Caching | 100+ |
 | 8.6 REST/API | 100+ |
@@ -1872,7 +2087,7 @@ pynext.config(
 | 8.9 Transactions | 100+ |
 | 9.x Observability | 200+ |
 | 10.x Multi-tenant | 200+ |
-| **Total** | **1700+** |
+| **Total** | **2200+** |
 
 ---
 

@@ -2,6 +2,59 @@
 
 Welcome to the PyNext Database Layer documentation. This guide covers everything you need to build data-driven Python web applications - from basic concepts to production-scale deployments.
 
+---
+
+## 🚀 START HERE: Go Bridge Quickstart
+
+**Want 4x faster database operations?** Start with the Go Bridge quickstart guide:
+
+### [📖 00-quickstart.md - Complete Guide (10 min read)](./00-quickstart.md)
+
+Covers everything in one place:
+- Installation & setup
+- Single queries (`execute`, `execute_fast`)
+- Multi-query parallel execution (`batch`, `execute_parallel`)
+- DataFrame operations (Polars, pandas, NumPy)
+- QueryBuilder API
+- Real-world examples
+
+```python
+import pynext_go
+
+# Initialize
+pynext_go.init("postgresql://user:pass@localhost:5432/mydb")
+
+# 3.14x faster single queries
+user = pynext_go.execute_fast("SELECT * FROM users WHERE id = $1", [user_id])
+
+# 2x faster multi-query (parallel execution)
+with pynext_go.batch() as b:
+    user = b.query("SELECT * FROM users WHERE id = $1", [user_id])
+    orders = b.query("SELECT * FROM orders WHERE user_id = $1", [user_id])
+
+# 4x faster DataFrames
+df = pynext_go.execute_polars("SELECT * FROM events WHERE date > $1", [last_week])
+```
+
+---
+
+## 📚 Go Bridge Documentation (High Performance)
+
+| Doc | Description |
+|-----|-------------|
+| [00-quickstart.md](./00-quickstart.md) | **START HERE** - Complete guide from zero to production |
+| [23-go-bridge.md](./23-go-bridge.md) | API reference and usage patterns |
+| [24-asyncpg-vs-gobridge.md](./24-asyncpg-vs-gobridge.md) | Migration guide from asyncpg |
+| [25-gobridge-internals.md](./25-gobridge-internals.md) | How it works under the hood |
+| [26-query-builder.md](./26-query-builder.md) | Type-safe QueryBuilder API |
+| [29-parallel-execution.md](./29-parallel-execution.md) | Deep dive into batch() and parallelism |
+| [30-dataframe-integration.md](./30-dataframe-integration.md) | Polars, pandas, NumPy integration |
+| [31-benchmark-methodology.md](./31-benchmark-methodology.md) | Performance benchmarks & methodology |
+
+---
+
+## 📚 ORM Documentation (Traditional)
+
 ## 📚 Documentation Overview
 
 ```

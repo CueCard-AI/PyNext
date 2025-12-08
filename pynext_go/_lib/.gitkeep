@@ -1,0 +1,10 @@
+# This directory contains pre-built Go binaries for each platform.
+# Binaries are built by CI and included in the pynext-go package.
+#
+# Directory structure:
+#   linux_amd64/libpynext.so
+#   linux_arm64/libpynext.so
+#   darwin_amd64/libpynext.dylib
+#   darwin_arm64/libpynext.dylib
+#   windows_amd64/pynext.dll
+
