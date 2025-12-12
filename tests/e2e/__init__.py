@@ -1,2 +1,1 @@
-# End-to-end browser tests for PyNext
-
+"""End-to-End Tests Package - Real browser tests using Playwright."""

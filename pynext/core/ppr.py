@@ -38,7 +38,7 @@ import asyncio
 import contextvars
 import functools
 
-from pynext.core.signals import Signal
+from pynext.reactive import Signal
 from pynext.core.html import div, Fragment
 
 

@@ -34,7 +34,7 @@ from pynext.core.island import (
     get_minimal_runtime_for_island,
     ComponentAnalyzer,
 )
-from pynext.core.signals import Signal
+from pynext.reactive import Signal
 from pynext.core.html import div, button, span, p, h1, section, article
 
 

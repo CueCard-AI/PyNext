@@ -47,7 +47,7 @@ from typing import (
 )
 
 if TYPE_CHECKING:
-    from pynext.core.signals import Signal, Store, Computed, Effect
+    from pynext.reactive import Signal, Store, Computed, Effect
     from pynext.core.html import Element
 
 

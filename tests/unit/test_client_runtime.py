@@ -368,7 +368,7 @@ class TestClientRuntimeIntegration:
     
     def test_keyboard_with_signal(self):
         """Test keyboard shortcut that updates a signal."""
-        from pynext.core.signals import Signal
+        from pynext.reactive import Signal
         from pynext.core.client import on_keydown, reset_client_state
         
         reset_client_state()

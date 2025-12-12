@@ -10,7 +10,7 @@ import re
 from pathlib import Path
 from fastapi.testclient import TestClient
 from pynext.server.app import create_app
-from pynext.core.signals import Signal
+from pynext.reactive import Signal
 from pynext.core.component import page, component
 from pynext.core.html import div, span, button, h1
 

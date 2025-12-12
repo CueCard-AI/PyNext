@@ -25,7 +25,19 @@ This framework provides:
 __version__ = "0.1.0"
 
 # Core reactive primitives
-from pynext.core.signals import Signal, Effect, Memo, Store, Computed, batch
+from pynext.reactive import Signal, Effect, Memo, Store, Computed, batch, signal, effect, memo, store
+
+# Event modifiers (SolidJS-inspired)
+from pynext.events import (
+    EventHandler,
+    stop,
+    prevent,
+    self_only,
+    once,
+    capture,
+    stop_propagation,
+    prevent_default,
+)
 from pynext.core.resource import Resource, create_resource, ResourceState, get_resource_registry
 from pynext.core.suspense import Suspense, Show, Switch, Match, ErrorBoundary
 
@@ -586,6 +598,15 @@ __all__ = [
     "Store",
     "Computed",
     "batch",
+    # Event Modifiers
+    "EventHandler",
+    "stop",
+    "prevent",
+    "self_only",
+    "once",
+    "capture",
+    "stop_propagation",
+    "prevent_default",
     # Resource (async data)
     "Resource",
     "create_resource",

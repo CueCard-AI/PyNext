@@ -27,10 +27,36 @@ from httpx import AsyncClient, ASGITransport
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from pynext.server.app import PyNextApp, create_app
-from pynext.core.signals import Signal, Computed, Effect, Store, batch
+from pynext.reactive import Signal, Computed, Effect, Store, batch
 from pynext.core.component import component, page, layout, loading, error, not_found
 from pynext.core.html import div, span, button, h1, p, ul, li, form, input_, a
 from pynext.router.file_router import FileRouter
+
+
+# =============================================================================
+# Reactive Context Reset
+# =============================================================================
+
+@pytest.fixture(autouse=True)
+def reset_reactive_context():
+    """Reset reactive context before each test to prevent test pollution."""
+    from pynext.reactive.context import (
+        _batch_depth, 
+        _pending_effects,
+        _current_observer,
+    )
+    
+    # Reset context vars to default state
+    _batch_depth.set(0)
+    _pending_effects.set(set())
+    _current_observer.set(None)
+    
+    yield
+    
+    # Clean up after test
+    _batch_depth.set(0)
+    _pending_effects.set(set())
+    _current_observer.set(None)
 
 
 # =============================================================================
