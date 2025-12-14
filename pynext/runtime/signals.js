@@ -722,10 +722,14 @@
 
         console.log('[PyNext] Hydrating with data:', data);
 
-        // Create signals - use signalData.id (e.g., "sig_4") not the name key
+        // Create signals - store by BOTH name and ID for flexible lookup
         for (const [name, signalData] of Object.entries(data.signals || {})) {
             const signalId = signalData.id || name;  // Use actual signal ID
-            createSignal(signalId, signalData.value);
+            const signal = createSignal(signalId, signalData.value);
+            // Also store by name for stable lookup (IDs change each render, names don't)
+            if (name && name !== signalId) {
+                __pynext__.signals[name] = signal;
+            }
             console.log(`[PyNext] Created signal: ${name} -> ${signalId}`);
         }
 

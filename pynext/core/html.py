@@ -237,15 +237,11 @@ class Element:
                     form_id = f"form_{id(bound_signal)}"
                 
                 # Register the parent form for hydration if not already registered
-                import os
-                if os.environ.get("PYNEXT_DEBUG"):
-                    print(f"[DEBUG] bind: form_id={form_id}, parent_form._form_id={getattr(parent_form, '_form_id', 'N/A') if parent_form else 'N/A'}")
                 if parent_form and form_id not in ctx.forms:
                     ctx.register_form(parent_form)
-                    if os.environ.get("PYNEXT_DEBUG"):
-                        print(f"[DEBUG] Registered form from bind: {form_id}")
                 
-                field_name = getattr(bound_signal, "_name", bound_signal._id)
+                # Use _field_name (actual field key) if available, fallback to _name
+                field_name = getattr(bound_signal, "_field_name", None) or getattr(bound_signal, "_name", bound_signal._id)
                 ctx.register_form_binding(element_id, form_id, field_name, bind_type)
                 
                 # Also add data attribute for client-side discovery
@@ -269,11 +265,6 @@ class Element:
             if is_event_attr:
                 event_type = attr_name[2:].lower()  # onclick -> click
                 element_id = self._get_element_id()
-                
-                # DEBUG
-                import os
-                if os.environ.get("PYNEXT_DEBUG"):
-                    print(f"[DEBUG] Event: {attr_name} on element {element_id}, ctx={ctx is not None}")
                 
                 # Unwrap EventHandler to get function and modifiers
                 handler_func, event_mods = _unwrap_event_handler(value)
@@ -483,12 +474,15 @@ class Element:
         import inspect
         import re
         
+        # Use signal name for stable lookup (IDs change each render, names don't)
+        signal_ref = getattr(signal, '_name', None) or signal_id
+        
         # Try to get source code
         try:
             source = inspect.getsource(func).strip()
         except (OSError, TypeError):
             # Can't get source - use default increment
-            return f"__pynext__.getSignal('{signal_id}').update(v => v + 1)"
+            return f"__pynext__.getSignal('{signal_ref}').update(v => v + 1)"
         
         # Clean up the source
         source = source.replace('\n', ' ').replace('  ', ' ')
@@ -504,34 +498,34 @@ class Element:
                 val = 'false'
             elif val == 'None':
                 val = 'null'
-            return f"__pynext__.getSignal('{signal_id}').set({val})"
+            return f"__pynext__.getSignal('{signal_ref}').set({val})"
         
         # Pattern: .set(signal() + n) or .set(signal() - n)
         set_add_match = re.search(r'\.set\s*\([^)]*\(\)\s*\+\s*(\d+)\s*\)', source)
         if set_add_match:
             n = set_add_match.group(1)
-            return f"__pynext__.getSignal('{signal_id}').update(v => v + {n})"
+            return f"__pynext__.getSignal('{signal_ref}').update(v => v + {n})"
         
         set_sub_match = re.search(r'\.set\s*\([^)]*\(\)\s*-\s*(\d+)\s*\)', source)
         if set_sub_match:
             n = set_sub_match.group(1)
-            return f"__pynext__.getSignal('{signal_id}').update(v => v - {n})"
+            return f"__pynext__.getSignal('{signal_ref}').update(v => v - {n})"
         
         # Pattern: .update(lambda x: x + n)
         update_add_match = re.search(r'\.update\s*\(\s*lambda\s+\w+\s*:\s*\w+\s*\+\s*(\d+)\s*\)', source)
         if update_add_match:
             n = update_add_match.group(1)
-            return f"__pynext__.getSignal('{signal_id}').update(v => v + {n})"
+            return f"__pynext__.getSignal('{signal_ref}').update(v => v + {n})"
         
         # Pattern: .update(lambda x: x - n)
         update_sub_match = re.search(r'\.update\s*\(\s*lambda\s+\w+\s*:\s*\w+\s*-\s*(\d+)\s*\)', source)
         if update_sub_match:
             n = update_sub_match.group(1)
-            return f"__pynext__.getSignal('{signal_id}').update(v => v - {n})"
+            return f"__pynext__.getSignal('{signal_ref}').update(v => v - {n})"
         
         # Pattern: .update(lambda x: not x) or toggle
         if re.search(r'\.update\s*\(\s*lambda\s+\w+\s*:\s*not\s+\w+\s*\)', source) or '.toggle()' in source:
-            return f"__pynext__.getSignal('{signal_id}').update(v => !v)"
+            return f"__pynext__.getSignal('{signal_ref}').update(v => !v)"
         
         # Pattern: generic .set() - check if expression contains signal()
         set_expr_match = re.search(r'\.set\s*\(\s*([^)]+)\s*\)', source)
@@ -541,27 +535,219 @@ class Element:
             if '()' in expr:
                 # Try to extract the pattern
                 if '+' in expr:
-                    return f"__pynext__.getSignal('{signal_id}').update(v => v + 1)"
+                    return f"__pynext__.getSignal('{signal_ref}').update(v => v + 1)"
                 elif '-' in expr:
-                    return f"__pynext__.getSignal('{signal_id}').update(v => v - 1)"
+                    return f"__pynext__.getSignal('{signal_ref}').update(v => v - 1)"
                 elif '*' in expr:
-                    return f"__pynext__.getSignal('{signal_id}').update(v => v * 2)"
+                    return f"__pynext__.getSignal('{signal_ref}').update(v => v * 2)"
             else:
                 # Try to convert Python literal to JS
                 try:
                     # Try evaluating as Python literal
                     val = eval(expr)
                     if isinstance(val, bool):
-                        return f"__pynext__.getSignal('{signal_id}').set({'true' if val else 'false'})"
+                        return f"__pynext__.getSignal('{signal_ref}').set({'true' if val else 'false'})"
                     elif isinstance(val, (int, float)):
-                        return f"__pynext__.getSignal('{signal_id}').set({val})"
+                        return f"__pynext__.getSignal('{signal_ref}').set({val})"
                     elif isinstance(val, str):
-                        return f"__pynext__.getSignal('{signal_id}').set({json.dumps(val)})"
+                        return f"__pynext__.getSignal('{signal_ref}').set({json.dumps(val)})"
                 except:
                     pass
         
         # Default: increment by 1
-        return f"__pynext__.getSignal('{signal_id}').update(v => v + 1)"
+        return f"__pynext__.getSignal('{signal_ref}').update(v => v + 1)"
+    
+    def _extract_form_handler(self, func: Callable, forms: dict, signals: dict) -> str:
+        """
+        Extract JS for form-based handlers (validate, submit, reset).
+        
+        Handles patterns like:
+        - if form.validate(): do_stuff(); form.reset()
+        - form.values property access
+        - Combined form + signal operations
+        """
+        import inspect
+        import re
+        
+        # Get source code
+        try:
+            source = inspect.getsource(func).strip()
+        except (OSError, TypeError):
+            return "console.warn('[PyNext] Could not get source for form handler')"
+        
+        # Clean up source
+        source = source.replace('\n', ' ').replace('  ', ' ')
+        
+        # Get form ID (use first form if multiple)
+        form_id = list(forms.keys())[0]
+        form = forms[form_id]
+        
+        # CRITICAL: Register the form with the context for hydration
+        ctx = get_context()
+        if ctx:
+            # Use the form's _form_id for consistency
+            actual_form_id = getattr(form, '_form_id', form_id)
+            if actual_form_id not in ctx.forms:
+                ctx.register_form(form)
+            # Use the form's _form_id in the generated JS
+            form_id = actual_form_id
+        
+        # Detect validation + submission pattern
+        # if form.validate(): ... form.reset() or similar
+        has_validate = '.validate()' in source or '.validate(' in source
+        has_reset = '.reset()' in source
+        has_values = '.values' in source
+        
+        if has_validate:
+            # This is a form submission handler
+            return self._generate_form_submit_js(form_id, forms, signals, source)
+        elif has_reset:
+            # Just reset
+            return f"__pynext__.getForm('{form_id}').reset()"
+        elif has_values:
+            # Values access without validation
+            return self._generate_form_values_js(form_id, signals, source)
+        else:
+            # Generic form handler - try to parse
+            return f"console.warn('[PyNext] Form handler pattern not recognized')"
+    
+    def _generate_form_submit_js(self, form_id: str, forms: dict, signals: dict, source: str) -> str:
+        """
+        Generate JavaScript for a form submission handler.
+        
+        Pattern:
+            if form.validate():
+                all_issues.set([*all_issues(), form.values])
+                next_id.set(next_id() + 1)
+                form.reset()
+                show_modal.set(False)
+        
+        Generates:
+            (function() {
+                const form = __pynext__.getForm('form_xxx');
+                if (!form) return;
+                if (form.validate()) {
+                    const values = form.values;
+                    __pynext__.getSignal('all_issues').update(arr => [...arr, values]);
+                    __pynext__.getSignal('next_id').update(v => v + 1);
+                    form.reset();
+                    __pynext__.getSignal('show_modal').set(false);
+                }
+            })()
+        """
+        # Parse signal operations from source
+        signal_ops = self._parse_signal_operations(source, signals)
+        
+        # Check for reset
+        has_reset = '.reset()' in source
+        reset_js = "form.reset();" if has_reset else ""
+        
+        js_code = f"""(function() {{
+            const form = __pynext__.getForm('{form_id}');
+            if (!form) {{ console.error('[PyNext] Form {form_id} not found'); return; }}
+            if (form.validate()) {{
+                const values = form.values;
+                {signal_ops}
+                {reset_js}
+            }}
+        }})()"""
+        
+        return js_code
+    
+    def _generate_form_values_js(self, form_id: str, signals: dict, source: str) -> str:
+        """
+        Generate JavaScript for handlers that access form.values without validation.
+        """
+        signal_ops = self._parse_signal_operations(source, signals)
+        
+        return f"""(function() {{
+            const form = __pynext__.getForm('{form_id}');
+            if (!form) {{ console.error('[PyNext] Form {form_id} not found'); return; }}
+            const values = form.values;
+            {signal_ops}
+        }})()"""
+    
+    def _parse_signal_operations(self, source: str, signals: dict) -> str:
+        """
+        Parse Python source to extract signal operations.
+        
+        Handles patterns:
+        - signal.set([*signal(), item])  -> update(arr => [...arr, item])
+        - signal.set(signal() + 1)       -> update(v => v + 1)
+        - signal.set(False)              -> set(false)
+        """
+        import re
+        
+        js_lines = []
+        
+        for sig_id, sig in signals.items():
+            # Get the variable name used in source (might differ from _id)
+            sig_name = getattr(sig, '_name', sig_id) or sig_id
+            # Use signal name for JS lookup (stable across renders), not sig_id (changes each render)
+            js_signal_ref = sig_name
+            
+            # Pattern 1: signal.set([*signal(), new_item]) - Array append with values
+            # Matches: all_issues.set([*all_issues(), new_issue])
+            array_append_pattern = rf'{re.escape(sig_name)}\.set\s*\(\s*\[\s*\*\s*{re.escape(sig_name)}\s*\(\s*\)\s*,\s*(\w+)\s*\]\s*\)'
+            array_match = re.search(array_append_pattern, source)
+            if array_match:
+                item_name = array_match.group(1)
+                # In generated JS, we always use 'values' which is assigned from form.values
+                # The Python code might use a variable like 'new_issue' but that's just
+                # an intermediate variable holding data derived from form.values
+                js_lines.append(f"__pynext__.getSignal('{js_signal_ref}').update(arr => [...arr, values]);")
+                continue
+            
+            # Pattern 1b: Spread with constructed object inline
+            # Matches: all_issues.set([*all_issues(), {...}]) 
+            array_inline_pattern = rf'{re.escape(sig_name)}\.set\s*\(\s*\[\s*\*\s*{re.escape(sig_name)}\s*\(\s*\)\s*,'
+            if re.search(array_inline_pattern, source):
+                # Complex inline object - use values as fallback
+                js_lines.append(f"__pynext__.getSignal('{js_signal_ref}').update(arr => [...arr, values]);")
+                continue
+            
+            # Pattern 2: signal.set(signal() + n) - Increment
+            inc_pattern = rf'{re.escape(sig_name)}\.set\s*\(\s*{re.escape(sig_name)}\s*\(\s*\)\s*\+\s*(\d+)\s*\)'
+            inc_match = re.search(inc_pattern, source)
+            if inc_match:
+                n = inc_match.group(1)
+                js_lines.append(f"__pynext__.getSignal('{js_signal_ref}').update(v => v + {n});")
+                continue
+            
+            # Pattern 3: signal.set(signal() - n) - Decrement
+            dec_pattern = rf'{re.escape(sig_name)}\.set\s*\(\s*{re.escape(sig_name)}\s*\(\s*\)\s*-\s*(\d+)\s*\)'
+            dec_match = re.search(dec_pattern, source)
+            if dec_match:
+                n = dec_match.group(1)
+                js_lines.append(f"__pynext__.getSignal('{js_signal_ref}').update(v => v - {n});")
+                continue
+            
+            # Pattern 4: signal.set(False) or signal.set(True)
+            bool_pattern = rf'{re.escape(sig_name)}\.set\s*\(\s*(True|False)\s*\)'
+            bool_match = re.search(bool_pattern, source)
+            if bool_match:
+                val = bool_match.group(1)
+                js_val = 'true' if val == 'True' else 'false'
+                js_lines.append(f"__pynext__.getSignal('{js_signal_ref}').set({js_val});")
+                continue
+            
+            # Pattern 5: signal.set(number)
+            num_pattern = rf'{re.escape(sig_name)}\.set\s*\(\s*(\d+)\s*\)'
+            num_match = re.search(num_pattern, source)
+            if num_match:
+                num = num_match.group(1)
+                js_lines.append(f"__pynext__.getSignal('{js_signal_ref}').set({num});")
+                continue
+            
+            # Pattern 6: signal.set("string")
+            str_pattern = rf'{re.escape(sig_name)}\.set\s*\(\s*["\']([^"\']*)["\']s*\)'
+            str_match = re.search(str_pattern, source)
+            if str_match:
+                s = str_match.group(1)
+                js_lines.append(f"__pynext__.getSignal('{js_signal_ref}').set(\"{s}\");")
+                continue
+        
+        return '\n                '.join(js_lines)
     
     def _extract_form_handler(self, func: Callable, forms: dict, signals: dict) -> str:
         """
