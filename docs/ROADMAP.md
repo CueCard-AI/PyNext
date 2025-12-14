@@ -4415,6 +4415,297 @@ Build a Linear-like project management app incrementally as each phase completes
 
 ---
 
+#### Phase 18: Python-to-JavaScript Transpiler
+
+**Status:** Planned
+**Priority:** P0 (Critical)
+**Target Tests:** 2,000+
+**Timeline:** 6 weeks (6 sub-phases)
+
+**Vision:** A production-grade Python-to-JavaScript transpiler inspired by SolidJS's compilation model. Unlike React's runtime-heavy approach, this compiles Python to optimized JavaScript with:
+- **Zero Virtual DOM** - Direct DOM manipulation
+- **Fine-grained reactivity** - Only affected nodes update
+- **Readable output** - Generated JS should be human-debuggable
+- **Gradual adoption** - Works alongside existing @island compiler
+
+**Why This Matters:**
+The current `html.py` transpiler handles simple patterns but fails on real code:
+
+```python
+# FAILS TODAY - too complex for html.py
+def handle_add_issue():
+    if issue_form.validate():
+        all_issues.set([*all_issues(), issue_form.values])
+        issue_form.reset()
+        show_add_form.set(False)
+```
+
+Phase 17.11 added pattern-matching for FormState, but this is a band-aid. Phase 18 makes ALL Python event handlers work automatically by building a real transpiler.
+
+**Architecture:**
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                    PYNEXT TRANSPILER PIPELINE                        │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  Python Source                                                       │
+│       │                                                              │
+│       ▼                                                              │
+│  ┌─────────────────┐     ┌─────────────────┐     ┌──────────────┐  │
+│  │  1. AST Parser  │ ──▶ │ 2. Transformer  │ ──▶ │ 3. Analyzer  │  │
+│  │  (Python ast)   │     │ (Normalize)     │     │ (Scope/Type) │  │
+│  └─────────────────┘     └─────────────────┘     └──────┬───────┘  │
+│                                                          │          │
+│                                                          ▼          │
+│                          ┌─────────────────┐     ┌──────────────┐  │
+│                          │ 5. Runtime      │ ◀── │ 4. JS Emitter│  │
+│                          │ (Python stdlib) │     │ (Code Gen)   │  │
+│                          └─────────────────┘     └──────────────┘  │
+│                                                          │          │
+│                                                          ▼          │
+│                                                  JavaScript Bundle   │
+│                                                  + Source Maps       │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**Progress Summary:**
+| Phase | Description | Status | Tests |
+|-------|-------------|--------|-------|
+| 18.1 | Core Statements | ⏳ Planned | 300 |
+| 18.2 | Expressions & Operators | ⏳ Planned | 300 |
+| 18.3 | Classes & Methods | ⏳ Planned | 300 |
+| 18.4 | Error Handling | ⏳ Planned | 200 |
+| 18.5 | Advanced Features | ⏳ Planned | 400 |
+| 18.6 | PyNext Integration | ⏳ Planned | 500 |
+
+---
+
+**18.1 Core Statements (Week 1) - Target: 300 tests**
+
+Transpile Python's fundamental control flow to JavaScript:
+
+| Python | JavaScript |
+|--------|------------|
+| `x = 5` | `let x = 5;` |
+| `x += 1` | `x += 1;` |
+| `if x > 0:` | `if (x > 0) {` |
+| `elif x < 0:` | `} else if (x < 0) {` |
+| `for x in items:` | `for (const x of items) {` |
+| `for i in range(10):` | `for (let i = 0; i < 10; i++) {` |
+| `while x > 0:` | `while (x > 0) {` |
+| `def foo(a, b):` | `function foo(a, b) {` |
+| `lambda x: x * 2` | `(x) => x * 2` |
+
+**Files:**
+- `pynext/transpiler/parser.py` - Enhanced AST parser
+- `pynext/transpiler/emitter.py` - Core JS emitter
+- `pynext/transpiler/statements.py` - Statement handlers
+- `tests/unit/transpiler/test_statements.py`
+
+---
+
+**18.2 Expressions & Operators (Week 2) - Target: 300 tests**
+
+| Python | JavaScript |
+|--------|------------|
+| `a == b` | `a === b` |
+| `a is None` | `a === null` |
+| `a and b` | `a && b` |
+| `a if b else c` | `b ? a : c` |
+| `a in b` | `b.includes(a)` |
+| `a // b` | `Math.floor(a / b)` |
+| `f"hello {x}"` | `` `hello ${x}` `` |
+| `[x*2 for x in items]` | `items.map(x => x*2)` |
+| `{k: v for k, v in d.items()}` | `Object.fromEntries(...)` |
+
+**Files:**
+- `pynext/transpiler/expressions.py`
+- `pynext/transpiler/operators.py`
+- `tests/unit/transpiler/test_expressions.py`
+- `tests/unit/transpiler/test_comprehensions.py`
+
+---
+
+**18.3 Classes & Methods (Week 3) - Target: 300 tests**
+
+```python
+# Python
+class Todo:
+    def __init__(self, title, done=False):
+        self.title = title
+        self.done = done
+    
+    def toggle(self):
+        self.done = not self.done
+
+class PriorityTodo(Todo):
+    def __init__(self, title, priority=1):
+        super().__init__(title)
+        self.priority = priority
+```
+
+```javascript
+// JavaScript
+class Todo {
+    constructor(title, done = false) {
+        this.title = title;
+        this.done = done;
+    }
+    toggle() {
+        this.done = !this.done;
+    }
+}
+
+class PriorityTodo extends Todo {
+    constructor(title, priority = 1) {
+        super(title);
+        this.priority = priority;
+    }
+}
+```
+
+**Files:**
+- `pynext/transpiler/classes.py`
+- `tests/unit/transpiler/test_classes.py`
+
+---
+
+**18.4 Error Handling (Week 4) - Target: 200 tests**
+
+```python
+# Python
+try:
+    risky_operation()
+except ValueError as e:
+    console.log(f"Value error: {e}")
+except (TypeError, KeyError):
+    console.log("Type or key error")
+finally:
+    cleanup()
+```
+
+```javascript
+// JavaScript
+try {
+    risky_operation();
+} catch (_e) {
+    if (_e instanceof ValueError) {
+        const e = _e;
+        console.log(`Value error: ${e}`);
+    } else if (_e instanceof TypeError || _e instanceof KeyError) {
+        console.log("Type or key error");
+    } else {
+        throw _e;
+    }
+} finally {
+    cleanup();
+}
+```
+
+**Files:**
+- `pynext/transpiler/exceptions.py`
+- `pynext/transpiler/runtime/exceptions.js`
+- `tests/unit/transpiler/test_exceptions.py`
+
+---
+
+**18.5 Advanced Features (Week 5) - Target: 400 tests**
+
+**Async/Await:**
+```python
+async def fetch_user(id):
+    response = await fetch(f"/api/users/{id}")
+    return await response.json()
+```
+
+**Decorators:**
+```python
+@memoize
+def expensive(n):
+    return fib(n)
+```
+
+**Unpacking:**
+```python
+items = [*old_items, new_item]
+config = {**defaults, **overrides}
+
+def foo(*args, **kwargs):
+    bar(*args, **kwargs)
+```
+
+**Files:**
+- `pynext/transpiler/async_await.py`
+- `pynext/transpiler/decorators.py`
+- `pynext/transpiler/unpacking.py`
+
+---
+
+**18.6 PyNext Integration (Week 6) - Target: 500 tests**
+
+Wire the transpiler into PyNext's reactive system:
+
+```python
+count = signal(0)
+doubled = memo(lambda: count() * 2)
+
+def handle_submit():
+    if form.validate():
+        items.set([*items(), form.values])
+        form.reset()
+```
+
+```javascript
+const count = __pynext__.createSignal(0);
+const doubled = __pynext__.createMemo(() => count() * 2);
+
+function handle_submit() {
+    const form = __pynext__.getForm('form_xxx');
+    if (form.validate()) {
+        __pynext__.getSignal('items').update(arr => [...arr, form.values]);
+        form.reset();
+    }
+}
+```
+
+**Files:**
+- `pynext/transpiler/reactive.py` - PyNext primitive detection
+- `pynext/transpiler/hydration.py` - Hydration code generation
+- `pynext/transpiler/__init__.py` - Public API
+- `tests/e2e/test_linear_transpiled.py` - Linear app works!
+
+---
+
+**Python Runtime Library:**
+
+```
+pynext/transpiler/runtime/
+├── index.js           # Entry point
+├── builtins.js        # len, range, enumerate, zip, etc.
+├── types.js           # list, dict, set with Python methods
+├── exceptions.js      # ValueError, TypeError, KeyError, etc.
+└── operators.js       # is, in, floor division helpers
+```
+
+**Target size:** < 5KB gzipped (tree-shakeable)
+
+---
+
+**Success Criteria:**
+
+| Metric | Target |
+|--------|--------|
+| Linear app handlers | 100% work without fallbacks |
+| Generated JS readability | Human-debuggable |
+| Runtime overhead | < 5KB gzipped |
+| Compilation speed | < 100ms per file |
+| Test coverage | 2,000+ tests |
+
+**Milestone:** Linear clone works end-to-end with no `console.warn()` fallbacks.
+
+---
+
 ### Figma Integration
 
 Connecting Figma to the component registry would streamline designer-developer collaboration:
