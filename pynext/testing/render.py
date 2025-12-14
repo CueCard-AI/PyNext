@@ -36,7 +36,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Type, Union
 from html.parser import HTMLParser
 
-from pynext.core.signals import Signal
+from pynext.reactive import Signal
 
 
 # =============================================================================

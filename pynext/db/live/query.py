@@ -45,7 +45,7 @@ from typing import (
     TYPE_CHECKING,
 )
 
-from pynext.core.signals import Signal
+from pynext.reactive import Signal
 from pynext.db.live.config import (
     LiveQueryConfig,
     QuerySignature,

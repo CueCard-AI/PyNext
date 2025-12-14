@@ -82,7 +82,7 @@ class TestImageJSBundleSize:
     
     def test_reactive_image_requires_js(self):
         """Reactive images should include JS."""
-        from pynext.core.signals import Signal
+        from pynext.reactive import Signal
         
         src_signal = Signal("/images/photo1.jpg")
         

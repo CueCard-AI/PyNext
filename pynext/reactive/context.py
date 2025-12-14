@@ -1,151 +1,377 @@
 """
-Reactive Context - Ownership and Dependency Tracking
+PyNext Reactive Context - The Foundation Layer
 
-This module provides the core infrastructure for reactive tracking:
-- Owner: Manages cleanup and nested reactive scopes
-- Observer: Tracks which signals are read during computation
-- Batching: Coalesces multiple updates into single notification round
+=============================================================================
+WHAT THIS FILE DOES
+=============================================================================
 
-The context system enables:
-1. Automatic dependency tracking (no explicit dependency arrays)
-2. Proper cleanup when components unmount
-3. Glitch-free updates through topological sorting
+This file manages GLOBAL STATE for the reactive system:
+
+- Who is currently reading signals? (_current_observer)
+- Are we in a batch? (_batch_depth)
+- What effects are pending? (_pending_effects)
+
+Without this, signals wouldn't know who to notify.
+
+=============================================================================
+WHY THIS EXISTS (Problem It Solves)
+=============================================================================
+
+Automatic dependency tracking needs to know "who's asking":
+
+    @effect
+    def my_effect():
+        print(count())  # How does count() know my_effect reads it?
+        
+Answer: When my_effect runs, we set _current_observer = my_effect.
+Then count() checks _current_observer and adds it to subscribers.
+
+This is the key insight from SolidJS that makes fine-grained reactivity work.
+
+=============================================================================
+HOW IT WORKS (Architecture)
+=============================================================================
+
+    ┌────────────────────────────────────────────────────────────────┐
+    │  Global State (Thread-Local via ContextVar)                     │
+    │                                                                 │
+    │  _current_observer = None  ──► Who is currently executing?     │
+    │  _batch_depth = 0          ──► Nested batch() call count       │
+    │  _pending_effects = set()  ──► Effects waiting for batch end   │
+    │                                                                 │
+    │  Effect runs:                                                   │
+    │  1. prev = _current_observer                                    │
+    │  2. _current_observer = effect                                  │
+    │  3. effect.fn() executes                                        │
+    │  4. signal() sees _current_observer, subscribes effect          │
+    │  5. _current_observer = prev                                    │
+    │                                                                 │
+    │  Batch runs:                                                    │
+    │  1. _batch_depth += 1                                           │
+    │  2. User code runs, signals queue effects in _pending_effects   │
+    │  3. _batch_depth -= 1                                           │
+    │  4. If _batch_depth == 0: flush _pending_effects                │
+    └────────────────────────────────────────────────────────────────┘
+
+=============================================================================
+WHO USES THIS
+=============================================================================
+
+1. signal.py - Checks get_observer() to know who to subscribe
+2. effect.py - Calls set_observer() before running user function
+3. memo.py - Same as effect (memos are computations)
+4. batch.py - Uses batch() and schedule_effect()
+
+=============================================================================
+WHEN TO USE
+=============================================================================
+
+Most users never touch this directly. It's internal plumbing.
+
+Use batch() when updating multiple signals and you want one notification.
+Use untrack() when reading a signal without creating a dependency.
+
+=============================================================================
+COMPILATION (Phase 17.4)
+=============================================================================
+
+This file has no direct compilation output - it's Python-side only.
+The JS runtime has equivalent globals in reactive.js:
+    
+    let currentObserver = null;
+    let batchDepth = 0;
+    const pendingEffects = new Set();
+
+=============================================================================
 """
 
 from __future__ import annotations
 
-import asyncio
-from typing import Any, Callable, Optional, List, Set, TypeVar
 from contextvars import ContextVar
-from dataclasses import dataclass, field
-from weakref import ref, WeakSet
-import heapq
+from typing import TYPE_CHECKING, Any, Callable, Optional, Set
 
-T = TypeVar("T")
+if TYPE_CHECKING:
+    from pynext.reactive.effect import Effect
 
 
 # =============================================================================
-# Context Variables (Thread-Local State)
+# GLOBAL STATE (Thread-safe via ContextVar)
+# =============================================================================
+#
+# ContextVar ensures each thread/async task has its own state.
+# This is crucial for SSR where multiple requests run concurrently.
 # =============================================================================
 
-_current_owner: ContextVar[Optional["Owner"]] = ContextVar("current_owner", default=None)
-_current_observer: ContextVar[Optional["Computation"]] = ContextVar("current_observer", default=None)
-_batch_depth: ContextVar[int] = ContextVar("batch_depth", default=0)
-_pending_effects: ContextVar[List[Callable]] = ContextVar("pending_effects", default=None)
-_transaction_depth: ContextVar[int] = ContextVar("transaction_depth", default=0)
+_current_observer: ContextVar[Optional["Effect"]] = ContextVar(
+    "_current_observer", 
+    default=None
+)
+"""The effect/memo currently running. Signals check this to subscribe."""
+
+_batch_depth: ContextVar[int] = ContextVar(
+    "_batch_depth", 
+    default=0
+)
+"""Nested batch() call count. When > 0, effects queue instead of run."""
+
+_pending_effects: ContextVar[Set["Effect"]] = ContextVar(
+    "_pending_effects", 
+    default=None  # Will be initialized to set() on first use
+)
+"""Effects waiting to run after batch completes."""
 
 
-def get_current_owner() -> Optional["Owner"]:
-    """Get the current reactive owner (scope)."""
-    return _current_owner.get()
+def _get_pending() -> Set["Effect"]:
+    """Get or create the pending effects set."""
+    pending = _pending_effects.get()
+    if pending is None:
+        pending = set()
+        _pending_effects.set(pending)
+    return pending
 
 
-def get_current_observer() -> Optional["Computation"]:
-    """Get the current tracking computation (effect/memo)."""
+# =============================================================================
+# OBSERVER TRACKING
+# =============================================================================
+
+def get_observer() -> Optional["Effect"]:
+    """
+    Get the currently executing effect (for dependency tracking).
+    
+    Returns None if not inside an effect.
+    Signals call this to know who to subscribe.
+    """
     return _current_observer.get()
 
 
+def set_observer(effect: Optional["Effect"]) -> Optional["Effect"]:
+    """
+    Set the current observer and return the previous one.
+    
+    Called by Effect.execute() before running user function.
+    Returns previous observer so it can be restored after.
+    """
+    prev = _current_observer.get()
+    _current_observer.set(effect)
+    return prev
+
+
+# =============================================================================
+# BATCHING
+# =============================================================================
+
 def is_batching() -> bool:
-    """Check if we're inside a batch."""
+    """
+    Are we inside a batch() call?
+    
+    When True, effects queue in _pending_effects instead of running.
+    """
     return _batch_depth.get() > 0
 
 
-def schedule_effect(fn: Callable) -> None:
-    """Schedule an effect to run after current batch completes."""
-    pending = _pending_effects.get()
-    if pending is None:
-        pending = []
-        _pending_effects.set(pending)
-    pending.append(fn)
+def schedule_effect(effect_or_fn) -> None:
+    """
+    Schedule an effect to run.
+    
+    If batching: add to pending queue
+    If not batching: run immediately
+    
+    Accepts either an Effect object or a plain function.
+    """
+    if is_batching():
+        _get_pending().add(effect_or_fn)
+    else:
+        if hasattr(effect_or_fn, 'execute'):
+            effect_or_fn.execute()
+        elif callable(effect_or_fn):
+            effect_or_fn()
+
+
+def batch(fn: Callable[[], Any]) -> Any:
+    """
+    Batch multiple updates into one notification cycle.
+    
+    All signal updates inside the batch are collected.
+    Effects only run once after ALL updates complete.
+    
+    Example:
+        def update_both():
+            count.set(1)
+            name.set("Alice")
+        
+        batch(update_both)
+        # Effects run once after both updates, not twice
+    
+    Can be nested - effects only flush after outermost batch.
+    """
+    depth = _batch_depth.get()
+    _batch_depth.set(depth + 1)
+    
+    try:
+        result = fn()
+    finally:
+        _batch_depth.set(depth)
+        
+        # Only flush on outermost batch exit
+        if depth == 0:
+            _flush_pending()
+    
+    return result
+
+
+def _flush_pending() -> None:
+    """Flush all pending effects after batch completes."""
+    pending = _get_pending()
+    
+    # Copy and clear to handle effects that schedule more effects
+    while pending:
+        effects = list(pending)
+        pending.clear()
+        
+        for effect in effects:
+            if hasattr(effect, 'execute'):
+                effect.execute()
+            elif callable(effect):
+                effect()
 
 
 # =============================================================================
-# Owner - Reactive Scope Management
+# UNTRACKING
 # =============================================================================
 
-@dataclass
+def untrack(fn: Callable[[], Any]) -> Any:
+    """
+    Execute fn without tracking dependencies.
+    
+    Signals read inside fn will NOT subscribe the current effect.
+    
+    Example:
+        @effect
+        def my_effect():
+            tracked = count()  # This IS tracked
+            untracked = untrack(lambda: other())  # NOT tracked
+    
+    Use when you need a signal's value but don't want re-runs.
+    """
+    prev = set_observer(None)
+    try:
+        return fn()
+    finally:
+        set_observer(prev)
+
+
+# =============================================================================
+# OWNER AND COMPUTATION (for backward compatibility)
+# =============================================================================
+
 class Owner:
     """
-    A reactive owner manages a scope of computations and their cleanup.
+    Represents a reactive scope with cleanup.
     
-    Owners form a tree structure that mirrors the component tree.
-    When an owner is disposed, all its children and their cleanups are run.
+    For backward compatibility with tests that expect Owner class.
     """
-    parent: Optional["Owner"] = None
-    children: List["Owner"] = field(default_factory=list)
-    cleanups: List[Callable[[], None]] = field(default_factory=list)
-    computations: List["Computation"] = field(default_factory=list)
-    context: dict = field(default_factory=dict)
-    disposed: bool = False
     
-    def __post_init__(self):
-        if self.parent:
-            self.parent.children.append(self)
+    __slots__ = ("_children", "_cleanups", "_disposed")
+    
+    def __init__(self):
+        self._children: list = []
+        self._cleanups: list = []
+        self._disposed = False
     
     def dispose(self) -> None:
         """Dispose this owner and all children."""
-        if self.disposed:
+        if self._disposed:
             return
+        self._disposed = True
         
-        self.disposed = True
-        
-        # Dispose children first (reverse order)
-        for child in reversed(self.children):
-            child.dispose()
-        self.children.clear()
-        
-        # Run cleanups (reverse order)
-        for cleanup in reversed(self.cleanups):
+        for cleanup in reversed(self._cleanups):
             try:
                 cleanup()
             except Exception:
-                pass  # Don't let cleanup errors stop other cleanups
-        self.cleanups.clear()
-        
-        # Dispose computations
-        for computation in self.computations:
-            computation.dispose()
-        self.computations.clear()
-        
-        # Remove from parent
-        if self.parent:
-            try:
-                self.parent.children.remove(self)
-            except ValueError:
                 pass
-    
-    def add_cleanup(self, fn: Callable[[], None]) -> None:
-        """Register a cleanup function."""
-        self.cleanups.append(fn)
-    
-    def add_computation(self, computation: "Computation") -> None:
-        """Register a computation with this owner."""
-        self.computations.append(computation)
+        
+        for child in reversed(self._children):
+            child.dispose()
 
 
-def createRoot(fn: Callable[[Callable[[], None]], T]) -> T:
+class Computation:
     """
-    Create a new reactive root with manual disposal.
+    Base class for Effect and Memo.
     
-    Usage:
-        dispose = createRoot(dispose_fn => {
-            # Create reactive stuff here
-            # Call dispose_fn() when done
-        })
+    For backward compatibility with tests.
     """
-    owner = Owner(parent=get_current_owner())
     
-    prev_owner = _current_owner.get()
-    _current_owner.set(owner)
+    __slots__ = ("_fn", "_disposed")
     
-    try:
-        return fn(owner.dispose)
-    finally:
-        _current_owner.set(prev_owner)
+    def __init__(self, fn):
+        self._fn = fn
+        self._disposed = False
+    
+    def execute(self) -> None:
+        if not self._disposed:
+            self._fn()
+    
+    def dispose(self) -> None:
+        self._disposed = True
 
 
-def runWithOwner(owner: Optional[Owner], fn: Callable[[], T]) -> T:
-    """Run a function with a specific owner."""
+# Owner context variable
+_current_owner: ContextVar[Optional[Owner]] = ContextVar(
+    "_current_owner",
+    default=None
+)
+
+
+def get_current_owner() -> Optional[Owner]:
+    """Get the current owner scope."""
+    return _current_owner.get()
+
+
+def get_current_observer():
+    """Alias for get_observer()."""
+    return get_observer()
+
+
+def flush_updates() -> None:
+    """Flush any pending updates immediately."""
+    _flush_pending()
+
+
+# =============================================================================
+# LIFECYCLE HOOKS (for backward compatibility)
+# =============================================================================
+
+def onMount(fn: Callable[[], None]) -> None:
+    """
+    Register a callback to run after component mounts.
+    
+    Currently runs immediately (SSR).
+    """
+    fn()
+
+
+def onCleanup(fn: Callable[[], None]) -> None:
+    """
+    Register a cleanup function.
+    
+    Currently a no-op (SSR doesn't need cleanup).
+    """
+    owner = _current_owner.get()
+    if owner:
+        owner._cleanups.append(fn)
+
+
+def onError(fn: Callable[[Exception], None]) -> None:
+    """
+    Register an error handler.
+    
+    Currently a no-op.
+    """
+    pass
+
+
+def runWithOwner(owner: Owner, fn: Callable[[], Any]) -> Any:
+    """Run function within an owner context."""
     prev = _current_owner.get()
     _current_owner.set(owner)
     try:
@@ -156,195 +382,50 @@ def runWithOwner(owner: Optional[Owner], fn: Callable[[], T]) -> T:
 
 def getOwner() -> Optional[Owner]:
     """Get the current owner."""
-    return get_current_owner()
+    return _current_owner.get()
+
+
+# Alias for SolidJS-style API
+def createRoot(fn: Callable) -> Any:
+    """Create a reactive root."""
+    owner = Owner()
+    prev = _current_owner.get()
+    _current_owner.set(owner)
+    try:
+        return fn(owner.dispose)
+    finally:
+        _current_owner.set(prev)
 
 
 # =============================================================================
-# Computation - Base for Effects and Memos
+# EXPORTS
 # =============================================================================
 
-@dataclass
-class Computation:
-    """
-    Base class for reactive computations (Effects, Memos).
+__all__ = [
+    # Core
+    "get_observer",
+    "set_observer", 
+    "is_batching",
+    "schedule_effect",
+    "batch",
+    "untrack",
     
-    A computation:
-    1. Tracks which signals it reads (sources)
-    2. Re-runs when any source changes
-    3. Can be disposed to stop tracking
-    """
-    fn: Optional[Callable] = None
-    owner: Optional[Owner] = None
-    sources: Set[Any] = field(default_factory=set)  # Signals this computation depends on
-    observers: WeakSet[Any] = field(default_factory=WeakSet)  # Computations that depend on this
-    state: int = 0  # 0=clean, 1=check, 2=dirty
-    pure: bool = False  # True for memos, False for effects
-    disposed: bool = False
+    # Owner/Computation
+    "Owner",
+    "Computation",
+    "get_current_owner",
+    "get_current_observer",
+    "flush_updates",
+    "_current_owner",
+    "_current_observer",
+    "_batch_depth",
+    "_pending_effects",
     
-    def __post_init__(self):
-        if self.owner:
-            self.owner.add_computation(self)
-    
-    def _add_source(self, source: Any) -> None:
-        """Add a signal as a source (dependency)."""
-        self.sources.add(source)
-    
-    def _clear_sources(self) -> None:
-        """Clear all source dependencies."""
-        for source in self.sources:
-            if hasattr(source, "_unsubscribe"):
-                source._unsubscribe(self)
-        self.sources.clear()
-    
-    def _notify(self) -> None:
-        """Called when a source changes."""
-        if self.disposed:
-            return
-        
-        self.state = 2  # Mark dirty
-        
-        if is_batching():
-            schedule_effect(self._run)
-        else:
-            self._run()
-    
-    def _run(self) -> Any:
-        """Run the computation."""
-        raise NotImplementedError
-    
-    def dispose(self) -> None:
-        """Dispose this computation."""
-        if self.disposed:
-            return
-        
-        self.disposed = True
-        self._clear_sources()
-        self.fn = None
-
-
-# =============================================================================
-# Lifecycle Hooks
-# =============================================================================
-
-def onMount(fn: Callable[[], Optional[Callable[[], None]]]) -> None:
-    """
-    Run a function after the component mounts.
-    
-    If the function returns a cleanup function, it will be called on unmount.
-    
-    Usage:
-        @component
-        def MyComponent():
-            onMount(lambda: print("Mounted!"))
-            
-            # With cleanup
-            def setup():
-                timer = setInterval(tick, 1000)
-                return lambda: clearInterval(timer)
-            
-            onMount(setup)
-    """
-    owner = get_current_owner()
-    if owner is None:
-        # No owner, run immediately
-        result = fn()
-        return
-    
-    # Schedule to run after render
-    def run_mount():
-        result = fn()
-        if callable(result):
-            owner.add_cleanup(result)
-    
-    # In browser, this would be scheduled via queueMicrotask
-    # For now, run immediately (will be handled by compiler)
-    run_mount()
-
-
-def onCleanup(fn: Callable[[], None]) -> None:
-    """
-    Register a cleanup function to run when the owner is disposed.
-    
-    Usage:
-        @component
-        def MyComponent():
-            connection = connect()
-            onCleanup(lambda: connection.close())
-    """
-    owner = get_current_owner()
-    if owner:
-        owner.add_cleanup(fn)
-
-
-def onError(fn: Callable[[Exception], None]) -> None:
-    """
-    Register an error handler for the current scope.
-    
-    Usage:
-        @component  
-        def MyComponent():
-            onError(lambda e: print(f"Error: {e}"))
-    """
-    owner = get_current_owner()
-    if owner:
-        # Store in context for error boundaries to use
-        owner.context["error_handler"] = fn
-
-
-# =============================================================================
-# Update Scheduling
-# =============================================================================
-
-class UpdateQueue:
-    """
-    Priority queue for scheduling updates.
-    
-    Effects are sorted by their depth in the computation graph
-    to ensure parents update before children (glitch-free updates).
-    """
-    
-    def __init__(self):
-        self._queue: List[tuple[int, int, Callable]] = []
-        self._counter = 0
-        self._processing = False
-    
-    def add(self, priority: int, fn: Callable) -> None:
-        """Add a function to the queue with priority."""
-        heapq.heappush(self._queue, (priority, self._counter, fn))
-        self._counter += 1
-    
-    def flush(self) -> None:
-        """Process all queued updates."""
-        if self._processing:
-            return
-        
-        self._processing = True
-        try:
-            while self._queue:
-                _, _, fn = heapq.heappop(self._queue)
-                try:
-                    fn()
-                except Exception as e:
-                    # Log but don't stop processing
-                    print(f"Error in update: {e}")
-        finally:
-            self._processing = False
-
-
-_update_queue = UpdateQueue()
-
-
-def flush_updates() -> None:
-    """Flush all pending updates."""
-    _update_queue.flush()
-    
-    # Also process pending effects
-    pending = _pending_effects.get()
-    if pending:
-        _pending_effects.set([])
-        for fn in pending:
-            try:
-                fn()
-            except Exception as e:
-                print(f"Error in effect: {e}")
-
+    # Lifecycle
+    "onMount",
+    "onCleanup",
+    "onError",
+    "runWithOwner",
+    "getOwner",
+    "createRoot",
+]

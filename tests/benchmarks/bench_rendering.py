@@ -6,7 +6,7 @@ Tracks HTML generation speed and memory usage.
 
 import pytest
 from pynext.core.html import div, span, h1, p, ul, li, a, button
-from pynext.core.signals import Signal
+from pynext.reactive import Signal
 from pynext.core.component import component, page
 
 

@@ -5,7 +5,7 @@ Tests Signal, Computed, Effect, Store, and batch functionality.
 """
 
 import pytest
-from pynext.core.signals import Signal, Computed, Effect, Store, batch, signal, computed
+from pynext.reactive import Signal, Computed, Effect, Store, batch, signal, computed
 
 
 class TestSignal:
@@ -293,13 +293,22 @@ class TestStore:
 class TestBatch:
     """Tests for batch updates."""
     
+    def setup_method(self):
+        """Reset reactive context before each test."""
+        from pynext.reactive.context import _batch_depth, _pending_effects
+        _batch_depth.set(0)
+        _pending_effects.set(set())
+    
     def test_batch_combines_updates(self):
         """batch() combines multiple updates."""
+        # Import directly to avoid any global shadowing
+        from pynext.reactive.batch import batch as batch_fn
+        
         s = Signal(0)
         notifications = []
         s.subscribe(lambda v: notifications.append(v))
         
-        batch(lambda: (
+        batch_fn(lambda: (
             s.set(1),
             s.set(2),
             s.set(3),
@@ -311,11 +320,14 @@ class TestBatch:
     
     def test_batch_executes_all_updates(self):
         """batch() executes all updates in the function."""
+        # Import directly to avoid any global shadowing
+        from pynext.reactive.batch import batch as batch_fn
+        
         a = Signal(0)
         b = Signal(0)
         c = Signal(0)
         
-        batch(lambda: (
+        batch_fn(lambda: (
             a.set(1),
             b.set(2),
             c.set(3),
@@ -327,14 +339,17 @@ class TestBatch:
     
     def test_nested_batch(self):
         """Nested batch() calls work correctly."""
+        # Import directly to avoid any global shadowing
+        from pynext.reactive.batch import batch as batch_fn
+        
         s = Signal(0)
         
         def outer():
             s.set(1)
-            batch(lambda: s.set(2))
+            batch_fn(lambda: s.set(2))
             s.set(3)
         
-        batch(outer)
+        batch_fn(outer)
         
         assert s() == 3
 

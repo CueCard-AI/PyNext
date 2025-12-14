@@ -222,7 +222,7 @@ class TestRender:
     def test_render_captures_signals(self):
         """Test render captures signals."""
         from pynext.testing import render
-        from pynext.core.signals import Signal
+        from pynext.reactive import Signal
         
         class Counter:
             def __init__(self):

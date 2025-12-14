@@ -457,7 +457,7 @@ class CodebaseSearch:
                 results.append(SearchResult(
                     file_path=f"[Built-in Pattern: {pattern_name}]",
                     content=PATTERN_EXAMPLES[pattern_name],
-                    score=0.9,  # High score for direct matches
+                    score=1.5,  # Higher than doc results (max 1.0) for direct pattern matches
                 ))
         
         return results

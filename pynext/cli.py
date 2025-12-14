@@ -14,6 +14,7 @@ from pathlib import Path
 
 def cmd_dev(args: argparse.Namespace) -> int:
     """Run the development server."""
+    import asyncio
     from pynext.server.dev import run_dev_server
     from pynext.deps import DependencyManager
     
@@ -29,6 +30,73 @@ def cmd_dev(args: argparse.Namespace) -> int:
                     print("[PyNext] Installing missing dependencies...")
                     deps.install_all()
     
+    # Start AI debugger if requested
+    ai_debug_mode = getattr(args, 'ai_debug', None)
+    if ai_debug_mode:
+        from pynext.devtools import AIDebugger
+        from pynext.devtools.debugger import DebugConfig, DebugMode
+        import os
+        
+        async def run_with_debug():
+            # Get API key from args or environment
+            api_key = getattr(args, 'api_key', None) or os.environ.get('ANTHROPIC_API_KEY')
+            
+            # Parse mode
+            mode = DebugMode.from_string(ai_debug_mode)
+            
+            # Configure debugger
+            config = DebugConfig(
+                mode=mode,
+                output_dir=Path(getattr(args, 'debug_output', '.pynext/debug')),
+                debug_port=getattr(args, 'debug_port', 9222),
+                headless=getattr(args, 'headless', False),
+                api_key=api_key,
+            )
+            
+            debugger = AIDebugger(config)
+            
+            # Build URL
+            url = f"http://{args.host}:{args.port}"
+            
+            print(f"[PyNext] Starting AI Debug ({config.mode.value} mode)...")
+            print(f"[PyNext] {config.get_mode_description()}")
+            print(f"[PyNext] Debug output: {config.output_dir}")
+            
+            # Start dev server in background
+            import threading
+            server_thread = threading.Thread(
+                target=run_dev_server,
+                kwargs={
+                    "pages_dir": args.pages,
+                    "static_dir": args.static,
+                    "host": args.host,
+                    "port": args.port,
+                },
+                daemon=True,
+            )
+            server_thread.start()
+            
+            # Wait for server to start
+            await asyncio.sleep(2.0)
+            
+            # Start debugger
+            await debugger.start(url)
+            
+            print(f"[PyNext] AI Debug ready. Press Ctrl+C to stop.")
+            print(f"[PyNext] Events: {config.output_dir}/events.jsonl")
+            print(f"[PyNext] Screenshots: {config.output_dir}/screenshots/")
+            
+            # Wait for interrupt
+            await debugger.wait()
+        
+        try:
+            asyncio.run(run_with_debug())
+        except KeyboardInterrupt:
+            print("\n[PyNext] Shutting down...")
+        
+        return 0
+    
+    # Normal dev server
     run_dev_server(
         pages_dir=args.pages,
         static_dir=args.static,
@@ -79,6 +147,65 @@ def cmd_build(args: argparse.Namespace) -> int:
         print("[PyNext] Image processing skipped (Pillow not installed)")
     except Exception as e:
         print(f"[PyNext] Image processing error: {e}")
+    
+    # Compile @island components (reactive Python → JavaScript)
+    try:
+        import time as _time
+        from pynext.build import compile_project, BuildConfig
+        
+        print("[PyNext] Compiling @island components...")
+        compile_start = _time.perf_counter()
+        
+        compile_config = BuildConfig(
+            output_dir=str(Path(args.output).resolve()),
+            tree_shake=getattr(args, "tree_shake", False),
+            minify=not getattr(args, "no_minify", False),
+            sourcemap=not getattr(args, "no_sourcemap", False),
+            parallel=not getattr(args, "no_parallel", False),
+            use_cache=not getattr(args, "no_cache", False),
+            clean=getattr(args, "clean", False),
+            verbose=getattr(args, "verbose", False),
+        )
+        
+        compile_result = compile_project(
+            str(Path(args.dir).resolve()),
+            compile_config,
+        )
+        
+        compile_duration = (_time.perf_counter() - compile_start) * 1000
+        
+        if compile_result.island_count > 0:
+            print(f"[PyNext] Compiled {compile_result.island_count} islands in {compile_duration:.0f}ms")
+            print(f"[PyNext]   → Output size: {compile_result.output_size_kb:.1f} KB")
+            if compile_result.cache_hits > 0:
+                print(f"[PyNext]   → Cache: {compile_result.cache_hits} hits, {compile_result.cache_misses} misses")
+        
+        if not compile_result.success:
+            print(f"[PyNext] ⚠ Island compilation had {compile_result.error_count} errors")
+            for file_path, error in compile_result.errors:
+                print(f"[PyNext]   {file_path}: {error}")
+        
+        # Bundle analysis
+        if getattr(args, "analyze", False):
+            try:
+                from pynext.build.analyze import analyze_bundle, print_report
+                analysis = analyze_bundle(args.output)
+                print_report(analysis)
+            except Exception as e:
+                print(f"[PyNext] Bundle analysis error: {e}")
+        
+        # Benchmark
+        if getattr(args, "benchmark", False):
+            print(f"[PyNext] Build Benchmark:")
+            print(f"[PyNext]   → Scan time: {compile_result.duration_ms:.1f}ms")
+            print(f"[PyNext]   → Compile time: {compile_duration:.1f}ms")
+            print(f"[PyNext]   → Files scanned: {compile_result.files_scanned}")
+            print(f"[PyNext]   → Cache hit rate: {(compile_result.cache_hits / max(1, compile_result.cache_hits + compile_result.cache_misses)) * 100:.1f}%")
+            
+    except ImportError as e:
+        print(f"[PyNext] Island compilation skipped: {e}")
+    except Exception as e:
+        print(f"[PyNext] Island compilation error: {e}")
     
     # Scan routes
     router = FileRouter(args.pages)
@@ -510,6 +637,106 @@ package-lock.json
     ├── pynext.requirements.txt   # Python dependencies
     └── pynext.npm.txt            # NPM dependencies
 """)
+    
+    return 0
+
+
+def cmd_compile(args: argparse.Namespace) -> int:
+    """
+    Compile @island components to JavaScript.
+    
+    This compiles PyNext reactive islands to JavaScript for client-side
+    interactivity. Use this for:
+    - Quick compilation without full build
+    - Watch mode during development
+    - Bundle analysis
+    
+    Example:
+        pynext compile                    # Compile all islands
+        pynext compile --watch            # Watch for changes
+        pynext compile --tree-shake       # Enable tree shaking
+        pynext compile --analyze          # Generate bundle report
+    """
+    import time
+    from pathlib import Path
+    
+    from pynext.build import compile_project, BuildConfig
+    
+    project_dir = Path(args.dir).resolve()
+    output_dir = Path(args.output).resolve()
+    
+    if args.verbose:
+        print("[PyNext] Compiling @island components...")
+    
+    # Build configuration
+    config = BuildConfig(
+        output_dir=str(output_dir),
+        tree_shake=args.tree_shake,
+        parallel=True,
+        verbose=args.verbose,
+    )
+    
+    # Progress callback
+    def on_progress(file: str, current: int, total: int) -> None:
+        if args.verbose:
+            print(f"  [{current}/{total}] {Path(file).name}")
+    
+    # Compile
+    start = time.perf_counter()
+    result = compile_project(str(project_dir), config, on_progress)
+    duration = (time.perf_counter() - start) * 1000
+    
+    # Report results
+    if result.success:
+        print(f"[PyNext] ✓ Compiled {result.island_count} islands in {duration:.0f}ms")
+        print(f"[PyNext]   Output: {output_dir}")
+        print(f"[PyNext]   Size: {result.output_size_kb:.1f} KB")
+        
+        if result.cache_hits > 0:
+            print(f"[PyNext]   Cache: {result.cache_hits} hits, {result.cache_misses} misses")
+    else:
+        print(f"[PyNext] ✗ Compilation failed with {result.error_count} errors:")
+        for file_path, error in result.errors:
+            print(f"  {file_path}: {error}")
+        return 1
+    
+    # Bundle analysis
+    if args.analyze:
+        try:
+            from pynext.build.analyze import analyze_bundle, print_report
+            
+            analysis = analyze_bundle(output_dir)
+            print()
+            print_report(analysis)
+        except Exception as e:
+            print(f"[PyNext] Analysis error: {e}")
+    
+    # Watch mode
+    if args.watch:
+        try:
+            from pynext.build.watcher import watch_and_compile
+            
+            print()
+            print("[PyNext] Watching for changes... (Ctrl+C to stop)")
+            
+            def on_compile(file: str) -> None:
+                print(f"[PyNext] ✓ Recompiled: {Path(file).name}")
+            
+            watcher = watch_and_compile(
+                [project_dir / "pages", project_dir / "components"],
+                output_dir,
+                on_compile,
+            )
+            
+            try:
+                while True:
+                    time.sleep(1)
+            except KeyboardInterrupt:
+                watcher.stop()
+                print("\n[PyNext] Stopped watching.")
+        except Exception as e:
+            print(f"[PyNext] Watch error: {e}")
+            return 1
     
     return 0
 
@@ -2314,6 +2541,18 @@ def main() -> int:
     dev_parser.add_argument("--port", "-p", type=int, default=3000, help="Port to listen on")
     dev_parser.add_argument("--skip-deps", action="store_true", help="Skip dependency check")
     dev_parser.add_argument("--no-install", action="store_true", help="Don't auto-install missing deps")
+    # AI Debug options
+    dev_parser.add_argument("--ai-debug", nargs="?", const="app", default=None,
+                           choices=["app", "core", "everything"],
+                           help="Enable AI debugging with mode: app (default), core, or everything")
+    dev_parser.add_argument("--debug-output", default=".pynext/debug",
+                           help="Output directory for AI debug files")
+    dev_parser.add_argument("--debug-port", type=int, default=9222,
+                           help="Chrome remote debugging port")
+    dev_parser.add_argument("--headless", action="store_true",
+                           help="Run Chrome in headless mode (no visible window)")
+    dev_parser.add_argument("--api-key", default=None,
+                           help="Anthropic API key for AI analysis (or set ANTHROPIC_API_KEY env var)")
     
     # build command
     build_parser = subparsers.add_parser("build", help="Build for production")
@@ -2321,6 +2560,26 @@ def main() -> int:
     build_parser.add_argument("--pages", default="pages", help="Pages directory")
     build_parser.add_argument("--static", default="public", help="Static files directory")
     build_parser.add_argument("--output", "-o", default=".pynext/build", help="Output directory")
+    # Reactive build options
+    build_parser.add_argument("--tree-shake", action="store_true", help="Enable tree shaking (removes unused code)")
+    build_parser.add_argument("--no-minify", action="store_true", help="Skip JavaScript minification")
+    build_parser.add_argument("--no-sourcemap", action="store_true", help="Skip source map generation")
+    build_parser.add_argument("--analyze", action="store_true", help="Generate bundle analysis report")
+    build_parser.add_argument("--benchmark", action="store_true", help="Print build performance metrics")
+    build_parser.add_argument("--parallel", action="store_true", default=True, help="Use parallel compilation (default)")
+    build_parser.add_argument("--no-parallel", action="store_true", help="Disable parallel compilation")
+    build_parser.add_argument("--no-cache", action="store_true", help="Disable incremental build cache")
+    build_parser.add_argument("--clean", action="store_true", help="Clean output directory before building")
+    build_parser.add_argument("--verbose", action="store_true", help="Print detailed build progress")
+    
+    # compile command - just compile islands without full build
+    compile_parser = subparsers.add_parser("compile", help="Compile @island components to JavaScript")
+    compile_parser.add_argument("--dir", default=".", help="Project directory")
+    compile_parser.add_argument("--output", "-o", default=".pynext/build", help="Output directory")
+    compile_parser.add_argument("--tree-shake", action="store_true", help="Enable tree shaking")
+    compile_parser.add_argument("--analyze", action="store_true", help="Generate bundle analysis report")
+    compile_parser.add_argument("--watch", "-w", action="store_true", help="Watch for changes and recompile")
+    compile_parser.add_argument("--verbose", action="store_true", help="Print detailed progress")
     
     # init command
     init_parser = subparsers.add_parser("init", help="Initialize new project")
@@ -2779,6 +3038,8 @@ def main() -> int:
         return cmd_build(args)
     elif args.command == "init":
         return cmd_init(args)
+    elif args.command == "compile":
+        return cmd_compile(args)
     elif args.command == "routes":
         return cmd_routes(args)
     elif args.command in ("generate", "g"):

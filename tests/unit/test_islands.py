@@ -27,7 +27,7 @@ from pynext.core.island import (
     get_minimal_runtime_for_island,
     _detect_interactivity,
 )
-from pynext.core.signals import Signal
+from pynext.reactive import Signal
 from pynext.core.html import div, button, span, p
 
 
