@@ -11,27 +11,24 @@ async def main():
         page.on('console', lambda msg: console_logs.append(f"[{msg.type}] {msg.text}"))
         
         print("Loading /issues...")
-        await page.goto('http://127.0.0.1:3001/issues', timeout=10000)
+        await page.goto('http://127.0.0.1:3005/issues', timeout=10000)
         await page.wait_for_load_state('networkidle')
         
-        # Check hydration
+        # Check hydration data
         hydration = await page.evaluate('''() => ({
             exists: !!window.__PYNEXT_HYDRATION__,
             forms: Object.keys(window.__PYNEXT_HYDRATION__?.forms || {}),
             hydratedForms: Object.keys(window.__pynext__?.forms || {}),
-            eventHandlers: window.__PYNEXT_HYDRATION__?.event_handlers || []
+            events: Object.keys(window.__PYNEXT_HYDRATION__?.events || {})
         })''')
         print(f"Hydration: {hydration}")
         
-        # Print event handlers
-        handlers = hydration.get('eventHandlers', [])
-        print(f"\nEvent handlers ({len(handlers)}):")
-        for h in handlers[:10]:
-            code = h.get('code', 'N/A')[:100] if h.get('code') else 'N/A'
-            print(f"  {h.get('element_id')}: {code}...")
+        # Print event info
+        event_count = len(hydration.get('events', []))
+        print(f"Event handlers: {event_count} elements with handlers")
         
         # Click + New Issue
-        print("Clicking + New Issue...")
+        print("\nClicking + New Issue...")
         await page.click('button:has-text("+ New Issue")')
         await page.wait_for_timeout(1000)
         
@@ -41,33 +38,33 @@ async def main():
         await page.fill('textarea', 'Test description')
         await page.wait_for_timeout(500)
         
-        # Click Create Issue
-        print("Clicking Create Issue...")
-        
-        # Check button's onclick
+        # Check button state before clicking
+        print("\nChecking Create Issue button...")
         btn_info = await page.evaluate('''() => {
             const btn = Array.from(document.querySelectorAll('button')).find(b => b.textContent.includes('Create Issue'));
-            if (!btn) return null;
+            if (!btn) return {found: false};
             return {
+                found: true,
                 id: btn.id,
-                onclick: !!btn.onclick,
-                textContent: btn.textContent
+                hasOnclick: !!btn.onclick,
+                listeners: btn._listeners || 'unknown'
             };
         }''')
-        print(f"Button info: {btn_info}")
+        print(f"Button: {btn_info}")
         
+        # Click Create Issue
+        print("\nClicking Create Issue...")
         await page.click('button:has-text("Create Issue")')
-        await page.wait_for_timeout(1000)
+        await page.wait_for_timeout(1500)
         
         print("\nConsole logs:")
-        for log in console_logs[-15:]:
+        for log in console_logs[-20:]:
             print(f"  {log}")
         
         await page.screenshot(path='/Users/karthikravi/CueGrowth-OpenSource/PyNext/debug.png')
         print("\nScreenshot saved to debug.png")
         
-        await page.wait_for_timeout(5000)
+        await page.wait_for_timeout(3000)
         await browser.close()
 
 asyncio.run(main())
-

@@ -169,7 +169,7 @@ class Signal(Generic[T]):
         _equals: Custom equality function
     """
     
-    __slots__ = ("_value", "_subscribers", "_id", "_name", "_equals", "_form_id", "_parent_form")
+    __slots__ = ("_value", "_subscribers", "_id", "_name", "_equals", "_form_id", "_parent_form", "_field_name")
     
     # Compilation marker - compiler uses this to identify signals
     __pynext_type__ = "signal"

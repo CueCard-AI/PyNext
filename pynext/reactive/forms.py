@@ -216,6 +216,7 @@ class FormState:
             # Attach parent form's ID and reference for binding/hydration
             field_signal._form_id = self._form_id
             field_signal._parent_form = self
+            field_signal._field_name = name  # Store actual field key for bindings
             self._fields[name] = field_signal
             
             error_signal = signal("", name=f"form_{name}_error")
