@@ -15,7 +15,7 @@ from pynext.core.resource import (
     suspend_until_ready,
     is_pending,
 )
-from pynext.core.signals import Signal
+from pynext.reactive import Signal
 
 
 class TestResourceBasics:

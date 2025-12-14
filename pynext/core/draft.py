@@ -24,7 +24,7 @@ import functools
 import contextvars
 import json
 
-from pynext.core.signals import Signal
+from pynext.reactive import Signal
 
 
 T = TypeVar('T')

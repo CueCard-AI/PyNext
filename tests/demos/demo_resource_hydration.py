@@ -22,7 +22,7 @@ from pynext.core.resource import (
     get_resource_registry,
     create_resource,
 )
-from pynext.core.signals import Signal, Store
+from pynext.reactive import Signal, Store
 
 
 def format_size(bytes_count: int) -> str:

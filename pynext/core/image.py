@@ -20,7 +20,7 @@ import hashlib
 import json
 
 from pynext.core.html import element, Fragment
-from pynext.core.signals import Signal
+from pynext.reactive import Signal
 
 
 class ImageFormat(Enum):

@@ -47,7 +47,7 @@ from typing import (
     overload,
 )
 
-from pynext.core.signals import Signal, Computed
+from pynext.reactive import Signal, Computed
 
 
 T = TypeVar("T")

@@ -12,7 +12,7 @@ from pynext.core.component import (
     ComponentMeta, Show, For,
 )
 from pynext.core.html import div, h1, p, span, button, ul, li
-from pynext.core.signals import Signal
+from pynext.reactive import Signal
 
 
 class TestComponentDecorator:

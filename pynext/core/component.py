@@ -38,6 +38,7 @@ class ComponentMeta:
         title: Optional[str] = None,
         meta_tags: Optional[list[dict]] = None,
         metadata: Optional[Union["Metadata", Callable]] = None,
+        hydration: str = "islands",
     ):
         self.name = name
         self.fn = fn
@@ -50,6 +51,7 @@ class ComponentMeta:
         self.title = title
         self.meta_tags = meta_tags or []
         self.metadata = metadata
+        self.hydration = hydration  # "islands" (default) or "full"
 
 
 class Component:
@@ -306,6 +308,7 @@ def page(
     layout: Optional[str] = None,
     meta: Optional[list[dict]] = None,
     metadata: Optional[Union["Metadata", Callable]] = None,
+    hydration: str = "islands",
 ) -> Callable[[Callable[..., Union[Element, Fragment, str]]], PageComponent]: ...
 
 
@@ -316,6 +319,7 @@ def page(
     layout: Optional[str] = None,
     meta: Optional[list[dict]] = None,
     metadata: Optional[Union["Metadata", Callable]] = None,
+    hydration: str = "islands",
 ):
     """
     Decorator to define a PyNext page component.
@@ -326,6 +330,15 @@ def page(
     - Can specify a layout wrapper
     - Render as complete HTML documents
     
+    Args:
+        title: Page title for <title> tag
+        layout: Layout name to wrap this page
+        meta: Legacy meta tags (list of dicts)
+        metadata: Modern Metadata object or async function
+        hydration: Hydration mode - "islands" (default) or "full"
+                   - "islands": Only @island components become interactive
+                   - "full": Entire page becomes reactive (like SPA)
+    
     Usage:
         @page
         def index():
@@ -335,6 +348,15 @@ def page(
         @page(title="About Us", meta=[{"name": "description", "content": "About page"}])
         def about():
             return div()["About content"]
+        
+        # With full hydration (entire page is reactive):
+        @page(title="App", hydration="full")
+        def app():
+            count = signal(0)
+            return div()[
+                button(onclick=lambda: count.set(count() + 1))["Click"],
+                span()[count()]
+            ]
         
         # With Metadata API:
         @page(metadata=Metadata(
@@ -354,6 +376,7 @@ def page(
             title=title,
             meta_tags=meta or [],
             metadata=metadata,
+            hydration=hydration,
         )
         return PageComponent(component_meta)
     

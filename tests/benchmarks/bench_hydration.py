@@ -6,7 +6,7 @@ Tracks hydration payload size and serialization speed.
 
 import pytest
 import json
-from pynext.core.signals import Signal, Computed, Store
+from pynext.reactive import Signal, Computed, Store
 from pynext.core.component import page, component
 from pynext.core.html import div, span, button, ul, li
 from pynext.core.context import render_context
