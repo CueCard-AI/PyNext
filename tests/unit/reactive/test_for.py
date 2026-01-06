@@ -105,7 +105,7 @@ class TestForBasicRendering:
         for_comp = For(each=[1])[lambda x, i: str(x)]
         html = for_comp.render()
         
-        assert 'data-for=' in html
+        assert 'data-pynext-for' in html
     
     def test_for_item_data_attribute(self):
         """For items have data-for-item attribute with key."""
@@ -140,7 +140,7 @@ class TestForBasicRendering:
         for_comp = For(each=[1, 2, 3])
         html = for_comp.render()
         
-        assert 'data-for=' in html
+        assert 'data-pynext-for' in html
     
     def test_for_nested_content(self):
         """For renders nested HTML content."""
@@ -961,7 +961,7 @@ class TestForEdgeCases:
         for_comp = For(each=items)[lambda x, i: ""]
         
         html = for_comp.render()
-        assert 'data-for=' in html
+        assert 'data-pynext-for' in html
     
     def test_for_render_returns_none(self):
         """For handles render function returning None."""
@@ -969,7 +969,7 @@ class TestForEdgeCases:
         for_comp = For(each=items)[lambda x, i: None]
         
         html = for_comp.render()
-        assert 'data-for=' in html
+        assert 'data-pynext-for' in html
     
     def test_for_callback_modifies_item(self):
         """For callback can modify items."""

@@ -76,6 +76,56 @@ def go_bridge(request):
     
     pynext_go.init(primary=DB_URL, pool_min_size=20, pool_max_size=100)
     pynext_go.warmup()
+    
+    # Create test tables if they don't exist
+    try:
+        # Create users table
+        pynext_go.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id SERIAL PRIMARY KEY,
+                name VARCHAR(255) NOT NULL,
+                email VARCHAR(255) UNIQUE,
+                age INTEGER,
+                active BOOLEAN DEFAULT true,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """, [])
+        
+        # Create orders table
+        pynext_go.execute("""
+            CREATE TABLE IF NOT EXISTS orders (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                total DECIMAL(10, 2) NOT NULL,
+                status VARCHAR(50) DEFAULT 'pending',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """, [])
+        
+        # Seed some test data if tables are empty
+        user_count_result = pynext_go.execute("SELECT COUNT(*) as count FROM users", [])
+        user_count = 0
+        if user_count_result and len(user_count_result) > 0:
+            user_count = user_count_result[0].get('count', 0) if isinstance(user_count_result[0], dict) else 0
+        
+        if user_count == 0:
+            # Insert a few test users
+            for i in range(10):
+                pynext_go.execute(
+                    "INSERT INTO users (name, email, age) VALUES ($1, $2, $3)",
+                    [f"User {i}", f"user{i}@test.com", 20 + i]
+                )
+            
+            # Insert some test orders (need at least 5000 for bulk read test)
+            for i in range(5000):
+                pynext_go.execute(
+                    "INSERT INTO orders (user_id, total, status) VALUES ($1, $2, $3)",
+                    [(i % 10) + 1, 10.0 * (i + 1), 'pending' if i % 2 == 0 else 'completed']
+                )
+    except Exception as e:
+        # If tables already exist or other error, continue
+        pass
+    
     yield pynext_go
     pynext_go.close()
 
@@ -86,7 +136,49 @@ def asyncpg_pool(request):
     import asyncpg
     
     async def create_pool():
-        return await asyncpg.create_pool(DB_URL, min_size=10, max_size=50)
+        pool = await asyncpg.create_pool(DB_URL, min_size=10, max_size=50)
+        
+        # Create test tables if they don't exist
+        async with pool.acquire() as conn:
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS users (
+                    id SERIAL PRIMARY KEY,
+                    name VARCHAR(255) NOT NULL,
+                    email VARCHAR(255) UNIQUE,
+                    age INTEGER,
+                    active BOOLEAN DEFAULT true,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS orders (
+                    id SERIAL PRIMARY KEY,
+                    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                    total DECIMAL(10, 2) NOT NULL,
+                    status VARCHAR(50) DEFAULT 'pending',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            
+            # Seed some test data if tables are empty
+            user_count = await conn.fetchval("SELECT COUNT(*) FROM users")
+            if user_count == 0:
+                # Insert test users
+                for i in range(10):
+                    await conn.execute(
+                        "INSERT INTO users (name, email, age) VALUES ($1, $2, $3)",
+                        f"User {i}", f"user{i}@test.com", 20 + i
+                    )
+                
+                # Insert test orders (need at least 5000 for bulk read test)
+                for i in range(5000):
+                    await conn.execute(
+                        "INSERT INTO orders (user_id, total, status) VALUES ($1, $2, $3)",
+                        (i % 10) + 1, 10.0 * (i + 1), 'pending' if i % 2 == 0 else 'completed'
+                    )
+        
+        return pool
     
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)

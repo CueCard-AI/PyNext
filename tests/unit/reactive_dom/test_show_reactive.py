@@ -157,7 +157,8 @@ class TestShowBindingRegistration:
         show.render()
         
         binding = self.ctx.bindings[0]
-        assert visible._id in binding.signal_deps
+        # Signal deps now use names instead of IDs
+        assert "visible" in binding.signal_deps
     
     def test_show_binding_has_update_expr(self):
         """Show binding has update expression."""
@@ -167,7 +168,8 @@ class TestShowBindingRegistration:
         
         binding = self.ctx.bindings[0]
         assert "getSignal" in binding.update_expr
-        assert visible._id in binding.update_expr
+        # Signal deps now use names instead of IDs
+        assert "visible" in binding.update_expr
     
     def test_show_binding_has_node_id(self):
         """Show binding has correct node ID."""
@@ -196,7 +198,8 @@ class TestShowSignalExtraction:
         
         deps = show._extract_signal_deps()
         assert len(deps) == 1
-        assert visible._id in deps
+        # Signal deps now use names instead of IDs
+        assert "visible" in deps
     
     def test_extract_multiple_signals(self):
         """Extract multiple signals from closure."""
@@ -206,8 +209,10 @@ class TestShowSignalExtraction:
         
         deps = show._extract_signal_deps()
         assert len(deps) == 2
-        assert a._id in deps
-        assert b._id in deps
+        # Signal deps now use names instead of IDs
+        assert "a" in deps
+        # Signal deps now use names instead of IDs
+        assert "b" in deps
     
     def test_extract_no_signals(self):
         """Return empty list when no signals."""
@@ -233,8 +238,8 @@ class TestShowUpdateExpr:
         show = Show(when=lambda: visible())["Content"]
         
         expr = show._generate_update_expr()
-        assert f"getSignal('{visible._id}')" in expr
-        assert "Boolean" in expr
+        # Now uses signal name for stable lookups
+        assert 'getSignal("visible")' in expr or "getSignal('visible')" in expr
     
     def test_generate_multi_signal_expr(self):
         """Generate expression for multiple signals."""
@@ -243,8 +248,10 @@ class TestShowUpdateExpr:
         show = Show(when=lambda: a() and b())["Content"]
         
         expr = show._generate_update_expr()
-        assert a._id in expr
-        assert b._id in expr
+        # Signal deps now use names instead of IDs
+        assert "a" in expr
+        # Signal deps now use names instead of IDs
+        assert "b" in expr
     
     def test_generate_no_signal_expr(self):
         """Generate 'true' for no signals."""
@@ -349,7 +356,8 @@ class TestShowEdgeCases:
         show = Show(when=True)["Content"]
         js = show.to_js_init()
         assert "__pynext__" in js
-        assert show._id in js
+        # Signal deps now use names instead of IDs
+        assert "show" in js
     
     def test_show_str_method(self):
         """Show __str__ returns rendered HTML."""

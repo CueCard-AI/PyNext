@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import html as html_lib
 import json
+import os
 from typing import Any, Callable, Optional, Union, TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -260,6 +261,12 @@ class Element:
             elif attr_name == "for":
                 attr_name = "for"
             
+            # FUNDAMENTAL FIX: Convert data_* attributes to data-* for HTML5 compliance
+            # Python uses underscores (data_issue_id) but HTML5 data attributes use hyphens (data-issue-id)
+            # This is required for the dataset API to work correctly in JavaScript
+            if attr_name.startswith("data_"):
+                attr_name = attr_name.replace("_", "-")
+            
             # Handle event handlers (including EventHandler wrappers)
             is_event_attr = attr_name.startswith("on") and (callable(value) or _is_event_handler(value))
             if is_event_attr:
@@ -290,6 +297,17 @@ class Element:
                     # We'll add the event via JS hydration, not inline
                     if "id" not in self.attrs and self._id:
                         parts.append(f'id="{self._id}"')
+                    
+                    # FUNDAMENTAL FIX: Also store handler on element itself for For loop cloning
+                    # This allows event handlers to be re-attached when items are cloned
+                    # Similar to how Alpine.js stores x-on:click on elements
+                    import json
+                    escaped_code = handler_code.replace('"', '&quot;').replace("'", "&#39;")
+                    mods_str = json.dumps(event_mods) if event_mods else "{}"
+                    escaped_mods = mods_str.replace('"', '&quot;')
+                    parts.append(f'data-pynext-on-{event_type}="{escaped_code}"')
+                    if event_mods:
+                        parts.append(f'data-pynext-mods-{event_type}="{escaped_mods}"')
                 continue
             
             # Handle boolean attributes
@@ -367,9 +385,10 @@ class Element:
     
     def _extract_callable_deps(self, func: Callable) -> list[str]:
         """
-        Extract signal IDs that a callable attribute depends on.
+        Extract signal names that a callable attribute depends on.
         
         Inspects the closure to find Signals/Memos that are read.
+        Uses signal names (not IDs) for stable client-side lookups.
         """
         deps = []
         closure = getattr(func, "__closure__", None) or ()
@@ -379,10 +398,13 @@ class Element:
                 value = cell.cell_contents
                 # Check for Signal
                 if hasattr(value, '_id') and hasattr(value, '_value'):
-                    deps.append(value._id)
+                    # Use signal name for stable lookups (not ID which changes per render)
+                    signal_name = getattr(value, '_name', None) or value._id
+                    deps.append(signal_name)
                 # Check for Memo (has _id and compute)
                 elif hasattr(value, '_id') and hasattr(value, '_compute'):
-                    deps.append(value._id)
+                    memo_name = getattr(value, '_name', None) or value._id
+                    deps.append(memo_name)
             except (ValueError, AttributeError):
                 pass
         
@@ -409,839 +431,87 @@ class Element:
         """
         Extract JavaScript code from a Python event handler.
         
-        This method supports:
-        1. Simple Signal operations (set, update, toggle)
-        2. Store operations (property access, mutations)
-        3. FormState operations (validate, reset, values)
-        4. Complex multi-step handlers (auto-generates JS)
+        =====================================================================
+        PHASE 18.6: AST-BASED TRANSPILATION (NO REGEX FALLBACK)
+        =====================================================================
         
-        For handlers that can't be transpiled, it registers them as
-        auto-server-actions that refresh the component state.
+        This method uses the Phase 18.1-18.5 transpiler to convert Python
+        handlers to JavaScript. The transpiler:
+        
+        1. Analyzes the handler's closure to detect reactive objects
+        2. Parses Python source to IR nodes using proper AST parsing
+        3. Transforms IR to use __pynext__ API
+        4. Emits clean, correct JavaScript
+        
+        FUNDAMENTAL: This uses proper AST parsing - no regex patterns.
+        All handler patterns are handled by the transpiler infrastructure.
         """
-        # Collect all reactive objects (Signals, Stores, Forms) from closure
-        closure = getattr(func, "__closure__", None) or ()
+        try:
+            return self._extract_handler_code_ast(func)
+        except Exception as e:
+            # Log the error for debugging
+            if os.environ.get("PYNEXT_DEBUG"):
+                import traceback
+                print(f"[DEBUG] AST transpile failed for handler: {e}")
+                traceback.print_exc()
+            
+            # Return a helpful error message instead of silently failing
+            return f"console.warn('[PyNext] Handler transpilation failed: {str(e).replace(chr(39), chr(92)+chr(39))}')"
+    
+    def _extract_handler_code_ast(self, func: Callable) -> str:
+        """
+        Extract JavaScript using AST-based transpilation (Phase 18.6).
         
-        signals = {}  # id -> signal
-        stores = {}   # id -> store
-        forms = {}    # id -> form
+        This is the new, correct approach that handles complex handlers.
+        """
+        from pynext.transpiler.reactive import analyze_handler, get_handler_source
+        from pynext.transpiler.hydration import transpile_inline_handler
+        from pynext.transpiler.errors import TranspileError
         
-        for cell in closure:
-            try:
-                value = cell.cell_contents
-                # Check for FormState first (has __pynext_type__ = "form")
-                if hasattr(value, '__pynext_type__') and value.__pynext_type__ == "form":
-                    form_id = getattr(value, '_form_id', f"form_{id(value)}")
-                    forms[form_id] = value
-                elif hasattr(value, '_is_signal') and value._is_signal:
-                    if hasattr(value, '_id'):
-                        # Distinguish Signal from Store
-                        if value._id.startswith('store_'):
-                            stores[value._id] = value
-                        else:
-                            signals[value._id] = value
-            except (ValueError, AttributeError):
-                pass
+        # Get source code
+        source = get_handler_source(func)
+        if source is None:
+            raise ValueError("Cannot get source code")
         
-        # No reactive objects found - can't generate JS
-        if not signals and not stores and not forms:
+        # Analyze to detect reactive objects
+        ctx = analyze_handler(func)
+        
+        if ctx.is_empty():
             return "console.warn('[PyNext] Handler has no reactive state - use @server_action for server-side logic')"
         
-        # === Strategy 1: Form operations (validate, reset, values) ===
-        if forms:
-            return self._extract_form_handler(func, forms, signals)
+        # Register forms with the rendering context for hydration
+        render_ctx = get_context()
+        if render_ctx:
+            for form_name, info in ctx.forms.items():
+                if info.obj is not None and hasattr(info.obj, '_form_id'):
+                    if info.obj._form_id not in render_ctx.forms:
+                        render_ctx.register_form(info.obj)
         
-        # === Strategy 2: Single Signal Operation (most common) ===
-        if len(signals) == 1 and not stores:
-            signal_id, signal = list(signals.items())[0]
-            return self._extract_signal_operation(func, signal, signal_id)
-        
-        # === Strategy 3: Store + Signal operations (like Todo) ===
-        if stores or len(signals) > 1:
-            return self._extract_complex_handler(func, signals, stores)
-        
-        # Fallback
-        return "console.warn('[PyNext] Could not transpile handler')"
-    
-    def _extract_signal_operation(self, func: Callable, signal: Any, signal_id: str) -> str:
-        """
-        Extract JS for a simple single-signal operation.
-        
-        Uses source code inspection to detect the operation pattern:
-        - count.set(value)    → setSignal(id, value)
-        - count.set(count() + 1) → updateSignal(id, v => v + 1)
-        - count.update(fn)    → updateSignal(id, fn)
-        """
-        import inspect
-        import re
-        
-        # Use signal name for stable lookup (IDs change each render, names don't)
-        signal_ref = getattr(signal, '_name', None) or signal_id
-        
-        # Try to get source code
+        # Transpile using the new system
         try:
-            source = inspect.getsource(func).strip()
-        except (OSError, TypeError):
-            # Can't get source - use default increment
-            return f"__pynext__.getSignal('{signal_ref}').update(v => v + 1)"
-        
-        # Clean up the source
-        source = source.replace('\n', ' ').replace('  ', ' ')
-        
-        # Pattern: .set(value)
-        set_const_match = re.search(r'\.set\s*\(\s*(\d+|True|False|None|"[^"]*"|\'[^\']*\')\s*\)', source)
-        if set_const_match:
-            val = set_const_match.group(1)
-            # Convert Python to JS
-            if val == 'True':
-                val = 'true'
-            elif val == 'False':
-                val = 'false'
-            elif val == 'None':
-                val = 'null'
-            return f"__pynext__.getSignal('{signal_ref}').set({val})"
-        
-        # Pattern: .set(signal() + n) or .set(signal() - n)
-        set_add_match = re.search(r'\.set\s*\([^)]*\(\)\s*\+\s*(\d+)\s*\)', source)
-        if set_add_match:
-            n = set_add_match.group(1)
-            return f"__pynext__.getSignal('{signal_ref}').update(v => v + {n})"
-        
-        set_sub_match = re.search(r'\.set\s*\([^)]*\(\)\s*-\s*(\d+)\s*\)', source)
-        if set_sub_match:
-            n = set_sub_match.group(1)
-            return f"__pynext__.getSignal('{signal_ref}').update(v => v - {n})"
-        
-        # Pattern: .update(lambda x: x + n)
-        update_add_match = re.search(r'\.update\s*\(\s*lambda\s+\w+\s*:\s*\w+\s*\+\s*(\d+)\s*\)', source)
-        if update_add_match:
-            n = update_add_match.group(1)
-            return f"__pynext__.getSignal('{signal_ref}').update(v => v + {n})"
-        
-        # Pattern: .update(lambda x: x - n)
-        update_sub_match = re.search(r'\.update\s*\(\s*lambda\s+\w+\s*:\s*\w+\s*-\s*(\d+)\s*\)', source)
-        if update_sub_match:
-            n = update_sub_match.group(1)
-            return f"__pynext__.getSignal('{signal_ref}').update(v => v - {n})"
-        
-        # Pattern: .update(lambda x: not x) or toggle
-        if re.search(r'\.update\s*\(\s*lambda\s+\w+\s*:\s*not\s+\w+\s*\)', source) or '.toggle()' in source:
-            return f"__pynext__.getSignal('{signal_ref}').update(v => !v)"
-        
-        # Pattern: generic .set() - check if expression contains signal()
-        set_expr_match = re.search(r'\.set\s*\(\s*([^)]+)\s*\)', source)
-        if set_expr_match:
-            expr = set_expr_match.group(1)
-            # If expression contains () (signal read), it's likely an update pattern
-            if '()' in expr:
-                # Try to extract the pattern
-                if '+' in expr:
-                    return f"__pynext__.getSignal('{signal_ref}').update(v => v + 1)"
-                elif '-' in expr:
-                    return f"__pynext__.getSignal('{signal_ref}').update(v => v - 1)"
-                elif '*' in expr:
-                    return f"__pynext__.getSignal('{signal_ref}').update(v => v * 2)"
-            else:
-                # Try to convert Python literal to JS
-                try:
-                    # Try evaluating as Python literal
-                    val = eval(expr)
-                    if isinstance(val, bool):
-                        return f"__pynext__.getSignal('{signal_ref}').set({'true' if val else 'false'})"
-                    elif isinstance(val, (int, float)):
-                        return f"__pynext__.getSignal('{signal_ref}').set({val})"
-                    elif isinstance(val, str):
-                        return f"__pynext__.getSignal('{signal_ref}').set({json.dumps(val)})"
-                except:
-                    pass
-        
-        # Default: increment by 1
-        return f"__pynext__.getSignal('{signal_ref}').update(v => v + 1)"
+            js_code = transpile_inline_handler(func, ctx)
+            return js_code
+        except TranspileError as e:
+            raise ValueError(f"Transpile error: {e}")
     
-    def _extract_form_handler(self, func: Callable, forms: dict, signals: dict) -> str:
-        """
-        Extract JS for form-based handlers (validate, submit, reset).
-        
-        Handles patterns like:
-        - if form.validate(): do_stuff(); form.reset()
-        - form.values property access
-        - Combined form + signal operations
-        """
-        import inspect
-        import re
-        
-        # Get source code
-        try:
-            source = inspect.getsource(func).strip()
-        except (OSError, TypeError):
-            return "console.warn('[PyNext] Could not get source for form handler')"
-        
-        # Clean up source
-        source = source.replace('\n', ' ').replace('  ', ' ')
-        
-        # Get form ID (use first form if multiple)
-        form_id = list(forms.keys())[0]
-        form = forms[form_id]
-        
-        # CRITICAL: Register the form with the context for hydration
-        ctx = get_context()
-        if ctx:
-            # Use the form's _form_id for consistency
-            actual_form_id = getattr(form, '_form_id', form_id)
-            if actual_form_id not in ctx.forms:
-                ctx.register_form(form)
-            # Use the form's _form_id in the generated JS
-            form_id = actual_form_id
-        
-        # Detect validation + submission pattern
-        # if form.validate(): ... form.reset() or similar
-        has_validate = '.validate()' in source or '.validate(' in source
-        has_reset = '.reset()' in source
-        has_values = '.values' in source
-        
-        if has_validate:
-            # This is a form submission handler
-            return self._generate_form_submit_js(form_id, forms, signals, source)
-        elif has_reset:
-            # Just reset
-            return f"__pynext__.getForm('{form_id}').reset()"
-        elif has_values:
-            # Values access without validation
-            return self._generate_form_values_js(form_id, signals, source)
-        else:
-            # Generic form handler - try to parse
-            return f"console.warn('[PyNext] Form handler pattern not recognized')"
-    
-    def _generate_form_submit_js(self, form_id: str, forms: dict, signals: dict, source: str) -> str:
-        """
-        Generate JavaScript for a form submission handler.
-        
-        Pattern:
-            if form.validate():
-                all_issues.set([*all_issues(), form.values])
-                next_id.set(next_id() + 1)
-                form.reset()
-                show_modal.set(False)
-        
-        Generates:
-            (function() {
-                const form = __pynext__.getForm('form_xxx');
-                if (!form) return;
-                if (form.validate()) {
-                    const values = form.values;
-                    __pynext__.getSignal('all_issues').update(arr => [...arr, values]);
-                    __pynext__.getSignal('next_id').update(v => v + 1);
-                    form.reset();
-                    __pynext__.getSignal('show_modal').set(false);
-                }
-            })()
-        """
-        # Parse signal operations from source
-        signal_ops = self._parse_signal_operations(source, signals)
-        
-        # Check for reset
-        has_reset = '.reset()' in source
-        reset_js = "form.reset();" if has_reset else ""
-        
-        js_code = f"""(function() {{
-            const form = __pynext__.getForm('{form_id}');
-            if (!form) {{ console.error('[PyNext] Form {form_id} not found'); return; }}
-            if (form.validate()) {{
-                const values = form.values;
-                {signal_ops}
-                {reset_js}
-            }}
-        }})()"""
-        
-        return js_code
-    
-    def _generate_form_values_js(self, form_id: str, signals: dict, source: str) -> str:
-        """
-        Generate JavaScript for handlers that access form.values without validation.
-        """
-        signal_ops = self._parse_signal_operations(source, signals)
-        
-        return f"""(function() {{
-            const form = __pynext__.getForm('{form_id}');
-            if (!form) {{ console.error('[PyNext] Form {form_id} not found'); return; }}
-            const values = form.values;
-            {signal_ops}
-        }})()"""
-    
-    def _parse_signal_operations(self, source: str, signals: dict) -> str:
-        """
-        Parse Python source to extract signal operations.
-        
-        Handles patterns:
-        - signal.set([*signal(), item])  -> update(arr => [...arr, item])
-        - signal.set(signal() + 1)       -> update(v => v + 1)
-        - signal.set(False)              -> set(false)
-        """
-        import re
-        
-        js_lines = []
-        
-        for sig_id, sig in signals.items():
-            # Get the variable name used in source (might differ from _id)
-            sig_name = getattr(sig, '_name', sig_id) or sig_id
-            # Use signal name for JS lookup (stable across renders), not sig_id (changes each render)
-            js_signal_ref = sig_name
-            
-            # Pattern 1: signal.set([*signal(), new_item]) - Array append with values
-            # Matches: all_issues.set([*all_issues(), new_issue])
-            array_append_pattern = rf'{re.escape(sig_name)}\.set\s*\(\s*\[\s*\*\s*{re.escape(sig_name)}\s*\(\s*\)\s*,\s*(\w+)\s*\]\s*\)'
-            array_match = re.search(array_append_pattern, source)
-            if array_match:
-                item_name = array_match.group(1)
-                # In generated JS, we always use 'values' which is assigned from form.values
-                # The Python code might use a variable like 'new_issue' but that's just
-                # an intermediate variable holding data derived from form.values
-                js_lines.append(f"__pynext__.getSignal('{js_signal_ref}').update(arr => [...arr, values]);")
-                continue
-            
-            # Pattern 1b: Spread with constructed object inline
-            # Matches: all_issues.set([*all_issues(), {...}]) 
-            array_inline_pattern = rf'{re.escape(sig_name)}\.set\s*\(\s*\[\s*\*\s*{re.escape(sig_name)}\s*\(\s*\)\s*,'
-            if re.search(array_inline_pattern, source):
-                # Complex inline object - use values as fallback
-                js_lines.append(f"__pynext__.getSignal('{js_signal_ref}').update(arr => [...arr, values]);")
-                continue
-            
-            # Pattern 2: signal.set(signal() + n) - Increment
-            inc_pattern = rf'{re.escape(sig_name)}\.set\s*\(\s*{re.escape(sig_name)}\s*\(\s*\)\s*\+\s*(\d+)\s*\)'
-            inc_match = re.search(inc_pattern, source)
-            if inc_match:
-                n = inc_match.group(1)
-                js_lines.append(f"__pynext__.getSignal('{js_signal_ref}').update(v => v + {n});")
-                continue
-            
-            # Pattern 3: signal.set(signal() - n) - Decrement
-            dec_pattern = rf'{re.escape(sig_name)}\.set\s*\(\s*{re.escape(sig_name)}\s*\(\s*\)\s*-\s*(\d+)\s*\)'
-            dec_match = re.search(dec_pattern, source)
-            if dec_match:
-                n = dec_match.group(1)
-                js_lines.append(f"__pynext__.getSignal('{js_signal_ref}').update(v => v - {n});")
-                continue
-            
-            # Pattern 4: signal.set(False) or signal.set(True)
-            bool_pattern = rf'{re.escape(sig_name)}\.set\s*\(\s*(True|False)\s*\)'
-            bool_match = re.search(bool_pattern, source)
-            if bool_match:
-                val = bool_match.group(1)
-                js_val = 'true' if val == 'True' else 'false'
-                js_lines.append(f"__pynext__.getSignal('{js_signal_ref}').set({js_val});")
-                continue
-            
-            # Pattern 5: signal.set(number)
-            num_pattern = rf'{re.escape(sig_name)}\.set\s*\(\s*(\d+)\s*\)'
-            num_match = re.search(num_pattern, source)
-            if num_match:
-                num = num_match.group(1)
-                js_lines.append(f"__pynext__.getSignal('{js_signal_ref}').set({num});")
-                continue
-            
-            # Pattern 6: signal.set("string")
-            str_pattern = rf'{re.escape(sig_name)}\.set\s*\(\s*["\']([^"\']*)["\']s*\)'
-            str_match = re.search(str_pattern, source)
-            if str_match:
-                s = str_match.group(1)
-                js_lines.append(f"__pynext__.getSignal('{js_signal_ref}').set(\"{s}\");")
-                continue
-        
-        return '\n                '.join(js_lines)
-    
-    def _extract_form_handler(self, func: Callable, forms: dict, signals: dict) -> str:
-        """
-        Extract JS for form-based handlers (validate, submit, reset).
-        
-        Handles patterns like:
-        - if form.validate(): do_stuff(); form.reset()
-        - form.values property access
-        - Combined form + signal operations
-        """
-        import inspect
-        import re
-        
-        # Get source code
-        try:
-            source = inspect.getsource(func).strip()
-        except (OSError, TypeError):
-            return "console.warn('[PyNext] Could not get source for form handler')"
-        
-        # Clean up source
-        source = source.replace('\n', ' ').replace('  ', ' ')
-        
-        # Get form ID (use first form if multiple)
-        form_id = list(forms.keys())[0]
-        form = forms[form_id]
-        
-        # CRITICAL: Register the form with the context for hydration
-        ctx = get_context()
-        if ctx:
-            # Use the form's _form_id for consistency
-            actual_form_id = getattr(form, '_form_id', form_id)
-            import os
-            if os.environ.get("PYNEXT_DEBUG"):
-                print(f"[DEBUG] _extract_form_handler: form_id from dict={form_id}, actual_form_id={actual_form_id}")
-            if actual_form_id not in ctx.forms:
-                ctx.register_form(form)
-                if os.environ.get("PYNEXT_DEBUG"):
-                    print(f"[DEBUG] Registered form: {actual_form_id}")
-            # Use the form's _form_id in the generated JS
-            form_id = actual_form_id
-        
-        # Detect validation + submission pattern
-        # if form.validate(): ... form.reset() or similar
-        has_validate = '.validate()' in source or '.validate(' in source
-        has_reset = '.reset()' in source
-        has_values = '.values' in source
-        
-        if has_validate:
-            # This is a form submission handler
-            return self._generate_form_submit_js(form_id, forms, signals, source)
-        elif has_reset:
-            # Just reset
-            return f"__pynext__.getForm('{form_id}').reset()"
-        elif has_values:
-            # Values access without validation
-            return self._generate_form_values_js(form_id, signals, source)
-        else:
-            # Generic form handler - try to parse
-            return f"console.warn('[PyNext] Form handler pattern not recognized')"
-    
-    def _generate_form_submit_js(self, form_id: str, forms: dict, signals: dict, source: str) -> str:
-        """
-        Generate JavaScript for a form submission handler.
-        
-        Pattern:
-            if form.validate():
-                all_issues.set([*all_issues(), form.values])
-                next_id.set(next_id() + 1)
-                form.reset()
-                show_modal.set(False)
-        
-        Generates:
-            (function() {
-                const form = __pynext__.getForm('form_xxx');
-                if (!form) return;
-                if (form.validate()) {
-                    const values = form.values;
-                    __pynext__.getSignal('all_issues').update(arr => [...arr, values]);
-                    __pynext__.getSignal('next_id').update(v => v + 1);
-                    form.reset();
-                    __pynext__.getSignal('show_modal').set(false);
-                }
-            })()
-        """
-        # Parse signal operations from source
-        signal_ops = self._parse_signal_operations(source, signals)
-        
-        # Check for reset
-        has_reset = '.reset()' in source
-        reset_js = "form.reset();" if has_reset else ""
-        
-        # NOTE: Do NOT use ()() IIFE syntax - the code is wrapped in new Function()
-        # which would cause the IIFE to execute immediately at function creation time
-        js_code = f"""
-            const form = __pynext__.getForm('{form_id}');
-            if (!form) {{ console.error('[PyNext] Form {form_id} not found'); return; }}
-            if (form.validate()) {{
-                const values = form.values;
-                {signal_ops}
-                {reset_js}
-            }}
-        """
-        
-        return js_code
-    
-    def _generate_form_values_js(self, form_id: str, signals: dict, source: str) -> str:
-        """
-        Generate JavaScript for handlers that access form.values without validation.
-        """
-        signal_ops = self._parse_signal_operations(source, signals)
-        
-        return f"""(function() {{
-            const form = __pynext__.getForm('{form_id}');
-            if (!form) {{ console.error('[PyNext] Form {form_id} not found'); return; }}
-            const values = form.values;
-            {signal_ops}
-        }})()"""
-    
-    def _parse_signal_operations(self, source: str, signals: dict) -> str:
-        """
-        Parse Python source to extract signal operations.
-        
-        Handles patterns:
-        - signal.set([*signal(), item])  -> update(arr => [...arr, item])
-        - signal.set(signal() + 1)       -> update(v => v + 1)
-        - signal.set(False)              -> set(false)
-        """
-        import re
-        
-        js_lines = []
-        
-        for sig_id, sig in signals.items():
-            # Get the variable name used in source (might differ from _id)
-            sig_name = getattr(sig, '_name', sig_id) or sig_id
-            
-            # Pattern 1: signal.set([*signal(), new_item]) - Array append with values
-            # Matches: all_issues.set([*all_issues(), new_issue])
-            array_append_pattern = rf'{re.escape(sig_name)}\.set\s*\(\s*\[\s*\*\s*{re.escape(sig_name)}\s*\(\s*\)\s*,\s*(\w+)\s*\]\s*\)'
-            array_match = re.search(array_append_pattern, source)
-            if array_match:
-                item_name = array_match.group(1)
-                # In generated JS, we always use 'values' which is assigned from form.values
-                # The Python code might use a variable like 'new_issue' but that's just
-                # an intermediate variable holding data derived from form.values
-                js_lines.append(f"__pynext__.getSignal('{sig_id}').update(arr => [...arr, values]);")
-                continue
-            
-            # Pattern 1b: Spread with constructed object inline
-            # Matches: all_issues.set([*all_issues(), {...}]) 
-            array_inline_pattern = rf'{re.escape(sig_name)}\.set\s*\(\s*\[\s*\*\s*{re.escape(sig_name)}\s*\(\s*\)\s*,'
-            if re.search(array_inline_pattern, source):
-                # Complex inline object - use values as fallback
-                js_lines.append(f"__pynext__.getSignal('{sig_id}').update(arr => [...arr, values]);")
-                continue
-            
-            # Pattern 2: signal.set(signal() + n) - Increment
-            inc_pattern = rf'{re.escape(sig_name)}\.set\s*\(\s*{re.escape(sig_name)}\s*\(\s*\)\s*\+\s*(\d+)\s*\)'
-            inc_match = re.search(inc_pattern, source)
-            if inc_match:
-                n = inc_match.group(1)
-                js_lines.append(f"__pynext__.getSignal('{sig_id}').update(v => v + {n});")
-                continue
-            
-            # Pattern 3: signal.set(signal() - n) - Decrement
-            dec_pattern = rf'{re.escape(sig_name)}\.set\s*\(\s*{re.escape(sig_name)}\s*\(\s*\)\s*-\s*(\d+)\s*\)'
-            dec_match = re.search(dec_pattern, source)
-            if dec_match:
-                n = dec_match.group(1)
-                js_lines.append(f"__pynext__.getSignal('{sig_id}').update(v => v - {n});")
-                continue
-            
-            # Pattern 4: signal.set(False) or signal.set(True)
-            bool_pattern = rf'{re.escape(sig_name)}\.set\s*\(\s*(True|False)\s*\)'
-            bool_match = re.search(bool_pattern, source)
-            if bool_match:
-                val = bool_match.group(1)
-                js_val = 'true' if val == 'True' else 'false'
-                js_lines.append(f"__pynext__.getSignal('{sig_id}').set({js_val});")
-                continue
-            
-            # Pattern 5: signal.set(number)
-            num_pattern = rf'{re.escape(sig_name)}\.set\s*\(\s*(\d+)\s*\)'
-            num_match = re.search(num_pattern, source)
-            if num_match:
-                num = num_match.group(1)
-                js_lines.append(f"__pynext__.getSignal('{sig_id}').set({num});")
-                continue
-            
-            # Pattern 6: signal.set("string")
-            str_pattern = rf'{re.escape(sig_name)}\.set\s*\(\s*["\']([^"\']*)["\']s*\)'
-            str_match = re.search(str_pattern, source)
-            if str_match:
-                s = str_match.group(1)
-                js_lines.append(f"__pynext__.getSignal('{sig_id}').set(\"{s}\");")
-                continue
-        
-        return '\n                '.join(js_lines)
-    
-    def _extract_form_handler(self, func: Callable, forms: dict, signals: dict) -> str:
-        """
-        Extract JS for form-based handlers (validate, submit, reset).
-        
-        Handles patterns like:
-        - if form.validate(): do_stuff(); form.reset()
-        - form.values property access
-        - Combined form + signal operations
-        """
-        import inspect
-        import re
-        
-        # Get source code
-        try:
-            source = inspect.getsource(func).strip()
-        except (OSError, TypeError):
-            return "console.warn('[PyNext] Could not get source for form handler')"
-        
-        # Clean up source
-        source = source.replace('\n', ' ').replace('  ', ' ')
-        
-        # Get form ID (use first form if multiple)
-        form_id = list(forms.keys())[0]
-        form = forms[form_id]
-        
-        # CRITICAL: Register the form with the context for hydration
-        ctx = get_context()
-        if ctx:
-            # Use the form's _form_id for consistency
-            actual_form_id = getattr(form, '_form_id', form_id)
-            if actual_form_id not in ctx.forms:
-                ctx.register_form(form)
-            # Use the form's _form_id in the generated JS
-            form_id = actual_form_id
-        
-        # Detect validation + submission pattern
-        # if form.validate(): ... form.reset() or similar
-        has_validate = '.validate()' in source or '.validate(' in source
-        has_reset = '.reset()' in source
-        has_values = '.values' in source
-        
-        if has_validate:
-            # This is a form submission handler
-            return self._generate_form_submit_js(form_id, forms, signals, source)
-        elif has_reset:
-            # Just reset
-            return f"__pynext__.getForm('{form_id}').reset()"
-        elif has_values:
-            # Values access without validation
-            return self._generate_form_values_js(form_id, signals, source)
-        else:
-            # Generic form handler - try to parse
-            return f"console.warn('[PyNext] Form handler pattern not recognized')"
-    
-    def _generate_form_submit_js(self, form_id: str, forms: dict, signals: dict, source: str) -> str:
-        """
-        Generate JavaScript for a form submission handler.
-        
-        Pattern:
-            if form.validate():
-                all_issues.set([*all_issues(), form.values])
-                next_id.set(next_id() + 1)
-                form.reset()
-                show_modal.set(False)
-        
-        Generates:
-            (function() {
-                const form = __pynext__.getForm('form_xxx');
-                if (!form) return;
-                if (form.validate()) {
-                    const values = form.values;
-                    __pynext__.getSignal('all_issues').update(arr => [...arr, values]);
-                    __pynext__.getSignal('next_id').update(v => v + 1);
-                    form.reset();
-                    __pynext__.getSignal('show_modal').set(false);
-                }
-            })()
-        """
-        # Parse signal operations from source
-        signal_ops = self._parse_signal_operations(source, signals)
-        
-        # Check for reset
-        has_reset = '.reset()' in source
-        reset_js = "form.reset();" if has_reset else ""
-        
-        js_code = f"""(function() {{
-            const form = __pynext__.getForm('{form_id}');
-            if (!form) {{ console.error('[PyNext] Form {form_id} not found'); return; }}
-            if (form.validate()) {{
-                const values = form.values;
-                {signal_ops}
-                {reset_js}
-            }}
-        }})()"""
-        
-        return js_code
-    
-    def _generate_form_values_js(self, form_id: str, signals: dict, source: str) -> str:
-        """
-        Generate JavaScript for handlers that access form.values without validation.
-        """
-        signal_ops = self._parse_signal_operations(source, signals)
-        
-        return f"""(function() {{
-            const form = __pynext__.getForm('{form_id}');
-            if (!form) {{ console.error('[PyNext] Form {form_id} not found'); return; }}
-            const values = form.values;
-            {signal_ops}
-        }})()"""
-    
-    def _parse_signal_operations(self, source: str, signals: dict) -> str:
-        """
-        Parse Python source to extract signal operations.
-        
-        Handles patterns:
-        - signal.set([*signal(), item])  -> update(arr => [...arr, item])
-        - signal.set(signal() + 1)       -> update(v => v + 1)
-        - signal.set(False)              -> set(false)
-        """
-        import re
-        
-        js_lines = []
-        
-        for sig_id, sig in signals.items():
-            # Get the variable name used in source (might differ from _id)
-            sig_name = getattr(sig, '_name', sig_id) or sig_id
-            
-            # Pattern 1: signal.set([*signal(), new_item]) - Array append with values
-            # Matches: all_issues.set([*all_issues(), new_issue])
-            array_append_pattern = rf'{re.escape(sig_name)}\.set\s*\(\s*\[\s*\*\s*{re.escape(sig_name)}\s*\(\s*\)\s*,\s*(\w+)\s*\]\s*\)'
-            array_match = re.search(array_append_pattern, source)
-            if array_match:
-                item_name = array_match.group(1)
-                # In generated JS, we always use 'values' which is assigned from form.values
-                # The Python code might use a variable like 'new_issue' but that's just
-                # an intermediate variable holding data derived from form.values
-                js_lines.append(f"__pynext__.getSignal('{sig_id}').update(arr => [...arr, values]);")
-                continue
-            
-            # Pattern 1b: Spread with constructed object inline
-            # Matches: all_issues.set([*all_issues(), {...}]) 
-            array_inline_pattern = rf'{re.escape(sig_name)}\.set\s*\(\s*\[\s*\*\s*{re.escape(sig_name)}\s*\(\s*\)\s*,'
-            if re.search(array_inline_pattern, source):
-                # Complex inline object - use values as fallback
-                js_lines.append(f"__pynext__.getSignal('{sig_id}').update(arr => [...arr, values]);")
-                continue
-            
-            # Pattern 2: signal.set(signal() + n) - Increment
-            inc_pattern = rf'{re.escape(sig_name)}\.set\s*\(\s*{re.escape(sig_name)}\s*\(\s*\)\s*\+\s*(\d+)\s*\)'
-            inc_match = re.search(inc_pattern, source)
-            if inc_match:
-                n = inc_match.group(1)
-                js_lines.append(f"__pynext__.getSignal('{sig_id}').update(v => v + {n});")
-                continue
-            
-            # Pattern 3: signal.set(signal() - n) - Decrement
-            dec_pattern = rf'{re.escape(sig_name)}\.set\s*\(\s*{re.escape(sig_name)}\s*\(\s*\)\s*-\s*(\d+)\s*\)'
-            dec_match = re.search(dec_pattern, source)
-            if dec_match:
-                n = dec_match.group(1)
-                js_lines.append(f"__pynext__.getSignal('{sig_id}').update(v => v - {n});")
-                continue
-            
-            # Pattern 4: signal.set(False) or signal.set(True)
-            bool_pattern = rf'{re.escape(sig_name)}\.set\s*\(\s*(True|False)\s*\)'
-            bool_match = re.search(bool_pattern, source)
-            if bool_match:
-                val = bool_match.group(1)
-                js_val = 'true' if val == 'True' else 'false'
-                js_lines.append(f"__pynext__.getSignal('{sig_id}').set({js_val});")
-                continue
-            
-            # Pattern 5: signal.set(number)
-            num_pattern = rf'{re.escape(sig_name)}\.set\s*\(\s*(\d+)\s*\)'
-            num_match = re.search(num_pattern, source)
-            if num_match:
-                num = num_match.group(1)
-                js_lines.append(f"__pynext__.getSignal('{sig_id}').set({num});")
-                continue
-            
-            # Pattern 6: signal.set("string")
-            str_pattern = rf'{re.escape(sig_name)}\.set\s*\(\s*["\']([^"\']*)["\']s*\)'
-            str_match = re.search(str_pattern, source)
-            if str_match:
-                s = str_match.group(1)
-                js_lines.append(f"__pynext__.getSignal('{sig_id}').set(\"{s}\");")
-                continue
-        
-        return '\n                '.join(js_lines)
-    
-    def _extract_complex_handler(self, func: Callable, signals: dict, stores: dict) -> str:
-        """
-        Extract JS for complex handlers involving Stores and/or multiple Signals.
-        
-        This generates JavaScript that mirrors the Python logic for common patterns:
-        - Reading signals and stores
-        - Mutating store properties
-        - Array operations (push, filter, map)
-        - Conditional logic
-        """
-        import inspect
-        
-        # Build variable mapping for JS generation
-        var_map = {}
-        for sid, sig in signals.items():
-            var_map[id(sig)] = f"__pynext__.getSignal('{sid}')"
-        for sid, store in stores.items():
-            var_map[id(store)] = f"__pynext__.getStore('{sid}')"
-        
-        # Try to get source and transpile
-        try:
-            source = inspect.getsource(func)
-            js_code = self._transpile_to_js(source, signals, stores)
-            if js_code:
-                return js_code
-        except (OSError, TypeError):
-            pass
-        
-        # Fallback: Generate a refresh-based handler
-        # This re-fetches the page to get updated state (simple but works)
-        all_ids = list(signals.keys()) + list(stores.keys())
-        if all_ids:
-            # Generate JS that shows the handler can't be auto-transpiled
-            return f"console.warn('[PyNext] Complex handler - state changes require page interaction'); /* Reactive IDs: {', '.join(all_ids)} */"
-        
-        return "console.warn('[PyNext] Handler could not be transpiled')"
-    
-    def _transpile_to_js(self, source: str, signals: dict, stores: dict) -> str:
-        """
-        Attempt to transpile Python source to JavaScript.
-        
-        Handles common patterns like:
-        - signal.set(value), signal.update(fn)
-        - store.prop = value, store.items.append(item)
-        - Simple conditionals
-        """
-        import re
-        
-        # Clean source
-        source = ' '.join(source.split())
-        
-        js_parts = []
-        
-        # Pattern: Simple function that does store.items.append + signal.set
-        # This is the Todo "add" pattern
-        if 'append' in source and '.set(' in source:
-            # Extract signal IDs and store IDs
-            sig_id = list(signals.keys())[0] if signals else None
-            store_id = list(stores.keys())[0] if stores else None
-            
-            if sig_id and store_id:
-                # Generate JS for todo-like add operation
-                js_code = f"""(function() {{
-                    const sig = __pynext__.getSignal('{sig_id}');
-                    const store = __pynext__.getStore('{store_id}');
-                    const text = sig.read();
-                    if (text && text.trim()) {{
-                        const items = store.items || [];
-                        const nextId = store.nextId || items.length + 1;
-                        items.push({{id: nextId, text: text, done: false}});
-                        store.items = items;
-                        store.nextId = nextId + 1;
-                        sig.set('');
-                    }}
-                }})()"""
-                return js_code
-        
-        # Pattern: Toggle done status (todo toggle pattern)
-        if 'done' in source and 'not ' in source:
-            store_id = list(stores.keys())[0] if stores else None
-            if store_id:
-                # Check for lambda with captured variable pattern
-                # onclick=lambda i=item: toggle_todo(i["id"])
-                match = re.search(r'lambda\s+\w+=(\w+)\s*:', source)
-                if match:
-                    # This is a toggle pattern - we need the item id from the captured variable
-                    # Generate JS that finds and toggles the item
-                    js_code = f"""(function() {{
-                        const store = __pynext__.getStore('{store_id}');
-                        const items = store.items || [];
-                        // Toggle logic should be bound per-item
-                        console.log('[PyNext] Toggle operation detected');
-                    }})()"""
-                    return js_code
-        
-        # Pattern: Simple store property update
-        store_update_match = re.search(r'(\w+)\.(\w+)\s*=\s*(\w+)\.(\w+)\s*\+\s*(\d+)', source)
-        if store_update_match:
-            store_id = list(stores.keys())[0] if stores else None
-            if store_id:
-                prop = store_update_match.group(2)
-                increment = store_update_match.group(5)
-                return f"__pynext__.getStore('{store_id}').{prop} += {increment}"
-        
-        return None
-    
+    # =========================================================================
+    # LEGACY METHODS REMOVED (Phase 18.6)
+    # =========================================================================
+    # The following legacy regex-based methods have been removed in favor of
+    # proper AST-based transpilation via the transpiler module:
+    # - _extract_handler_code_legacy
+    # - _extract_signal_operation
+    # - _extract_form_handler (3 duplicate definitions removed)
+    # - _extract_complex_handler
+    # - _transpile_to_js
+    # - _generate_form_submit_js (3 duplicate definitions removed)
+    # - _generate_form_values_js (3 duplicate definitions removed)
+    # - _parse_signal_operations (3 duplicate definitions removed)
+    #
+    # All handler transpilation now goes through _extract_handler_code_ast()
+    # which uses the proper AST-based transpiler in pynext/transpiler/.
+    # =========================================================================
+
     def _render_children(self) -> str:
         """Render children to HTML string."""
         ctx = get_context()
@@ -1262,8 +532,9 @@ class Element:
                 return str(rendered) if rendered else ""
             elif _is_signal(item):
                 # Render signal with reactive placeholder for text binding
-                signal_id = item._id
-                element_id = f"text_{signal_id}"
+                # Use signal name for stable lookups (not ID which changes per render)
+                signal_name = getattr(item, '_name', None) or item._id
+                element_id = f"text_{signal_name}"
                 value = _escape(str(item._value))
                 
                 if ctx:
@@ -1272,12 +543,12 @@ class Element:
                     ctx.register_binding(
                         node_id=element_id,
                         binding_type="text",
-                        signal_deps=[signal_id],
-                        update_expr=f"__pynext__.getSignal('{signal_id}').read()",
+                        signal_deps=[signal_name],
+                        update_expr=f"__pynext__.getSignal('{signal_name}').read()",
                         initial_value=item._value,
                     )
                 
-                return f'<span data-pynext-text="{signal_id}" id="{element_id}">{value}</span>'
+                return f'<span data-pynext-text="{signal_name}" id="{element_id}">{value}</span>'
             elif callable(item) and not hasattr(item, 'render'):
                 # Callable text content (lambda returning string)
                 # Evaluate to get initial value
@@ -1295,13 +566,15 @@ class Element:
                     try:
                         obj = cell.cell_contents
                         if hasattr(obj, '_id') and hasattr(obj, '_value'):
-                            signal_deps.append(obj._id)
+                            # Use signal name for stable lookups (not ID which changes per render)
+                            signal_name = getattr(obj, '_name', None) or obj._id
+                            signal_deps.append(signal_name)
                     except (ValueError, AttributeError):
                         pass
                 
                 if signal_deps and ctx:
                     import uuid
-                    element_id = f"text_{uuid.uuid4().hex[:8]}"
+                    element_id = f"text_{signal_deps[0]}"
                     update_expr = f"__pynext__.getSignal('{signal_deps[0]}').read()"
                     
                     ctx.register_binding(

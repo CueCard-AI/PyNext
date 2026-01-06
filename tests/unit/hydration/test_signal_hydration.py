@@ -472,7 +472,12 @@ class TestContextManagement:
             ctx.register_event("btn_1", "click", "console.log('clicked')")
             data = ctx.get_hydration_data()
             assert "btn_1" in data["events"]
-            assert data["events"]["btn_1"]["click"] == "console.log('clicked')"
+            # Event handlers now have {code, mods} format for modifier support
+            event_data = data["events"]["btn_1"]["click"]
+            if isinstance(event_data, dict):
+                assert event_data["code"] == "console.log('clicked')"
+            else:
+                assert event_data == "console.log('clicked')"
     
     def test_context_multiple_events_same_element(self):
         """Multiple events on same element should all register."""

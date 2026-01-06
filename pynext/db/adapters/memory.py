@@ -421,9 +421,54 @@ class MemoryAdapter(Adapter):
         return result
     
     def _convert_placeholders(self, sql: str) -> str:
-        """Convert $1, $2 style placeholders to ? style."""
-        import re
-        return re.sub(r'\$\d+', '?', sql)
+        """Convert $1, $2 style placeholders to ? style.
+        
+        FUNDAMENTAL: Properly skips string literals to avoid corrupting
+        strings like '$100' inside SQL.
+        """
+        result = []
+        i = 0
+        in_string = None
+        
+        while i < len(sql):
+            char = sql[i]
+            
+            # Handle string literal boundaries (SQL uses single quotes)
+            if in_string:
+                result.append(char)
+                # Handle escaped quotes ('')
+                if char == in_string:
+                    if i + 1 < len(sql) and sql[i + 1] == in_string:
+                        # Escaped quote - consume both
+                        result.append(sql[i + 1])
+                        i += 2
+                        continue
+                    else:
+                        in_string = None
+                i += 1
+                continue
+            
+            # Check for string start
+            if char == "'":
+                in_string = "'"
+                result.append(char)
+                i += 1
+                continue
+            
+            # Check for $N placeholder pattern (only outside strings)
+            if char == '$' and i + 1 < len(sql) and sql[i + 1].isdigit():
+                # Found placeholder - replace with ?
+                result.append('?')
+                i += 1
+                # Skip all digits
+                while i < len(sql) and sql[i].isdigit():
+                    i += 1
+                continue
+            
+            result.append(char)
+            i += 1
+        
+        return ''.join(result)
     
     # Convenience methods
     

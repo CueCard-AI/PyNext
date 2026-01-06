@@ -37,7 +37,8 @@ class TestSignalAsText:
         count = Signal(42, name="count")
         el = div()[count]
         html = el.render()
-        assert f'id="text_{count._id}"' in html
+        # Now uses signal name for stable ID
+        assert 'id="text_count"' in html
     
     def test_signal_string_value(self):
         """Signal with string value."""
@@ -106,7 +107,8 @@ class TestTextBindingRegistration:
         el.render()
         
         binding = self.ctx.bindings[0]
-        assert count._id in binding.signal_deps
+        # Signal deps now use names instead of IDs
+        assert "count" in binding.signal_deps
     
     def test_binding_has_update_expr(self):
         """Text binding has update expression."""
@@ -116,7 +118,8 @@ class TestTextBindingRegistration:
         
         binding = self.ctx.bindings[0]
         assert "getSignal" in binding.update_expr
-        assert count._id in binding.update_expr
+        # Signal deps now use names instead of IDs
+        assert "count" in binding.update_expr
     
     def test_callable_with_signal_registers(self):
         """Callable with signal registers binding."""
@@ -287,5 +290,6 @@ class TestSignalRegistration:
         el.render()
         
         reg = self.ctx.signals["count"]
-        assert f"text_{count._id}" == reg.element_id
+        # Now uses signal name for stable ID
+        assert "text_count" == reg.element_id
 

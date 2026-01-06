@@ -182,6 +182,7 @@ class Component:
     {meta_tags_html}
     {link_tags_html}
     <script src="/_pynext/runtime.js" defer></script>{react_scripts}
+    <link rel="stylesheet" href="https://unpkg.com/tailwindcss@^2/dist/tailwind.min.css" />
     <link rel="stylesheet" href="/_pynext/styles.css" />
 </head>
 <body>

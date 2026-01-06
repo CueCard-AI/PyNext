@@ -266,7 +266,8 @@ class TestM2MJunctionExtraColumns:
         
         assert list(student.course_names) == ["Math", "Physics"]
     
-    def test_filter_by_junction_column(self):
+    @pytest.mark.asyncio
+    async def test_filter_by_junction_column(self):
         """Filter works on junction columns."""
         class Student(MockTable):
             def __init__(self, enrollments: List[Enrollment]):
@@ -286,10 +287,7 @@ class TestM2MJunctionExtraColumns:
         student = Student(enrollments)
         
         # This tests ProxyCollection.filter
-        import asyncio
-        active = asyncio.get_event_loop().run_until_complete(
-            student.courses.filter(active=True)
-        )
+        active = await student.courses.filter(active=True)
         
         assert len(active) == 2
         assert all(c.active for c in active)
@@ -603,10 +601,9 @@ class TestM2MIterationOrder:
 class TestM2MAsyncMethods:
     """Test async methods on M2M proxy."""
     
-    def test_async_all(self):
+    @pytest.mark.asyncio
+    async def test_async_all(self):
         """async all() returns all items."""
-        import asyncio
-        
         class Product(MockTable):
             def __init__(self, product_tags: List[ProductTag]):
                 self._product_tags = product_tags
@@ -623,14 +620,13 @@ class TestM2MAsyncMethods:
         ]
         product = Product(product_tags)
         
-        result = asyncio.get_event_loop().run_until_complete(product.tags.all())
+        result = await product.tags.all()
         
         assert len(result) == 2
     
-    def test_async_first(self):
+    @pytest.mark.asyncio
+    async def test_async_first(self):
         """async first() returns first item."""
-        import asyncio
-        
         class Product(MockTable):
             def __init__(self, product_tags: List[ProductTag]):
                 self._product_tags = product_tags
@@ -647,14 +643,13 @@ class TestM2MAsyncMethods:
         ]
         product = Product(product_tags)
         
-        result = asyncio.get_event_loop().run_until_complete(product.tags.first())
+        result = await product.tags.first()
         
         assert result.name == "first"
     
-    def test_async_first_empty(self):
+    @pytest.mark.asyncio
+    async def test_async_first_empty(self):
         """async first() returns None on empty."""
-        import asyncio
-        
         class Product(MockTable):
             def __init__(self):
                 self._product_tags = []
@@ -666,7 +661,7 @@ class TestM2MAsyncMethods:
         Product.tags = association_proxy("product_tags", "tag")
         
         product = Product()
-        result = asyncio.get_event_loop().run_until_complete(product.tags.first())
+        result = await product.tags.first()
         
         assert result is None
 

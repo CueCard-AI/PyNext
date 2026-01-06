@@ -274,6 +274,7 @@ class DevServer:
         root: Path,
         port: int = 8000,
         host: str = "0.0.0.0",
+        emit_js: bool = False,
     ):
         """
         Initialize dev server.
@@ -282,15 +283,22 @@ class DevServer:
             root: Project root directory
             port: Server port
             host: Server host
+            emit_js: If True, write transpiled JS to .pynext/debug/ on each reload
         """
         self.root = Path(root).resolve()
         self.port = port
         self.host = host
+        self.emit_js = emit_js
         self.watcher = FileWatcher(root)
         self._websockets: Set = set()
         self._reload_count = 0
         self._last_reload_time = 0.0
         self._app = None
+        
+        # Create debug output directory if emit_js is enabled
+        if self.emit_js:
+            self._debug_dir = self.root / ".pynext" / "debug"
+            self._debug_dir.mkdir(parents=True, exist_ok=True)
     
     async def start(self):
         """
@@ -398,6 +406,11 @@ class DevServer:
         """Watch files and broadcast changes."""
         print(f"[PyNext] Watching for changes in {self.root}")
         
+        if self.emit_js:
+            print(f"[PyNext] JS output enabled → {self._debug_dir}")
+            # Initial emit
+            await self._emit_all_handlers()
+        
         try:
             async for change in self.watcher.watch():
                 start_time = time.perf_counter()
@@ -407,6 +420,10 @@ class DevServer:
                 
                 # Broadcast to all connected clients
                 await self._broadcast_change(change)
+                
+                # Emit JS if enabled and Python file changed
+                if self.emit_js and change.relative_path.endswith('.py'):
+                    await self._emit_handler_for_file(change.relative_path)
                 
                 # Track timing
                 elapsed = (time.perf_counter() - start_time) * 1000
@@ -419,6 +436,89 @@ class DevServer:
             print("[PyNext] File watcher stopped")
         except Exception as e:
             print(f"[PyNext] Watcher error: {e}")
+    
+    async def _emit_all_handlers(self):
+        """
+        Emit JavaScript for all handlers in the project.
+        
+        Called once at startup when emit_js is enabled.
+        """
+        pages_dir = self.root / "pages"
+        if not pages_dir.exists():
+            return
+        
+        for py_file in pages_dir.rglob("*.py"):
+            if py_file.name.startswith("_"):
+                continue
+            
+            relative = py_file.relative_to(self.root)
+            await self._emit_handler_for_file(str(relative))
+    
+    async def _emit_handler_for_file(self, relative_path: str):
+        """
+        Emit JavaScript for handlers in a specific file.
+        
+        Args:
+            relative_path: Relative path to the Python file
+        """
+        try:
+            from pynext.transpiler.cli import _load_handlers_from_file
+            from pynext.transpiler.reactive import analyze_handler
+            from pynext.transpiler.hydration import transpile_for_hydration, HydrationOptions
+            
+            file_path = self.root / relative_path
+            if not file_path.exists() or not relative_path.endswith('.py'):
+                return
+            
+            # Load handlers from the file
+            try:
+                handlers = _load_handlers_from_file(str(file_path))
+            except Exception as e:
+                print(f"[PyNext] Could not load handlers from {relative_path}: {e}")
+                return
+            
+            if not handlers:
+                return
+            
+            # Transpile each handler
+            options = HydrationOptions(
+                wrap_in_function=True,
+                include_comments=True,
+            )
+            
+            output_lines = [
+                "// ═══════════════════════════════════════════════════════════════════════════",
+                f"// Transpiled from: {relative_path}",
+                f"// Handlers: {', '.join(handlers.keys())}",
+                f"// Generated at: {time.strftime('%Y-%m-%d %H:%M:%S')}",
+                "// ═══════════════════════════════════════════════════════════════════════════",
+                "",
+            ]
+            
+            for name, func in handlers.items():
+                try:
+                    ctx = analyze_handler(func)
+                    js = transpile_for_hydration(func, ctx, options)
+                    output_lines.append(js)
+                    output_lines.append("")
+                except Exception as e:
+                    output_lines.extend([
+                        f"// ERROR: {name}",
+                        f"// {e}",
+                        "",
+                    ])
+            
+            # Write output
+            stem = Path(relative_path).stem
+            output_file = self._debug_dir / f"{stem}.handlers.js"
+            output_file.write_text("\n".join(output_lines))
+            print(f"[PyNext] Emitted {output_file.relative_to(self.root)}")
+        
+        except ImportError:
+            # Transpiler not available
+            pass
+        except Exception as e:
+            print(f"[PyNext] Error emitting JS for {relative_path}: {e}")
     
     async def _broadcast_change(self, change: FileChange):
         """

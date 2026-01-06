@@ -109,6 +109,15 @@ class RenderContext:
     # Reactive bindings for fine-grained DOM updates
     bindings: list[ReactiveBinding] = field(default_factory=list)
     
+    # Memos with their computation code (for client-side recomputation)
+    # Structure: memo_name -> {id, value, deps, code}
+    memos: dict[str, dict] = field(default_factory=dict)
+    
+    # Constants: Python constants (dicts, lists, primitives) that need to be
+    # available client-side for transpiled code to work correctly.
+    # E.g., STATUS_LABELS = {"backlog": "Backlog", "todo": "Todo", ...}
+    constants: dict[str, Any] = field(default_factory=dict)
+    
     # Counter for generating unique IDs
     _id_counter: int = field(default=0)
     
@@ -162,7 +171,8 @@ class RenderContext:
         """
         Register a memo for hydration.
         
-        Memos are registered as signals since they behave similarly on the client.
+        Memos are stored with their transpiled computation code so they can
+        be recreated on the client with full reactivity.
         
         Args:
             memo: The Memo instance to register
@@ -173,6 +183,43 @@ class RenderContext:
         memo_id = memo._id if hasattr(memo, '_id') else str(id(memo))
         memo_name = getattr(memo, '_name', memo_id)
         memo_value = memo._value if hasattr(memo, '_value') else None
+        
+        # Transpile the computation function if available
+        transpiled_code = None
+        deps = []
+        if hasattr(memo, '_fn') and memo._fn is not None:
+            try:
+                from pynext.transpiler.pynext import transpile_memo_computation
+                from pynext.transpiler.reactive import analyze_handler
+                
+                # Analyze the memo function to extract reactive dependencies
+                reactive_ctx = analyze_handler(memo._fn)
+                
+                # Use AST-based transpilation that directly produces arrow functions
+                # This replaces the fragile _extract_memo_arrow_function string parsing
+                transpiled_code = transpile_memo_computation(memo._fn, reactive_ctx)
+                
+                # Get dependency names (signals the memo depends on)
+                deps = list(reactive_ctx.signals.keys())
+                
+                # Collect constants used by this memo for client-side injection
+                for const_name, const_value in reactive_ctx.constants.items():
+                    if const_name not in self.constants:
+                        self.constants[const_name] = const_value
+            except Exception as e:
+                # Fall back to static value if transpilation fails
+                import logging
+                logging.debug(f"Could not transpile memo {memo_name}: {e}")
+        
+        # Store in memos dict for proper client-side memo creation
+        self.memos[memo_name] = {
+            "id": memo_id,
+            "value": memo_value,
+            "deps": deps,
+            "code": transpiled_code,
+        }
+        
+        # Also register as a signal for backward compatibility
         self.signals[memo_name] = SignalRegistration(
             signal_id=memo_id,
             initial_value=memo_value,
@@ -345,6 +392,10 @@ class RenderContext:
                 }
                 for b in self.bindings
             ],
+            # Memos with transpiled computation functions for client-side reactivity
+            "memos": self.memos,
+            # Constants: Python constants needed by transpiled code (dicts, lists, etc.)
+            "constants": self.constants,
         }
 
 

@@ -265,9 +265,14 @@ class TestEnvGetters:
     """Tests for pynext.env_module.Env getters."""
     
     @pytest.fixture
-    def mock_env(self, tmp_path):
+    def mock_env(self, tmp_path, monkeypatch):
         """Create a mock environment."""
         from pynext.env_module import Env
+        
+        # Clear any conflicting env vars before loading
+        monkeypatch.delenv("DATABASE_URL", raising=False)
+        monkeypatch.delenv("PORT", raising=False)
+        monkeypatch.delenv("DEBUG", raising=False)
         
         # Reset singleton
         Env._instance = None
@@ -1276,11 +1281,14 @@ schema = EnvSchema(
 class TestEnvIntegration:
     """Integration tests for env system."""
     
-    def test_full_workflow(self, tmp_path):
+    def test_full_workflow(self, tmp_path, monkeypatch):
         """Test complete env workflow."""
         from pynext.env.loader import load_env_files
         from pynext.env.schema import EnvSchema, Var
         from pynext.env.client import get_public_vars, generate_inline_script
+        
+        # Ensure we're testing loaded env, not os.environ
+        monkeypatch.delenv("DATABASE_URL", raising=False)
         
         # Create env files
         (tmp_path / ".env").write_text("""

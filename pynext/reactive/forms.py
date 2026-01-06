@@ -823,7 +823,20 @@ def create_form(
         form.validate()  # Run validators
         form.reset()  # Reset to initial
     """
-    return FormState(initial=initial, validators=validators)
+    form = FormState(initial=initial, validators=validators)
+    
+    # Register form with render context for hydration
+    try:
+        from pynext.core.context import get_context
+        ctx = get_context()
+        if ctx is not None:
+            # Register the form's hydration state
+            ctx.forms[form._form_id] = form.to_hydration_state()
+    except ImportError:
+        # Context not available (e.g., during testing)
+        pass
+    
+    return form
 
 
 # =============================================================================

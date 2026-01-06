@@ -146,12 +146,37 @@ class Button:
         if self.disabled:
             attrs_str += ' disabled'
         
-        # Handle click events
+        # Handle click events - transpile Python lambda to JavaScript
         if self.on_click:
-            # Generate handler ID for client-side event binding
-            import hashlib
-            handler_id = hashlib.md5(str(id(self.on_click)).encode()).hexdigest()[:8]
-            attrs_str += f' data-pynext-click="{handler_id}"'
+            from pynext.transpiler.pynext import transpile_handler_body
+            from pynext.transpiler.reactive import analyze_handler
+            
+            # CRITICAL FIX: Auto-detect reactive context from handler's closure
+            # This finds signals, forms, memos, stores that the handler uses
+            ctx = analyze_handler(self.on_click)
+            try:
+                js_code = transpile_handler_body(self.on_click, ctx)
+                # Escape double quotes for HTML attribute safety
+                import html
+                js_code_escaped = html.escape(js_code, quote=True)
+                
+                # Only add 'return' for simple expressions, not statement blocks
+                # Check if the JS starts with a statement keyword
+                js_trimmed = js_code.strip()
+                is_statement_block = any(js_trimmed.startswith(kw) for kw in ['if ', 'if(', 'for ', 'for(', 'while ', 'while(', 'let ', 'const ', 'var ', 'try ', 'try{', 'switch ', 'switch('])
+                
+                if is_statement_block:
+                    # Multi-statement block - wrap in IIFE
+                    attrs_str += f' data-pynext-on-click="(function() {{ {js_code_escaped} }})();"'
+                else:
+                    # Simple expression - transpiler already added 'return' keyword
+                    # DON'T add another 'return' here!
+                    attrs_str += f' data-pynext-on-click="{js_code_escaped};"'
+            except Exception as e:
+                # If transpilation fails, skip the handler
+                import sys
+                print(f"[Button] Transpilation failed: {e}", file=sys.stderr)
+                pass
         
         # Add any extra attributes
         for key, value in self.attrs.items():

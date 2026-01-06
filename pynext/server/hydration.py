@@ -90,6 +90,18 @@ class HydrationData:
     actions: Dict[str, Dict[str, Any]] = field(default_factory=dict)
     """Map of action id → {name, args}."""
     
+    bindings: List[Dict[str, Any]] = field(default_factory=list)
+    """List of reactive bindings for fine-grained DOM updates (Show, For, etc.)."""
+    
+    forms: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    """Map of form id → {initial, values, validators}."""
+    
+    form_bindings: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    """Map of element id → {formId, fieldName, bindType}."""
+    
+    memos: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    """Map of memo name → {id, value, deps, code} for client-side recomputation."""
+    
     def to_dict(self) -> dict:
         """Convert to JSON-serializable dict."""
         return {
@@ -99,6 +111,10 @@ class HydrationData:
             "effects": self.effects,
             "events": self.events,
             "actions": self.actions,
+            "bindings": self.bindings,
+            "forms": self.forms,
+            "formBindings": self.form_bindings,
+            "memos": self.memos,
         }
     
     def to_json(self) -> str:
@@ -111,7 +127,8 @@ class HydrationData:
             not self.signals and 
             not self.stores and 
             not self.effects and 
-            not self.events
+            not self.events and
+            not self.bindings
         )
 
 
@@ -159,6 +176,33 @@ def collect_hydration_data(ctx: "RenderContext") -> HydrationData:
             "id": binding.action_id,
             "args": binding.args_template,
         }
+    
+    # Collect reactive bindings (for Show, For, and other control flow components)
+    # These enable fine-grained DOM updates when signals change
+    for binding in ctx.bindings:
+        data.bindings.append({
+            "nodeId": binding.node_id,
+            "type": binding.binding_type,
+            "signals": binding.signal_deps,
+            "update": binding.update_expr,
+            "attr": binding.attr_name,
+            "initial": binding.initial_value,
+        })
+    
+    # Collect forms (for form state and validation)
+    data.forms = ctx.forms.copy()
+    
+    # Collect form bindings (connecting form fields to DOM elements)
+    for eid, binding in ctx.form_bindings.items():
+        data.form_bindings[eid] = {
+            "elementId": binding.element_id,
+            "formId": binding.form_id,
+            "fieldName": binding.field_name,
+            "bindType": binding.bind_type,
+        }
+    
+    # Collect memos with their transpiled computation code
+    data.memos = ctx.memos.copy()
     
     return data
 
@@ -251,6 +295,8 @@ def add_hydration_markers(
     """
     Add data-pynext-* attributes to the root element of HTML.
     
+    FUNDAMENTAL: Uses proper HTML parser to find the first tag.
+    
     These markers help the client-side hydrator identify and
     process the component.
     
@@ -262,20 +308,61 @@ def add_hydration_markers(
     Returns:
         HTML with hydration markers added
     """
-    # Find the first opening tag
-    match = re.match(r'^(\s*<\w+)', html)
-    if not match:
+    from html.parser import HTMLParser
+    
+    class FirstTagFinder(HTMLParser):
+        """Find the position and name of the first HTML tag."""
+        
+        def __init__(self):
+            super().__init__()
+            self.tag_name = None
+            self.tag_start_pos = None
+            self.found = False
+        
+        def handle_starttag(self, tag, attrs):
+            if not self.found:
+                self.tag_name = tag
+                # getpos() returns (line, column) - we need to convert to offset
+                self.tag_start_pos = self.getpos()
+                self.found = True
+        
+        def handle_startendtag(self, tag, attrs):
+            # Also handle self-closing tags like <br/>
+            self.handle_starttag(tag, attrs)
+    
+    parser = FirstTagFinder()
+    try:
+        parser.feed(html)
+    except Exception:
+        return html  # Malformed HTML, return as-is
+    
+    if not parser.found or parser.tag_name is None:
         return html
     
-    tag = match.group(1)
+    # Convert (line, column) position to string offset
+    line, col = parser.tag_start_pos
+    lines = html.split('\n')
+    
+    # Calculate byte offset: sum of all previous lines + newlines + column
+    offset = sum(len(lines[i]) + 1 for i in range(line - 1)) + col
+    
+    # Find the end of the tag name (after '<tagname')
+    tag_name_end = offset + 1 + len(parser.tag_name)  # +1 for '<'
+    
+    # Verify we're at the right position
+    if tag_name_end > len(html):
+        return html
+    
     markers = f' data-pynext-component="{component_name}" data-pynext-id="{component_id}"'
     
-    return html.replace(tag, tag + markers, 1)
+    return html[:tag_name_end] + markers + html[tag_name_end:]
 
 
 def extract_component_markers(html: str) -> List[Dict[str, str]]:
     """
     Extract all component markers from HTML.
+    
+    FUNDAMENTAL: Uses proper HTML parser - no regex patterns.
     
     Used for debugging and testing to see what components
     are marked for hydration.
@@ -286,13 +373,30 @@ def extract_component_markers(html: str) -> List[Dict[str, str]]:
     Returns:
         List of {component, id} dicts
     """
-    pattern = r'data-pynext-component="([^"]+)"\s+data-pynext-id="([^"]+)"'
-    matches = re.findall(pattern, html)
+    from html.parser import HTMLParser
     
-    return [
-        {"component": m[0], "id": m[1]}
-        for m in matches
-    ]
+    class MarkerExtractor(HTMLParser):
+        def __init__(self):
+            super().__init__()
+            self.markers = []
+        
+        def handle_starttag(self, tag, attrs):
+            attrs_dict = dict(attrs)
+            component = attrs_dict.get('data-pynext-component')
+            component_id = attrs_dict.get('data-pynext-id')
+            
+            if component and component_id:
+                self.markers.append({
+                    "component": component,
+                    "id": component_id
+                })
+    
+    parser = MarkerExtractor()
+    try:
+        parser.feed(html)
+    except Exception:
+        return []  # Malformed HTML
+    return parser.markers
 
 
 # =============================================================================

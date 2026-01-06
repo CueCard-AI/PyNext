@@ -618,6 +618,8 @@ def _transpile_sse_handler(handler: Callable) -> str:
     """
     Transpile a Python handler to JavaScript.
     
+    FUNDAMENTAL: Uses proper AST parsing - no brittle string manipulation.
+    
     For SSE handlers, we generate JS that updates signals.
     """
     import inspect
@@ -625,59 +627,139 @@ def _transpile_sse_handler(handler: Callable) -> str:
     
     try:
         source = inspect.getsource(handler)
-        # Clean up lambda source
-        if 'lambda' in source:
-            # Extract the lambda body
-            match = source.split('lambda')[1] if 'lambda' in source else source
-            # Extract after the colon
-            if ':' in match:
-                body = match.split(':', 1)[1].strip()
-                # Remove trailing comma, paren, etc.
-                body = body.rstrip(',)}').strip()
-                return _convert_python_expr_to_js(body)
-    except (OSError, TypeError):
+        
+        # Parse the source to find the lambda
+        tree = ast.parse(source, mode='exec')
+        
+        # Find lambda in the AST
+        lambda_node = None
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Lambda):
+                lambda_node = node
+                break
+        
+        if lambda_node is not None:
+            return _transpile_lambda_ast(lambda_node)
+        
+    except (OSError, TypeError, SyntaxError):
         pass
     
     # Fallback: return a no-op
     return "function(data) { console.log('SSE event:', data); }"
 
 
-def _convert_python_expr_to_js(expr: str) -> str:
-    """Convert a Python expression to JavaScript for SSE handlers."""
-    # Handle Signal.update() pattern
-    if '.update(' in expr:
-        # notifications.update(lambda n: [data, *n][:50])
-        parts = expr.split('.update(', 1)
-        signal_name = parts[0].strip()
+def _transpile_lambda_ast(lambda_node: "ast.Lambda") -> str:
+    """
+    Transpile a lambda AST node to JavaScript for SSE handlers.
+    
+    FUNDAMENTAL: Uses proper AST analysis.
+    
+    Handles patterns like:
+    - lambda data: signal.update(lambda n: [data, *n][:50])
+    - lambda data: signal.set(value)
+    """
+    import ast
+    
+    body = lambda_node.body
+    
+    # Check for method calls on signals
+    if isinstance(body, ast.Call):
+        if isinstance(body.func, ast.Attribute):
+            method_name = body.func.attr
+            
+            # Get signal name
+            if isinstance(body.func.value, ast.Name):
+                signal_name = body.func.value.id
+                
+                if method_name == 'update' and len(body.args) >= 1:
+                    # signal.update(lambda n: ...)
+                    update_arg = body.args[0]
+                    if isinstance(update_arg, ast.Lambda):
+                        # Get the parameter name
+                        if update_arg.args.args:
+                            param = update_arg.args.args[0].arg
+                        else:
+                            param = '_'
+                        
+                        # Transpile the inner lambda body
+                        js_body = _sse_ast_to_js(update_arg.body)
+                        return f"function(data) {{ __pynext__.getSignal('{signal_name}')?.update(({param}) => {js_body}); }}"
+                
+                elif method_name == 'set' and len(body.args) >= 1:
+                    # signal.set(value)
+                    js_value = _sse_ast_to_js(body.args[0])
+                    return f"function(data) {{ __pynext__.setSignal('{signal_name}', {js_value}); }}"
+    
+    # Default: try to convert the body
+    js_expr = _sse_ast_to_js(body)
+    return f"function(data) {{ {js_expr}; }}"
+
+
+def _sse_ast_to_js(node: "ast.AST") -> str:
+    """
+    Convert Python AST to JavaScript for SSE handlers.
+    
+    FUNDAMENTAL: Uses proper AST traversal.
+    """
+    import ast
+    
+    if isinstance(node, ast.Name):
+        return node.id
+    
+    if isinstance(node, ast.Constant):
+        if isinstance(node.value, str):
+            return f'"{node.value}"'
+        elif isinstance(node.value, bool):
+            return 'true' if node.value else 'false'
+        elif node.value is None:
+            return 'null'
+        return str(node.value)
+    
+    if isinstance(node, ast.List):
+        elements = [_sse_ast_to_js(el) for el in node.elts]
+        return f'[{", ".join(elements)}]'
+    
+    if isinstance(node, ast.Starred):
+        # *n -> ...n
+        return f'...{_sse_ast_to_js(node.value)}'
+    
+    if isinstance(node, ast.Subscript):
+        value = _sse_ast_to_js(node.value)
         
-        # Extract the lambda inside update
-        inner = parts[1].rstrip(')')
-        if inner.startswith('lambda'):
-            # Parse lambda: lambda n: [data, *n][:50]
-            lambda_parts = inner.split(':', 1)
-            if len(lambda_parts) == 2:
-                param = lambda_parts[0].replace('lambda', '').strip()
-                body = lambda_parts[1].strip()
-                
-                # Convert Python list operations to JS
-                js_body = body
-                # [data, *n] -> [data, ...n]
-                js_body = js_body.replace('*', '...')
-                # [:50] -> .slice(0, 50)
-                if '[:' in js_body:
-                    js_body = js_body.replace('[:', '.slice(0,').replace(']', ')')
-                
-                return f"function(data) {{ __pynext__.getSignal('{signal_name}')?.update(({param}) => {js_body}); }}"
+        # Handle slices like [:50]
+        if isinstance(node.slice, ast.Slice):
+            lower = _sse_ast_to_js(node.slice.lower) if node.slice.lower else '0'
+            upper = _sse_ast_to_js(node.slice.upper) if node.slice.upper else ''
+            if upper:
+                return f'{value}.slice({lower}, {upper})'
+            return f'{value}.slice({lower})'
+        else:
+            # Regular index
+            slice_js = _sse_ast_to_js(node.slice)
+            return f'{value}[{slice_js}]'
     
-    # Handle Signal.set() pattern
-    if '.set(' in expr:
-        parts = expr.split('.set(', 1)
-        signal_name = parts[0].strip()
-        value = parts[1].rstrip(')')
-        return f"function(data) {{ __pynext__.setSignal('{signal_name}', {value}); }}"
+    if isinstance(node, ast.BinOp):
+        left = _sse_ast_to_js(node.left)
+        right = _sse_ast_to_js(node.right)
+        
+        op_map = {
+            ast.Add: '+', ast.Sub: '-', ast.Mult: '*', ast.Div: '/',
+            ast.Mod: '%', ast.Pow: '**', ast.BitAnd: '&', ast.BitOr: '|',
+        }
+        op = op_map.get(type(node.op), '+')
+        return f'({left} {op} {right})'
     
-    # Default: wrap in function
-    return f"function(data) {{ {expr}; }}"
+    if isinstance(node, ast.Call):
+        func = _sse_ast_to_js(node.func)
+        args = [_sse_ast_to_js(arg) for arg in node.args]
+        return f'{func}({", ".join(args)})'
+    
+    if isinstance(node, ast.Attribute):
+        value = _sse_ast_to_js(node.value)
+        return f'{value}.{node.attr}'
+    
+    # Fallback
+    return 'null'
 
 
 _sse_connections: Dict[str, SSEHandle] = {}

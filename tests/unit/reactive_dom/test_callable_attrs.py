@@ -167,7 +167,8 @@ class TestCallableAttrBindingRegistration:
         el.render()
         
         binding = self.ctx.bindings[0]
-        assert active._id in binding.signal_deps
+        # Signal deps now use names instead of IDs
+        assert "active" in binding.signal_deps
     
     def test_binding_has_update_expr(self):
         """Binding has update expression."""
@@ -189,7 +190,8 @@ class TestCallableAttrSignalExtraction:
         
         deps = el._extract_callable_deps(lambda: "active" if active() else "")
         assert len(deps) == 1
-        assert active._id in deps
+        # Signal deps now use names instead of IDs
+        assert "active" in deps
     
     def test_extract_multiple_signals(self):
         """Extract multiple signals from closure."""

@@ -152,7 +152,8 @@ def _get_base_prefix(cls: str) -> str:
         "flex" → "flex"
         "items-center" → "items"
     """
-    # Classes without values
+    # Classes without values - these should use the full class as prefix
+    # to avoid conflicts with similar-named classes
     no_value_classes = {
         "flex", "block", "inline", "hidden", "grid",
         "absolute", "relative", "fixed", "sticky", "static",
@@ -162,6 +163,12 @@ def _get_base_prefix(cls: str) -> str:
         "cursor-pointer", "cursor-default", "cursor-not-allowed",
         "select-none", "select-text", "select-all",
         "sr-only", "not-sr-only",
+        # Flex direction classes - should NOT conflict with "flex"
+        "flex-row", "flex-col", "flex-row-reverse", "flex-col-reverse",
+        "flex-wrap", "flex-nowrap", "flex-wrap-reverse",
+        "flex-1", "flex-auto", "flex-initial", "flex-none",
+        # Inline-flex should not conflict with inline or flex
+        "inline-flex", "inline-block", "inline-grid",
     }
     
     if cls in no_value_classes:

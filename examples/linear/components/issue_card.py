@@ -41,6 +41,7 @@ PRIORITY_ICONS = {
 @component
 def IssueCard(
     issue: dict,
+    issues_signal=None,
     on_status_change=None,
     on_delete=None,
 ) -> Element:
@@ -49,9 +50,12 @@ def IssueCard(
     
     Args:
         issue: Dict with id, title, description, status, priority
-        on_status_change: Callback when status changes
-        on_delete: Callback when issue is deleted
+        issues_signal: The Signal containing all issues (for direct manipulation)
+        on_status_change: Callback when status changes (legacy, prefer issues_signal)
+        on_delete: Callback when issue is deleted (legacy, prefer issues_signal)
     """
+    # Store issue ID for use in handlers
+    issue_id = issue["id"]
     # Local state for expand/collapse
     expanded = Signal(False, name=f"issue_{issue['id']}_expanded")
     
@@ -73,29 +77,50 @@ def IssueCard(
         )[
             # Left side: priority + title
             div(style="display: flex; align-items: center; gap: 8px;")[
-                span(class_="priority-icon")[priority_icon],
+                # FUNDAMENTAL: Reactive priority updates with field mapping
+                span(
+                    class_="priority-icon",
+                    data_pynext_field="priority",
+                    data_pynext_field_map='{"low":"🟢","medium":"🟡","high":"🟠","urgent":"🔴"}',
+                )[priority_icon],
                 span(
                     class_="issue-title",
                     style="font-weight: 600; color: #111827;",
+                    data_pynext_field="title",
                 )[issue.get("title", "Untitled")],
             ],
             # Right side: status + actions
             div(style="display: flex; align-items: center; gap: 8px;")[
+                # FUNDAMENTAL: Reactive status updates with field mapping
+                # data_pynext_field_map defines value→label transformation
+                # data_pynext_style_map defines value→style transformation
                 span(
                     class_="status-badge",
                     style=f"background: {status_color}; color: white; padding: 2px 8px; border-radius: 4px; font-size: 12px;",
+                    data_pynext_field="status",
+                    data_pynext_field_map='{"backlog":"Backlog","todo":"Todo","in_progress":"In Progress","done":"Done","cancelled":"Cancelled"}',
+                    data_pynext_style_map='{"backlog":{"background":"#6b7280"},"todo":{"background":"#3b82f6"},"in_progress":{"background":"#f59e0b"},"done":{"background":"#10b981"},"cancelled":{"background":"#ef4444"}}',
                 )[status_label],
                 button(
                     class_="expand-btn",
-                    style="background: none; border: none; cursor: pointer; font-size: 16px;",
+                    style="background: none; border: none; cursor: pointer; font-size: 16px; transition: transform 0.2s;",
                     onclick=lambda: expanded.set(not expanded()),
-                )["▼" if not expanded() else "▲"],
+                    data_pynext_toggle_signal=f"issue_{issue['id']}_expanded",
+                    data_pynext_toggle_op="truthy",
+                    data_pynext_toggle_active="transform: rotate(90deg);",
+                    data_pynext_toggle_inactive="transform: rotate(0deg);",
+                )["▶"],
             ],
         ],
-        # Expandable details section
+        # Expandable details section - uses toggle binding for reactive visibility
+        # Initially hidden (display: none), shown when expanded signal is truthy
         div(
             class_="issue-details",
-            style=f"margin-top: {'12px' if expanded() else '0'}; overflow: hidden; max-height: {'200px' if expanded() else '0'}; transition: max-height 0.3s;",
+            style="margin-top: 12px; display: none;",
+            data_pynext_toggle_signal=f"issue_{issue['id']}_expanded",
+            data_pynext_toggle_op="truthy",
+            data_pynext_toggle_active="display: block;",
+            data_pynext_toggle_inactive="display: none;",
         )[
             div(style="padding-top: 8px; border-top: 1px solid #e5e7eb;")[
                 # Description
@@ -122,36 +147,52 @@ def IssueCard(
                     button(
                         class_="delete-btn",
                         style="padding: 4px 12px; border: 1px solid #ef4444; border-radius: 4px; background: #fef2f2; color: #ef4444; cursor: pointer; margin-left: auto;",
-                        onclick=lambda: on_delete(issue["id"]) if on_delete else None,
+                        # Use declarative action pattern - runtime will handle the delete
+                        data_pynext_action="delete",
+                        data_pynext_action_signal="all_issues",
+                        data_pynext_action_key="id",
+                        data_pynext_action_value=str(issue_id),
                     )["Delete"],
                 ],
             ],
-        ] if expanded() else "",
+        ],
     ]
 
 
 @component  
-def IssueCardCompact(issue: dict) -> Element:
+def IssueCardCompact(issue: dict, draggable: bool = False, ondragstart=None) -> Element:
     """
     Compact issue card for Kanban columns.
     
     Shows just the title and priority, suitable for dense lists.
+    
+    Args:
+        issue: Dict with id, title, priority, etc.
+        draggable: Whether the card can be dragged
+        ondragstart: Handler called when drag starts
     """
-    status = issue.get("status", "todo")
     priority = issue.get("priority", "medium")
     priority_icon = PRIORITY_ICONS.get(priority, "⚪")
     
     return div(
         class_="issue-card-compact",
-        style="padding: 8px 12px; margin: 4px 0; background: white; border-radius: 6px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); cursor: pointer;",
-        draggable="true",
+        style="padding: 8px 12px; margin: 4px 0; background: white; border-radius: 6px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); cursor: grab;" if draggable else "padding: 8px 12px; margin: 4px 0; background: white; border-radius: 6px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); cursor: pointer;",
+        draggable="true" if draggable else None,
         data_issue_id=str(issue["id"]),
+        ondragstart=ondragstart,
     )[
         div(style="display: flex; align-items: center; gap: 8px;")[
-            span(class_="priority-icon", style="font-size: 12px;")[priority_icon],
+            # FUNDAMENTAL: Reactive priority updates with field mapping
+            span(
+                class_="priority-icon",
+                style="font-size: 12px;",
+                data_pynext_field="priority",
+                data_pynext_field_map='{"low":"🟢","medium":"🟡","high":"🟠","urgent":"🔴"}',
+            )[priority_icon],
             span(
                 class_="issue-title",
                 style="font-size: 14px; color: #374151; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;",
+                data_pynext_field="title",
             )[issue.get("title", "Untitled")],
         ],
     ]

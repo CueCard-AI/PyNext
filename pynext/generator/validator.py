@@ -397,22 +397,46 @@ class CodeValidator:
             if pattern in code:
                 result.add_error(f"React pattern detected: {pattern}. {suggestion}")
         
-        # Check for proper Signal usage
+        # Check for proper Signal usage using AST
         if "Signal(" in code:
-            # Check for .value access (wrong)
-            if re.search(r'\w+\.value\b', code):
-                result.add_error(
-                    "Signals are accessed by calling them like functions. "
-                    "Use count() not count.value"
-                )
+            self._check_signal_usage_ast(code, result)
+    
+    def _check_signal_usage_ast(self, code: str, result: ValidationResult) -> None:
+        """Check for proper Signal usage using AST analysis.
+        
+        FUNDAMENTAL: Uses proper AST parsing - no regex patterns.
+        """
+        import ast
+        
+        try:
+            tree = ast.parse(code)
+        except SyntaxError:
+            return  # Already handled by syntax check
+        
+        for node in ast.walk(tree):
+            # Check for .value access (wrong pattern from React/Solid)
+            if isinstance(node, ast.Attribute):
+                if node.attr == 'value':
+                    # This might be signal.value which is wrong
+                    result.add_error(
+                        "Signals are accessed by calling them like functions. "
+                        "Use count() not count.value"
+                    )
             
-            # Check for direct assignment (wrong)
-            if re.search(r'\w+\s*=\s*\w+\(\)\s*\+', code):
-                # This might be legitimate, but flag it
-                result.add_suggestion(
-                    "To update a Signal, use signal.set(). "
-                    "Example: count.set(count() + 1)"
-                )
+            # Check for direct assignment like: x = signal() + 1
+            # This should be: signal.set(signal() + 1)
+            if isinstance(node, ast.Assign):
+                # Check if the value is a BinOp with a Call
+                if isinstance(node.value, ast.BinOp):
+                    if isinstance(node.value.left, ast.Call):
+                        # Check if calling a simple name (could be a signal)
+                        if isinstance(node.value.left.func, ast.Name):
+                            if len(node.value.left.args) == 0:
+                                # This looks like: x = signal() + 1
+                                result.add_suggestion(
+                                    "To update a Signal, use signal.set(). "
+                                    "Example: count.set(count() + 1)"
+                                )
 
 
 # ============================================

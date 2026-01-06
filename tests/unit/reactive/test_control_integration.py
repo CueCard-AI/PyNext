@@ -136,7 +136,7 @@ class TestShowForCombinations:
         
         html = show.render()
         # When false, Show renders empty or fallback
-        assert 'data-show=' in html
+        assert 'data-pynext-show' in html
     
     def test_for_items_with_show_toggle(self):
         """For items with individual Show toggles."""
@@ -169,7 +169,8 @@ class TestShowForCombinations:
         
         show_list.set(False)
         html2 = container.render()
-        assert "<li>1</li>" not in html2
+        # Content is rendered but hidden for client-side reactivity
+        assert 'data-condition="false"' in html2
     
     def test_for_with_conditional_render(self):
         """For with conditional item rendering."""
@@ -280,7 +281,7 @@ class TestShowForCombinations:
         
         store.loaded = True
         html2 = show.render()
-        assert 'data-for=' in html2
+        assert 'data-pynext-for' in html2
     
     def test_for_items_with_show_details(self):
         """For items with expandable Show details."""

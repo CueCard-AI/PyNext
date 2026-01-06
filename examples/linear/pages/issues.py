@@ -12,16 +12,17 @@ Demonstrates PyNext hydration with:
 
 from pynext import page, Signal, Store, div, span, button, input_, h1, h2, memo, self_only
 from pynext.core.component import component
-from pynext.core.html import Element, label, textarea, select, option, form as form_
+from pynext.core.html import Element, label, textarea, select, option, form as form_, style
 from pynext.reactive.control_flow import Show, For
 from pynext.reactive.forms import create_form
 from pynext.reactive.validators import required, max_length
+from pynext.events import prevent
 
 # Import components
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from components.issue_card import IssueCard, IssueCardCompact, STATUS_LABELS
+from components.issue_card import IssueCard, IssueCardCompact, STATUS_LABELS, PRIORITY_ICONS
 
 
 # Sample data
@@ -63,6 +64,9 @@ def issues():
     # Show/hide modal state
     show_add_form = Signal(False, name="show_add_form")
     
+    # Drag and drop state - tracks the issue ID being dragged
+    dragged_issue_id = Signal(None, name="dragged_issue_id")
+    
     # Create issue form with validation
     issue_form = create_form(
         initial={
@@ -93,7 +97,8 @@ def issues():
         name="filtered_issues"
     )
     
-    # Issue counts by status
+    # Issue counts by status - uses STATUS_LABELS.keys() which is automatically
+    # serialized to the client via the constant serialization system
     status_counts = memo(
         lambda: {
             status: len([i for i in all_issues() if i["status"] == status])
@@ -102,11 +107,18 @@ def issues():
         name="status_counts"
     )
     
+    # Individual count memos for reactive button text
+    total_count = memo(lambda: len(all_issues()), name="total_count")
+    backlog_count = memo(lambda: status_counts().get("backlog", 0), name="backlog_count")
+    todo_count = memo(lambda: status_counts().get("todo", 0), name="todo_count")
+    in_progress_count = memo(lambda: status_counts().get("in_progress", 0), name="in_progress_count")
+    done_count = memo(lambda: status_counts().get("done", 0), name="done_count")
+    
     # Issues grouped by status for Kanban view
     issues_by_status = memo(
         lambda: {
             status: [i for i in all_issues() if i["status"] == status]
-            for status in ["backlog", "todo", "in_progress", "done"]
+            for status in STATUS_LABELS.keys()
         },
         name="issues_by_status"
     )
@@ -145,26 +157,72 @@ def issues():
             issue_form.reset()
             show_add_form.set(False)
     
+    def handle_dragstart(e):
+        """Handle dragstart on any card - reads issue ID from data-issue-id attribute.
+        
+        This is the fundamental HTML5 approach: store the issue ID in a
+        data-* attribute on the draggable element, and read it in the handler.
+        Avoids Python closure patterns (lambda i=issue) that don't transpile.
+        """
+        # Note: data_issue_id in Python becomes data-issue-id in HTML
+        # which is accessed as dataset.issueId in JavaScript (camelCase conversion)
+        issue_id = int(e.currentTarget.dataset.issueId)
+        dragged_issue_id.set(issue_id)
+    
+    def handle_drop(e):
+        """Handle drop on any column - reads target status from data-status attribute.
+        
+        This is the fundamental HTML5 approach: store the target status in a
+        data-* attribute on the drop zone, and read it in the handler.
+        Much cleaner than duplicating handlers for each status.
+        """
+        target_status = e.currentTarget.dataset.status
+        issue_id = dragged_issue_id()
+        if issue_id is not None:
+            # Update the issue's status to the target column's status
+            all_issues.set([
+                {**issue, "status": target_status} if issue["id"] == issue_id else issue
+                for issue in all_issues()
+            ])
+            dragged_issue_id.set(None)
+    
     # ==========================================================================
     # RENDER
     # ==========================================================================
     
-    return div(class_="issues-page", style="max-width: 1200px; margin: 0 auto; padding: 24px;")[
+    return div(class_="issues-page", style="max-width: 1200px; margin: 0 auto; padding: 24px; color-scheme: light;")[
+        # Global CSS reset - ensures proper text colors regardless of browser dark mode
+        # color-scheme: light tells the browser to use light mode styling for native elements
+        # This is REFLEXIVE - browser respects our intent rather than overriding with dark mode
+        style()["""
+            .issues-page { color: #111827; background-color: white; }
+            .issues-page button { color: inherit; }
+            .issues-page button:disabled { color: #9ca3af; }
+            .issues-page h1, .issues-page h2, .issues-page h3 { color: inherit; }
+        """],
         # Header
         div(class_="header", style="margin-bottom: 24px;")[
             h1(style="font-size: 24px; font-weight: 700; color: #111827; margin: 0;")[
                 "Issues"
             ],
             div(style="display: flex; gap: 12px; margin-top: 16px;")[
-                # View toggle
+                # View toggle - uses data-pynext-toggle-* for reactive highlighting
                 div(class_="view-toggle", style="display: flex; gap: 4px; background: #f3f4f6; padding: 4px; border-radius: 8px;")[
                     button(
                         style=f"padding: 6px 12px; border: none; border-radius: 6px; cursor: pointer; {'background: white; box-shadow: 0 1px 2px rgba(0,0,0,0.1);' if view_mode() == 'list' else 'background: transparent;'}",
                         onclick=lambda: view_mode.set("list"),
+                        data_pynext_toggle_signal="view_mode",
+                        data_pynext_toggle_value="list",
+                        data_pynext_toggle_active="background: white; box-shadow: 0 1px 2px rgba(0,0,0,0.1);",
+                        data_pynext_toggle_inactive="background: transparent; box-shadow: none;",
                     )["List"],
                     button(
                         style=f"padding: 6px 12px; border: none; border-radius: 6px; cursor: pointer; {'background: white; box-shadow: 0 1px 2px rgba(0,0,0,0.1);' if view_mode() == 'kanban' else 'background: transparent;'}",
                         onclick=lambda: view_mode.set("kanban"),
+                        data_pynext_toggle_signal="view_mode",
+                        data_pynext_toggle_value="kanban",
+                        data_pynext_toggle_active="background: white; box-shadow: 0 1px 2px rgba(0,0,0,0.1);",
+                        data_pynext_toggle_inactive="background: transparent; box-shadow: none;",
                     )["Kanban"],
                 ],
                 # Add issue button
@@ -268,31 +326,52 @@ def issues():
             ],
         ],
         
-        # Filter tabs (only in list view)
+        # Filter tabs (only in list view) - uses data-pynext-toggle-* for reactive highlighting
         Show(when=lambda: view_mode() == "list")[
             div(class_="filters", style="display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap;")[
-                # All filter
+                # All filter - use reactive span for count
+                # NOTE: Explicit color:#111827 prevents dark mode from setting white text on white background
                 button(
-                    style=f"padding: 6px 12px; border: 1px solid {'#5046e5' if filter_status() == 'all' else '#d1d5db'}; border-radius: 6px; cursor: pointer; background: {'#eef2ff' if filter_status() == 'all' else 'white'};",
+                    style=f"padding: 6px 12px; border: 1px solid {'#5046e5' if filter_status() == 'all' else '#d1d5db'}; border-radius: 6px; cursor: pointer; background: {'#eef2ff' if filter_status() == 'all' else 'white'}; color: #111827;",
                     onclick=lambda: filter_status.set("all"),
-                )[f"All ({len(all_issues())})"],
-                # Status filters
+                    data_pynext_toggle_signal="filter_status",
+                    data_pynext_toggle_value="all",
+                    data_pynext_toggle_active="border-color: #5046e5; background: #eef2ff; color: #111827;",
+                    data_pynext_toggle_inactive="border-color: #d1d5db; background: white; color: #111827;",
+                )["All (", span(data_pynext_text="total_count")[total_count()], ")"],
+                # Status filters - use reactive spans for counts
                 button(
-                    style=f"padding: 6px 12px; border: 1px solid {'#5046e5' if filter_status() == 'backlog' else '#d1d5db'}; border-radius: 6px; cursor: pointer; background: {'#eef2ff' if filter_status() == 'backlog' else 'white'};",
+                    style=f"padding: 6px 12px; border: 1px solid {'#5046e5' if filter_status() == 'backlog' else '#d1d5db'}; border-radius: 6px; cursor: pointer; background: {'#eef2ff' if filter_status() == 'backlog' else 'white'}; color: #111827;",
                     onclick=lambda: filter_status.set("backlog"),
-                )[f"Backlog ({status_counts().get('backlog', 0)})"],
+                    data_pynext_toggle_signal="filter_status",
+                    data_pynext_toggle_value="backlog",
+                    data_pynext_toggle_active="border-color: #5046e5; background: #eef2ff; color: #111827;",
+                    data_pynext_toggle_inactive="border-color: #d1d5db; background: white; color: #111827;",
+                )["Backlog (", span(data_pynext_text="backlog_count")[backlog_count()], ")"],
                 button(
-                    style=f"padding: 6px 12px; border: 1px solid {'#5046e5' if filter_status() == 'todo' else '#d1d5db'}; border-radius: 6px; cursor: pointer; background: {'#eef2ff' if filter_status() == 'todo' else 'white'};",
+                    style=f"padding: 6px 12px; border: 1px solid {'#5046e5' if filter_status() == 'todo' else '#d1d5db'}; border-radius: 6px; cursor: pointer; background: {'#eef2ff' if filter_status() == 'todo' else 'white'}; color: #111827;",
                     onclick=lambda: filter_status.set("todo"),
-                )[f"Todo ({status_counts().get('todo', 0)})"],
+                    data_pynext_toggle_signal="filter_status",
+                    data_pynext_toggle_value="todo",
+                    data_pynext_toggle_active="border-color: #5046e5; background: #eef2ff; color: #111827;",
+                    data_pynext_toggle_inactive="border-color: #d1d5db; background: white; color: #111827;",
+                )["Todo (", span(data_pynext_text="todo_count")[todo_count()], ")"],
                 button(
-                    style=f"padding: 6px 12px; border: 1px solid {'#5046e5' if filter_status() == 'in_progress' else '#d1d5db'}; border-radius: 6px; cursor: pointer; background: {'#eef2ff' if filter_status() == 'in_progress' else 'white'};",
+                    style=f"padding: 6px 12px; border: 1px solid {'#5046e5' if filter_status() == 'in_progress' else '#d1d5db'}; border-radius: 6px; cursor: pointer; background: {'#eef2ff' if filter_status() == 'in_progress' else 'white'}; color: #111827;",
                     onclick=lambda: filter_status.set("in_progress"),
-                )[f"In Progress ({status_counts().get('in_progress', 0)})"],
+                    data_pynext_toggle_signal="filter_status",
+                    data_pynext_toggle_value="in_progress",
+                    data_pynext_toggle_active="border-color: #5046e5; background: #eef2ff; color: #111827;",
+                    data_pynext_toggle_inactive="border-color: #d1d5db; background: white; color: #111827;",
+                )["In Progress (", span(data_pynext_text="in_progress_count")[in_progress_count()], ")"],
                 button(
-                    style=f"padding: 6px 12px; border: 1px solid {'#5046e5' if filter_status() == 'done' else '#d1d5db'}; border-radius: 6px; cursor: pointer; background: {'#eef2ff' if filter_status() == 'done' else 'white'};",
+                    style=f"padding: 6px 12px; border: 1px solid {'#5046e5' if filter_status() == 'done' else '#d1d5db'}; border-radius: 6px; cursor: pointer; background: {'#eef2ff' if filter_status() == 'done' else 'white'}; color: #111827;",
                     onclick=lambda: filter_status.set("done"),
-                )[f"Done ({status_counts().get('done', 0)})"],
+                    data_pynext_toggle_signal="filter_status",
+                    data_pynext_toggle_value="done",
+                    data_pynext_toggle_active="border-color: #5046e5; background: #eef2ff; color: #111827;",
+                    data_pynext_toggle_inactive="border-color: #d1d5db; background: white; color: #111827;",
+                )["Done (", span(data_pynext_text="done_count")[done_count()], ")"],
             ],
         ],
         
@@ -315,49 +394,182 @@ def issues():
             ],
         ],
         
-        # Kanban View
+        # Kanban View - Inline columns for proper signal access
         Show(when=lambda: view_mode() == "kanban")[
             div(
                 class_="kanban-board",
                 style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;",
             )[
                 # Backlog column
-                KanbanColumn(
-                    title="Backlog",
-                    issues=issues_by_status().get("backlog", []),
-                    color="#6b7280",
-                ),
+                div(
+                    class_="kanban-column",
+                    style="background: #f9fafb; border-radius: 12px; padding: 12px; min-height: 400px;",
+                    data_status="backlog",  # Target status for drops
+                    ondragover=prevent(lambda: None),
+                    ondrop=prevent(handle_drop),
+                )[
+                    div(style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 2px solid #6b7280;")[
+                        span(style="width: 8px; height: 8px; border-radius: 50%; background: #6b7280;"),
+                        span(style="font-weight: 600; color: #374151;")["Backlog"],
+                    ],
+                    div(class_="column-issues")[
+                        For(each=lambda: issues_by_status().get("backlog", []), key_fn=lambda x: x["id"])[
+                            lambda issue, idx: div(
+                                class_="draggable-card",
+                                style="background: white; padding: 12px; border-radius: 8px; margin-bottom: 8px; cursor: grab; border: 1px solid #e5e7eb;",
+                                draggable="true",
+                                data_issue_id=str(issue["id"]),
+                                ondragstart=handle_dragstart,
+                            )[
+                                div(style="display: flex; align-items: center; gap: 8px;")[
+                                    # FUNDAMENTAL: Use data-pynext-field for priority with field-map for emoji lookup
+                                    span(
+                                        class_="priority-icon",
+                                        style="font-size: 12px;",
+                                        data_pynext_field="priority",
+                                        data_pynext_field_map='{"low":"🟢","medium":"🟡","high":"🟠","urgent":"🔴"}',
+                                    )[PRIORITY_ICONS.get(issue.get("priority", "medium"), "⚪")],
+                                    span(class_="issue-title", style="font-size: 14px; color: #374151;", data_pynext_field="title")[issue.get("title", "Untitled")],
+                                ]
+                            ]
+                        ],
+                    ],
+                ],
+                
                 # Todo column
-                KanbanColumn(
-                    title="Todo",
-                    issues=issues_by_status().get("todo", []),
-                    color="#3b82f6",
-                ),
+                div(
+                    class_="kanban-column",
+                    style="background: #f9fafb; border-radius: 12px; padding: 12px; min-height: 400px;",
+                    data_status="todo",  # Target status for drops
+                    ondragover=prevent(lambda: None),
+                    ondrop=prevent(handle_drop),
+                )[
+                    div(style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 2px solid #3b82f6;")[
+                        span(style="width: 8px; height: 8px; border-radius: 50%; background: #3b82f6;"),
+                        span(style="font-weight: 600; color: #374151;")["Todo"],
+                    ],
+                    div(class_="column-issues")[
+                        For(each=lambda: issues_by_status().get("todo", []), key_fn=lambda x: x["id"])[
+                            lambda issue, idx: div(
+                                class_="draggable-card",
+                                style="background: white; padding: 12px; border-radius: 8px; margin-bottom: 8px; cursor: grab; border: 1px solid #e5e7eb;",
+                                draggable="true",
+                                data_issue_id=str(issue["id"]),
+                                ondragstart=handle_dragstart,
+                            )[
+                                div(style="display: flex; align-items: center; gap: 8px;")[
+                                    span(
+                                        class_="priority-icon",
+                                        style="font-size: 12px;",
+                                        data_pynext_field="priority",
+                                        data_pynext_field_map='{"low":"🟢","medium":"🟡","high":"🟠","urgent":"🔴"}',
+                                    )[PRIORITY_ICONS.get(issue.get("priority", "medium"), "⚪")],
+                                    span(class_="issue-title", style="font-size: 14px; color: #374151;", data_pynext_field="title")[issue.get("title", "Untitled")],
+                                ]
+                            ]
+                        ],
+                    ],
+                ],
+                
                 # In Progress column
-                KanbanColumn(
-                    title="In Progress",
-                    issues=issues_by_status().get("in_progress", []),
-                    color="#f59e0b",
-                ),
+                div(
+                    class_="kanban-column",
+                    style="background: #f9fafb; border-radius: 12px; padding: 12px; min-height: 400px;",
+                    data_status="in_progress",  # Target status for drops
+                    ondragover=prevent(lambda: None),
+                    ondrop=prevent(handle_drop),
+                )[
+                    div(style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 2px solid #f59e0b;")[
+                        span(style="width: 8px; height: 8px; border-radius: 50%; background: #f59e0b;"),
+                        span(style="font-weight: 600; color: #374151;")["In Progress"],
+                    ],
+                    div(class_="column-issues")[
+                        For(each=lambda: issues_by_status().get("in_progress", []), key_fn=lambda x: x["id"])[
+                            lambda issue, idx: div(
+                                class_="draggable-card",
+                                style="background: white; padding: 12px; border-radius: 8px; margin-bottom: 8px; cursor: grab; border: 1px solid #e5e7eb;",
+                                draggable="true",
+                                data_issue_id=str(issue["id"]),
+                                ondragstart=handle_dragstart,
+                            )[
+                                div(style="display: flex; align-items: center; gap: 8px;")[
+                                    span(
+                                        class_="priority-icon",
+                                        style="font-size: 12px;",
+                                        data_pynext_field="priority",
+                                        data_pynext_field_map='{"low":"🟢","medium":"🟡","high":"🟠","urgent":"🔴"}',
+                                    )[PRIORITY_ICONS.get(issue.get("priority", "medium"), "⚪")],
+                                    span(class_="issue-title", style="font-size: 14px; color: #374151;", data_pynext_field="title")[issue.get("title", "Untitled")],
+                                ]
+                            ]
+                        ],
+                    ],
+                ],
+                
                 # Done column
-                KanbanColumn(
-                    title="Done",
-                    issues=issues_by_status().get("done", []),
-                    color="#10b981",
-                ),
+                div(
+                    class_="kanban-column",
+                    style="background: #f9fafb; border-radius: 12px; padding: 12px; min-height: 400px;",
+                    data_status="done",  # Target status for drops
+                    ondragover=prevent(lambda: None),
+                    ondrop=prevent(handle_drop),
+                )[
+                    div(style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 2px solid #10b981;")[
+                        span(style="width: 8px; height: 8px; border-radius: 50%; background: #10b981;"),
+                        span(style="font-weight: 600; color: #374151;")["Done"],
+                    ],
+                    div(class_="column-issues")[
+                        For(each=lambda: issues_by_status().get("done", []), key_fn=lambda x: x["id"])[
+                            lambda issue, idx: div(
+                                class_="draggable-card",
+                                style="background: white; padding: 12px; border-radius: 8px; margin-bottom: 8px; cursor: grab; border: 1px solid #e5e7eb;",
+                                draggable="true",
+                                data_issue_id=str(issue["id"]),
+                                ondragstart=handle_dragstart,
+                            )[
+                                div(style="display: flex; align-items: center; gap: 8px;")[
+                                    span(
+                                        class_="priority-icon",
+                                        style="font-size: 12px;",
+                                        data_pynext_field="priority",
+                                        data_pynext_field_map='{"low":"🟢","medium":"🟡","high":"🟠","urgent":"🔴"}',
+                                    )[PRIORITY_ICONS.get(issue.get("priority", "medium"), "⚪")],
+                                    span(class_="issue-title", style="font-size: 14px; color: #374151;", data_pynext_field="title")[issue.get("title", "Untitled")],
+                                ]
+                            ]
+                        ],
+                    ],
+                ],
             ],
         ],
     ]
 
 
 @component
-def KanbanColumn(title: str, issues: list, color: str) -> Element:
+def KanbanColumn(
+    title: str,
+    status: str,
+    get_issues,  # Callable that returns list - reactive getter
+    color: str,
+    on_drop=None,
+) -> Element:
     """
     A single Kanban column with header and issue cards.
+    
+    Uses a reactive getter (get_issues) instead of a static list so that
+    the column updates automatically when issues change.
+    
+    Supports drag and drop via on_drop callback.
     """
+    # Get issues for initial render (but For will call get_issues reactively)
+    issues = get_issues() if callable(get_issues) else get_issues
+    
     return div(
         class_="kanban-column",
         style=f"background: #f9fafb; border-radius: 12px; padding: 12px; min-height: 400px;",
+        # Drop zone handlers - prevent default on dragover to allow drop
+        ondragover=prevent(lambda: None),  # Allow drop by preventing default
+        ondrop=prevent(on_drop) if on_drop else None,
     )[
         # Column header
         div(
@@ -374,13 +586,13 @@ def KanbanColumn(title: str, issues: list, color: str) -> Element:
                 style="background: #e5e7eb; padding: 2px 8px; border-radius: 4px; font-size: 12px; color: #6b7280;",
             )[str(len(issues))],
         ],
-        # Issue cards
+        # Issue cards - use get_issues as the reactive getter
         div(class_="column-issues")[
-            For(each=lambda: issues, key_fn=lambda x: x["id"])[
-                lambda issue, index: IssueCardCompact(issue=issue)
+            For(each=get_issues, key_fn=lambda x: x["id"])[
+                lambda issue, index: IssueCardCompact(issue=issue, draggable=True)
             ],
-            # Empty state
-            Show(when=lambda: len(issues) == 0)[
+            # Empty state - use get_issues for reactivity
+            Show(when=lambda: len(get_issues()) == 0)[
                 div(style="text-align: center; padding: 24px; color: #9ca3af; font-size: 14px;")[
                     "No issues"
                 ],

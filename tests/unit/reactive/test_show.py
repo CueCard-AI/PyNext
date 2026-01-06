@@ -28,20 +28,23 @@ class TestShowBasicRendering:
         show = Show(when=True)["Hello"]
         html = show.render()
         assert "Hello" in html
-        assert 'data-show=' in html
+        assert 'data-pynext-show' in html
     
-    def test_show_false_condition_renders_empty(self):
-        """Show renders empty when condition is False with no fallback."""
+    def test_show_false_condition_renders_hidden(self):
+        """Show renders content hidden when condition is False (for client-side reactivity)."""
         show = Show(when=False)["Hello"]
         html = show.render()
-        assert "Hello" not in html
+        # Content is rendered but hidden via CSS for client-side toggle
+        assert 'data-condition="false"' in html
+        assert 'display: none' in html
     
     def test_show_false_with_fallback(self):
         """Show renders fallback when condition is False."""
         show = Show(when=False, fallback="Fallback")["Content"]
         html = show.render()
         assert "Fallback" in html
-        assert "Content" not in html
+        # Content is rendered hidden for client-side toggle
+        assert 'data-condition="false"' in html
     
     def test_show_truthy_string(self):
         """Show treats non-empty string as truthy."""
@@ -53,7 +56,8 @@ class TestShowBasicRendering:
         """Show treats empty string as falsy."""
         show = Show(when="")["Content"]
         html = show.render()
-        assert "Content" not in html
+        # Content is rendered hidden for client-side toggle
+        assert 'data-condition="false"' in html
     
     def test_show_truthy_number(self):
         """Show treats non-zero number as truthy."""
@@ -65,7 +69,7 @@ class TestShowBasicRendering:
         """Show treats zero as falsy."""
         show = Show(when=0)["Content"]
         html = show.render()
-        assert "Content" not in html
+        assert 'data-condition="false"' in html
     
     def test_show_truthy_list(self):
         """Show treats non-empty list as truthy."""
@@ -77,7 +81,7 @@ class TestShowBasicRendering:
         """Show treats empty list as falsy."""
         show = Show(when=[])["Content"]
         html = show.render()
-        assert "Content" not in html
+        assert 'data-condition="false"' in html
     
     def test_show_callable_condition(self):
         """Show evaluates callable condition."""
@@ -89,7 +93,7 @@ class TestShowBasicRendering:
         """Show evaluates callable returning False."""
         show = Show(when=lambda: False)["Content"]
         html = show.render()
-        assert "Content" not in html
+        assert 'data-condition="false"' in html
     
     def test_show_lambda_content(self):
         """Show renders lambda content."""
@@ -136,7 +140,7 @@ class TestShowBasicRendering:
         """Show renders empty when no children set."""
         show = Show(when=True)
         html = show.render()
-        assert 'data-show=' in html
+        assert 'data-pynext-show' in html
     
     def test_show_multiple_children_in_list(self):
         """Show renders list of children."""
@@ -165,7 +169,7 @@ class TestShowReactiveUpdates:
         visible = Signal(False)
         show = Show(when=lambda: visible())["Content"]
         html = show.render()
-        assert "Content" not in html
+        assert 'data-condition="false"' in html
     
     def test_show_rerenders_on_signal_change(self):
         """Show re-renders when signal changes."""
@@ -175,7 +179,7 @@ class TestShowReactiveUpdates:
         assert "Content" in show.render()
         
         visible.set(False)
-        assert "Content" not in show.render()
+        assert 'data-condition="false"' in show.render()
         
         visible.set(True)
         assert "Content" in show.render()
@@ -192,7 +196,7 @@ class TestShowReactiveUpdates:
         state = Store({"visible": False})
         show = Show(when=lambda: state.visible)["Content"]
         html = show.render()
-        assert "Content" not in html
+        assert 'data-condition="false"' in html
     
     def test_show_rerenders_on_store_change(self):
         """Show re-renders when store changes."""
@@ -202,7 +206,7 @@ class TestShowReactiveUpdates:
         assert "Content" in show.render()
         
         state.visible = False
-        assert "Content" not in show.render()
+        assert 'data-condition="false"' in show.render()
     
     def test_show_with_memo_condition(self):
         """Show works with Memo as condition."""
@@ -218,7 +222,7 @@ class TestShowReactiveUpdates:
         is_positive = Memo(lambda: count() > 0)
         show = Show(when=lambda: is_positive())["Positive"]
         
-        assert "Positive" not in show.render()
+        assert 'data-condition="false"' in show.render()
     
     def test_show_content_reads_signal(self):
         """Show content can read signals."""
@@ -274,7 +278,7 @@ class TestShowReactiveUpdates:
             if i % 2 == 0:
                 assert "Content" in html
             else:
-                assert "Content" not in html
+                assert 'data-condition="false"' in html
     
     def test_show_with_computed_content(self):
         """Show with computed content from store."""
@@ -293,7 +297,7 @@ class TestShowReactiveUpdates:
         
         assert "Content" in show.render()
         visible.set(False)
-        assert "Content" not in show.render()
+        assert 'data-condition="false"' in show.render()
     
     def test_show_nested_signal_access(self):
         """Show with nested signal access in condition."""
@@ -380,7 +384,7 @@ class TestShowReactiveUpdates:
         assert "Both True" in show.render()
         
         a.set(False)
-        assert "Both True" not in show.render()
+        assert 'data-condition="false"' in show.render()
     
     def test_show_or_condition(self):
         """Show with OR condition."""
@@ -402,7 +406,7 @@ class TestShowReactiveUpdates:
         assert "Big Result" in show.render()
         
         multiplier.set(1)
-        assert "Big Result" not in show.render()
+        assert 'data-condition="false"' in show.render()
     
     def test_show_with_untrack(self):
         """Show condition can use untrack for partial tracking."""
@@ -428,7 +432,7 @@ class TestShowReactiveUpdates:
         
         batch(lambda: (a.set(False), b.set(False)))
         
-        assert "Both" not in show.render()
+        assert 'data-condition="false"' in show.render()
     
     def test_show_signal_comparison(self):
         """Show with signal value comparison."""
@@ -440,7 +444,7 @@ class TestShowReactiveUpdates:
         assert "Above" in show.render()
         
         threshold.set(60)
-        assert "Above" not in show.render()
+        assert 'data-condition="false"' in show.render()
     
     def test_show_string_signal_condition(self):
         """Show with string signal as condition."""
@@ -451,7 +455,7 @@ class TestShowReactiveUpdates:
         assert "Active" in show.render()
         
         status.set("inactive")
-        assert "Active" not in show.render()
+        assert 'data-condition="false"' in show.render()
 
 
 # =============================================================================
@@ -464,25 +468,25 @@ class TestShowEdgeCases:
     def test_show_none_condition(self):
         """Show treats None as falsy."""
         show = Show(when=None)["Content"]
-        assert "Content" not in show.render()
+        assert 'data-condition="false"' in show.render()
     
     def test_show_none_fallback(self):
         """Show with None fallback renders empty."""
         show = Show(when=False, fallback=None)["Content"]
         html = show.render()
-        assert "Content" not in html
+        assert 'data-condition="false"' in html
     
     def test_show_none_children(self):
         """Show with None children."""
         show = Show(when=True)[None]
         html = show.render()
-        assert 'data-show=' in html
+        assert 'data-pynext-show' in html
     
     def test_show_empty_string_content(self):
         """Show with empty string content."""
         show = Show(when=True)[""]
         html = show.render()
-        assert 'data-show=' in html
+        assert 'data-pynext-show' in html
     
     def test_show_whitespace_content(self):
         """Show with whitespace content."""
@@ -691,7 +695,7 @@ class TestShowPerformance:
         
         html = show.render()
         assert "Small" in html
-        assert "Content" not in html
+        assert 'data-condition="false"' in html
     
     def test_show_many_instances(self):
         """Many Show instances can be created."""
@@ -737,8 +741,8 @@ class TestShowPerformance:
         
         assert call_count[0] == 1
     
-    def test_show_content_not_evaluated_when_false(self):
-        """Content is not evaluated when condition is false."""
+    def test_show_content_evaluated_for_hydration(self):
+        """Content is always evaluated for client-side hydration (rendered hidden)."""
         call_count = [0]
         
         def counting_content():
@@ -746,9 +750,11 @@ class TestShowPerformance:
             return "Content"
         
         show = Show(when=False)[counting_content]
-        show.render()
+        html = show.render()
         
-        assert call_count[0] == 0
+        # Content is evaluated even when false - for client-side toggle capability
+        assert call_count[0] == 1
+        assert 'data-condition="false"' in html
     
     def test_show_fallback_not_evaluated_when_true(self):
         """Fallback is not evaluated when condition is true."""
@@ -809,7 +815,7 @@ class TestShowPerformance:
         assert "All True" in show.render()
         
         signals[5].set(False)
-        assert "All True" not in show.render()
+        assert 'data-condition="false"' in show.render()
     
     def test_show_store_with_many_properties(self):
         """Show with store having many properties."""

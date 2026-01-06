@@ -427,23 +427,25 @@ class GeneratorAgent:
         return response.strip()
     
     def _parse_thought_response(self, response: str) -> Dict[str, Any]:
-        """Parse JSON thought response from AI."""
-        # Try to extract JSON from response
+        """Parse JSON thought response from AI.
+        
+        FUNDAMENTAL: Uses proper brace matching for nested JSON extraction.
+        """
         response = response.strip()
         
-        # Find JSON object
-        json_match = re.search(r'\{[^{}]*\}', response, re.DOTALL)
-        if json_match:
-            try:
-                return json.loads(json_match.group())
-            except json.JSONDecodeError:
-                pass
-        
-        # Try to parse the whole response
+        # Try to parse the whole response first (fastest path)
         try:
             return json.loads(response)
         except json.JSONDecodeError:
             pass
+        
+        # Find and extract JSON object with proper brace matching
+        json_str = self._extract_json_object(response)
+        if json_str:
+            try:
+                return json.loads(json_str)
+            except json.JSONDecodeError:
+                pass
         
         # Fallback: extract key-value pairs manually
         result = {
@@ -454,15 +456,92 @@ class GeneratorAgent:
             "confidence": 0.3,
         }
         
-        # Try to extract confidence
-        conf_match = re.search(r'confidence["\s:]+([0-9.]+)', response, re.IGNORECASE)
-        if conf_match:
-            try:
-                result["confidence"] = float(conf_match.group(1))
-            except ValueError:
-                pass
+        # Try to extract confidence using simple search
+        confidence = self._extract_confidence(response)
+        if confidence is not None:
+            result["confidence"] = confidence
         
         return result
+    
+    def _extract_json_object(self, text: str) -> Optional[str]:
+        """Extract a JSON object from text using proper brace matching.
+        
+        FUNDAMENTAL: Handles nested braces correctly, unlike regex [^{}]*.
+        """
+        # Find the first '{'
+        start = text.find('{')
+        if start == -1:
+            return None
+        
+        depth = 0
+        in_string = False
+        escape_next = False
+        
+        for i in range(start, len(text)):
+            char = text[i]
+            
+            if escape_next:
+                escape_next = False
+                continue
+            
+            if char == '\\':
+                escape_next = True
+                continue
+            
+            if char == '"' and not escape_next:
+                in_string = not in_string
+                continue
+            
+            if in_string:
+                continue
+            
+            if char == '{':
+                depth += 1
+            elif char == '}':
+                depth -= 1
+                if depth == 0:
+                    return text[start:i + 1]
+        
+        return None
+    
+    def _extract_confidence(self, text: str) -> Optional[float]:
+        """Extract confidence value from text."""
+        # Look for patterns like: confidence: 0.8, "confidence": 0.8
+        text_lower = text.lower()
+        idx = text_lower.find('confidence')
+        if idx == -1:
+            return None
+        
+        # Find the number after 'confidence'
+        after = text[idx + 10:]  # len('confidence') = 10
+        
+        # Skip non-digit characters until we find a number
+        num_start = -1
+        for i, char in enumerate(after):
+            if char.isdigit() or char == '.':
+                num_start = i
+                break
+        
+        if num_start == -1:
+            return None
+        
+        # Extract the number
+        num_end = num_start
+        has_dot = False
+        for i in range(num_start, len(after)):
+            char = after[i]
+            if char.isdigit():
+                num_end = i + 1
+            elif char == '.' and not has_dot:
+                has_dot = True
+                num_end = i + 1
+            else:
+                break
+        
+        try:
+            return float(after[num_start:num_end])
+        except ValueError:
+            return None
 
 
 # ============================================

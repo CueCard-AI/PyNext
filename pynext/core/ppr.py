@@ -420,40 +420,72 @@ class PPRAnalyzer:
         return analysis
     
     def _check_signals(self, source: str) -> bool:
-        """Check if source uses signals."""
-        signal_patterns = [
-            r'Signal\s*\(',
-            r'signal\s*\(',
-            r'Effect\s*\(',
-            r'effect\s*\(',
-            r'Computed\s*\(',
-            r'computed\s*\(',
-            r'Store\s*\(',
-            r'store\s*\(',
-            r'create_resource\s*\(',
-            r'Resource\s*\(',
-        ]
+        """Check if source uses signals using AST analysis.
         
-        import re
-        for pattern in signal_patterns:
-            if re.search(pattern, source):
-                return True
+        FUNDAMENTAL: Uses proper AST parsing - no regex patterns.
+        """
+        import ast
+        
+        signal_functions = {
+            'Signal', 'signal', 'Effect', 'effect', 
+            'Computed', 'computed', 'Store', 'store',
+            'create_resource', 'Resource'
+        }
+        
+        try:
+            tree = ast.parse(source)
+        except SyntaxError:
+            # If we can't parse, fall back to simple string checks
+            return any(name + '(' in source for name in signal_functions)
+        
+        for node in ast.walk(tree):
+            # Check for function calls: Signal(), signal(), etc.
+            if isinstance(node, ast.Call):
+                if isinstance(node.func, ast.Name):
+                    if node.func.id in signal_functions:
+                        return True
+                # Also check for module-qualified calls: reactive.Signal()
+                elif isinstance(node.func, ast.Attribute):
+                    if node.func.attr in signal_functions:
+                        return True
+        
         return False
     
     def _check_request_data(self, source: str) -> bool:
-        """Check if source accesses request data."""
-        request_patterns = [
-            r'get_params\s*\(',
-            r'get_query\s*\(',
-            r'request\.',
-            r'cookies\.',
-            r'headers\.',
-        ]
+        """Check if source accesses request data using AST analysis.
         
-        import re
-        for pattern in request_patterns:
-            if re.search(pattern, source):
-                return True
+        FUNDAMENTAL: Uses proper AST parsing - no regex patterns.
+        """
+        import ast
+        
+        request_functions = {'get_params', 'get_query'}
+        request_attributes = {'request', 'cookies', 'headers'}
+        
+        try:
+            tree = ast.parse(source)
+        except SyntaxError:
+            # If we can't parse, fall back to simple string checks
+            for name in request_functions:
+                if name + '(' in source:
+                    return True
+            for name in request_attributes:
+                if name + '.' in source:
+                    return True
+            return False
+        
+        for node in ast.walk(tree):
+            # Check for function calls: get_params(), get_query()
+            if isinstance(node, ast.Call):
+                if isinstance(node.func, ast.Name):
+                    if node.func.id in request_functions:
+                        return True
+            
+            # Check for attribute access: request.x, cookies.x, headers.x
+            if isinstance(node, ast.Attribute):
+                if isinstance(node.value, ast.Name):
+                    if node.value.id in request_attributes:
+                        return True
+        
         return False
     
     def _estimate_render_time(self, source: str) -> float:

@@ -111,7 +111,8 @@ class TestTextDOMUpdates:
         count = Signal(42, name="count")
         el = div()[count]
         html = el.render()
-        assert f'id="text_{count._id}"' in html
+        # Now uses signal name for stable ID
+        assert 'id="text_count"' in html
     
     def test_signal_text_has_data_attr(self):
         """Signal text span has data-pynext-text attribute."""

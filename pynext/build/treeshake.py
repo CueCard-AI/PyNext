@@ -250,6 +250,9 @@ def analyze_features(code: str) -> Set[str]:
     """
     Analyze code to detect which features are used.
     
+    FUNDAMENTAL: Strips string literals before pattern matching to avoid
+    false positives from strings containing feature names.
+    
     Args:
         code: JavaScript code to analyze
     
@@ -260,16 +263,86 @@ def analyze_features(code: str) -> Set[str]:
         features = analyze_features(compiled_js)
         # {"signals", "effects", "show"}
     """
+    # Strip string literals to avoid false positives
+    code_without_strings = _strip_js_strings(code)
+    
     used = set()
     
     for feature, patterns in FEATURE_PATTERNS.items():
         for pattern in patterns:
             # Look for the pattern as a word boundary match
-            if re.search(rf'\b{re.escape(pattern)}\b', code):
+            if re.search(rf'\b{re.escape(pattern)}\b', code_without_strings):
                 used.add(feature)
                 break
     
     return used
+
+
+def _strip_js_strings(code: str) -> str:
+    """
+    Replace JavaScript string literals with empty placeholders.
+    
+    FUNDAMENTAL: Properly handles all JS string types to avoid false
+    pattern matches inside strings.
+    
+    Handles:
+    - Single quotes: 'text'
+    - Double quotes: "text"
+    - Template literals: `text`
+    - Escape sequences
+    """
+    result = []
+    i = 0
+    
+    while i < len(code):
+        char = code[i]
+        
+        # Check for string start
+        if char in ('"', "'", '`'):
+            quote = char
+            result.append(quote)
+            i += 1
+            
+            # Skip until matching quote (handling escapes)
+            while i < len(code):
+                c = code[i]
+                if c == '\\' and i + 1 < len(code):
+                    # Skip escape sequence
+                    i += 2
+                elif c == quote:
+                    result.append(quote)
+                    i += 1
+                    break
+                else:
+                    # Replace string content with space (preserves length for debugging)
+                    result.append(' ')
+                    i += 1
+            continue
+        
+        # Check for regex literal (starts with / but not // or /*)
+        if char == '/' and i + 1 < len(code) and code[i + 1] not in ('/', '*'):
+            # This is a simple heuristic - proper parsing would need context
+            result.append(char)
+            i += 1
+            # Skip until closing /
+            while i < len(code):
+                c = code[i]
+                if c == '\\' and i + 1 < len(code):
+                    result.append(' ')
+                    i += 2
+                elif c == '/':
+                    result.append(c)
+                    i += 1
+                    break
+                else:
+                    result.append(' ')
+                    i += 1
+            continue
+        
+        result.append(char)
+        i += 1
+    
+    return ''.join(result)
 
 
 # =============================================================================

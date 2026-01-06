@@ -253,9 +253,11 @@ class Show(Generic[T]):
         return f'<div id="{self._id}" data-pynext-show="true" data-condition="{str(condition).lower()}"{keyed_attr}{display_style}>{inner_html}</div>'
     
     def _extract_signal_deps(self) -> list[str]:
-        """Extract signal IDs that the when condition depends on."""
-        import inspect
+        """Extract signal NAMES that the when condition depends on.
         
+        Uses signal names instead of IDs for reliable lookups since names
+        are stable and consistent between server and client.
+        """
         if not callable(self.when):
             return []
         
@@ -266,29 +268,332 @@ class Show(Generic[T]):
             for cell in self.when.__closure__:
                 try:
                     obj = cell.cell_contents
-                    # Check if it's a Signal
-                    if hasattr(obj, '_id') and hasattr(obj, '_value'):
-                        deps.append(obj._id)
+                    # Check if it's a Signal (has _name and _value)
+                    if hasattr(obj, '_name') and hasattr(obj, '_value'):
+                        # Use the signal's NAME for stable lookups
+                        deps.append(obj._name)
                 except (ValueError, AttributeError):
                     pass
         
         return deps
     
     def _generate_update_expr(self) -> str:
-        """Generate JavaScript expression for the when condition."""
-        # Get signal deps and build expression
+        """Generate JavaScript expression for the when condition.
+        
+        FUNDAMENTAL: Uses proper AST parsing and the transpiler infrastructure.
+        No regex pattern matching - handles ANY valid Python expression.
+        
+        Examples:
+            lambda: view_mode() == "list"  →  __pynext__.getSignal("view_mode").read() === "list"
+            lambda: len(items()) > 0       →  __pynext__.getSignal("items").read()?.length > 0
+            lambda: expanded()             →  Boolean(__pynext__.getSignal("expanded").read())
+        """
         deps = self._extract_signal_deps()
         if not deps:
             return "true"
         
-        # For simple single-signal case, just read the signal
+        try:
+            # Build a mapping from Python variable names to signal names
+            # This is critical: the lambda uses variable names (e.g., "expanded")
+            # but we need to emit the signal's registered name (e.g., "issue_1_expanded")
+            var_to_signal = self._build_var_to_signal_map()
+            
+            # Use the transpiler to convert the lambda to JavaScript
+            js_expr = self._transpile_condition(var_to_signal)
+            if js_expr:
+                return js_expr
+                
+        except Exception:
+            pass  # Fall through to default
+        
+        # Fallback: simple truthy check on first signal
         if len(deps) == 1:
             return f"Boolean(__pynext__.getSignal('{deps[0]}').read())"
         
-        # For multiple signals, we need more complex logic
-        # For now, assume it's a simple truthy check
+        # For multiple signals, AND them together
         reads = " && ".join(f"__pynext__.getSignal('{d}').read()" for d in deps)
         return f"Boolean({reads})"
+    
+    def _build_var_to_signal_map(self) -> dict:
+        """Build mapping from Python variable names to signal registered names.
+        
+        The lambda captures signals by their Python variable name, but we need
+        to emit JavaScript that uses the signal's registered name.
+        
+        Returns:
+            Dict mapping variable names to signal names, e.g.:
+            {"expanded": "issue_1_expanded", "view_mode": "view_mode"}
+        """
+        var_to_signal = {}
+        
+        if not callable(self.when):
+            return var_to_signal
+        
+        # Get closure variables and their names
+        closure_cells = getattr(self.when, '__closure__', None) or ()
+        code = getattr(self.when, '__code__', None)
+        
+        if code is None:
+            return var_to_signal
+        
+        free_var_names = code.co_freevars
+        
+        if len(closure_cells) != len(free_var_names):
+            return var_to_signal
+        
+        for var_name, cell in zip(free_var_names, closure_cells):
+            try:
+                obj = cell.cell_contents
+                # Check if it's a Signal
+                if hasattr(obj, '_name') and hasattr(obj, '_value'):
+                    var_to_signal[var_name] = obj._name
+            except (ValueError, AttributeError):
+                pass
+        
+        return var_to_signal
+    
+    def _transpile_condition(self, var_to_signal: dict) -> str:
+        """Transpile the when condition lambda using proper AST parsing.
+        
+        Uses Python's ast module to parse the lambda and generate correct JavaScript.
+        This handles ANY valid Python expression, not just specific patterns.
+        
+        FUNDAMENTAL FIX: When source code contains multiple lambdas, we identify
+        the correct lambda by matching parameter count from __code__.
+        
+        Args:
+            var_to_signal: Mapping from Python variable names to signal names
+            
+        Returns:
+            JavaScript expression string, or None if transpilation fails
+        """
+        import ast
+        import inspect
+        
+        try:
+            source = inspect.getsource(self.when).strip()
+        except (OSError, TypeError):
+            return None
+        
+        # Parse the source to find the lambda
+        try:
+            tree = ast.parse(source, mode='exec')
+        except SyntaxError:
+            return None
+        
+        # The 'when' lambda typically has 0 parameters - use this to find
+        # the correct lambda when source contains multiple lambdas
+        expected_param_count = len(self.when.__code__.co_varnames)
+        
+        lambda_node = None
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Lambda):
+                param_count = len(node.args.args)
+                if param_count == expected_param_count:
+                    lambda_node = node
+                    break
+        
+        if lambda_node is None:
+            return None
+        
+        # Transpile the lambda body expression
+        return self._ast_to_js(lambda_node.body, var_to_signal)
+    
+    def _ast_to_js(self, node: "ast.AST", var_to_signal: dict) -> str:
+        """Convert a Python AST node to a JavaScript expression.
+        
+        This is a focused transpiler for condition expressions, handling:
+        - Signal calls: signal() → __pynext__.getSignal("name").read()
+        - Comparisons: == → ===, != → !==
+        - Boolean operators: and → &&, or → ||, not → !
+        - Built-in functions: len() → .length
+        - Literals: strings, numbers, booleans
+        
+        Args:
+            node: Python AST node
+            var_to_signal: Mapping from variable names to signal names
+            
+        Returns:
+            JavaScript expression string
+        """
+        import ast
+        
+        # Call expression: could be signal() or len(signal())
+        if isinstance(node, ast.Call):
+            # Check for signal call: signal_name()
+            if isinstance(node.func, ast.Name):
+                func_name = node.func.id
+                
+                # Check if it's a signal call (no args, name in var_to_signal)
+                if len(node.args) == 0 and func_name in var_to_signal:
+                    signal_name = var_to_signal[func_name]
+                    return f'__pynext__.getSignal("{signal_name}").read()'
+                
+                # Check for len() builtin
+                if func_name == 'len' and len(node.args) == 1:
+                    inner = self._ast_to_js(node.args[0], var_to_signal)
+                    return f'{inner}?.length'
+                
+                # Check for bool() builtin
+                if func_name == 'bool' and len(node.args) == 1:
+                    inner = self._ast_to_js(node.args[0], var_to_signal)
+                    return f'Boolean({inner})'
+            
+            # Method call on a signal result
+            if isinstance(node.func, ast.Attribute):
+                obj = self._ast_to_js(node.func.value, var_to_signal)
+                method = node.func.attr
+                args = ', '.join(self._ast_to_js(arg, var_to_signal) for arg in node.args)
+                return f'{obj}.{method}({args})'
+        
+        # Comparison: ==, !=, <, >, <=, >=
+        if isinstance(node, ast.Compare):
+            left = self._ast_to_js(node.left, var_to_signal)
+            parts = [left]
+            
+            for op, comparator in zip(node.ops, node.comparators):
+                js_op = self._compare_op_to_js(op)
+                right = self._ast_to_js(comparator, var_to_signal)
+                parts.append(f'{js_op} {right}')
+            
+            return ' '.join(parts)
+        
+        # Boolean operators: and, or
+        if isinstance(node, ast.BoolOp):
+            js_op = '&&' if isinstance(node.op, ast.And) else '||'
+            parts = [self._ast_to_js(v, var_to_signal) for v in node.values]
+            return f'({" " + js_op + " ".join(parts)})'
+        
+        # Unary operators: not
+        if isinstance(node, ast.UnaryOp):
+            operand = self._ast_to_js(node.operand, var_to_signal)
+            if isinstance(node.op, ast.Not):
+                return f'!({operand})'
+            elif isinstance(node.op, ast.USub):
+                return f'-{operand}'
+            elif isinstance(node.op, ast.UAdd):
+                return f'+{operand}'
+        
+        # Binary operators: +, -, *, /, etc.
+        if isinstance(node, ast.BinOp):
+            left = self._ast_to_js(node.left, var_to_signal)
+            right = self._ast_to_js(node.right, var_to_signal)
+            op = self._bin_op_to_js(node.op)
+            return f'({left} {op} {right})'
+        
+        # Attribute access: obj.attr
+        if isinstance(node, ast.Attribute):
+            obj = self._ast_to_js(node.value, var_to_signal)
+            return f'{obj}.{node.attr}'
+        
+        # Subscript: obj[key]
+        if isinstance(node, ast.Subscript):
+            obj = self._ast_to_js(node.value, var_to_signal)
+            # Handle different slice types
+            if isinstance(node.slice, ast.Constant):
+                key = self._ast_to_js(node.slice, var_to_signal)
+                return f'{obj}[{key}]'
+            elif isinstance(node.slice, ast.Name):
+                key = self._ast_to_js(node.slice, var_to_signal)
+                return f'{obj}[{key}]'
+            else:
+                key = self._ast_to_js(node.slice, var_to_signal)
+                return f'{obj}[{key}]'
+        
+        # Name: variable reference
+        if isinstance(node, ast.Name):
+            name = node.id
+            # Check if it's a signal variable (but not being called)
+            if name in var_to_signal:
+                # This shouldn't happen in well-formed conditions, but handle it
+                signal_name = var_to_signal[name]
+                return f'__pynext__.getSignal("{signal_name}").read()'
+            # Python constants
+            if name == 'True':
+                return 'true'
+            if name == 'False':
+                return 'false'
+            if name == 'None':
+                return 'null'
+            return name
+        
+        # Constants: strings, numbers, None, True, False
+        if isinstance(node, ast.Constant):
+            value = node.value
+            if value is None:
+                return 'null'
+            if value is True:
+                return 'true'
+            if value is False:
+                return 'false'
+            if isinstance(value, str):
+                # Escape quotes in string
+                escaped = value.replace('\\', '\\\\').replace('"', '\\"')
+                return f'"{escaped}"'
+            if isinstance(value, (int, float)):
+                return str(value)
+        
+        # IfExp: ternary expression (x if cond else y)
+        if isinstance(node, ast.IfExp):
+            test = self._ast_to_js(node.test, var_to_signal)
+            body = self._ast_to_js(node.body, var_to_signal)
+            orelse = self._ast_to_js(node.orelse, var_to_signal)
+            return f'({test} ? {body} : {orelse})'
+        
+        # List/Tuple literals
+        if isinstance(node, (ast.List, ast.Tuple)):
+            elements = [self._ast_to_js(el, var_to_signal) for el in node.elts]
+            return f'[{", ".join(elements)}]'
+        
+        # Dict literal
+        if isinstance(node, ast.Dict):
+            pairs = []
+            for k, v in zip(node.keys, node.values):
+                key = self._ast_to_js(k, var_to_signal) if k else 'null'
+                val = self._ast_to_js(v, var_to_signal)
+                pairs.append(f'{key}: {val}')
+            return '{' + ', '.join(pairs) + '}'
+        
+        # Unknown node type - return a safe fallback
+        return 'true'
+    
+    def _compare_op_to_js(self, op: "ast.cmpop") -> str:
+        """Convert Python comparison operator to JavaScript."""
+        import ast
+        
+        op_map = {
+            ast.Eq: '===',
+            ast.NotEq: '!==',
+            ast.Lt: '<',
+            ast.LtE: '<=',
+            ast.Gt: '>',
+            ast.GtE: '>=',
+            ast.Is: '===',
+            ast.IsNot: '!==',
+            ast.In: 'in',  # Note: needs special handling for arrays
+            ast.NotIn: 'not in',  # Note: needs special handling
+        }
+        return op_map.get(type(op), '===')
+    
+    def _bin_op_to_js(self, op: "ast.operator") -> str:
+        """Convert Python binary operator to JavaScript."""
+        import ast
+        
+        op_map = {
+            ast.Add: '+',
+            ast.Sub: '-',
+            ast.Mult: '*',
+            ast.Div: '/',
+            ast.FloorDiv: '/',  # JS doesn't have floor div, may need Math.floor
+            ast.Mod: '%',
+            ast.Pow: '**',
+            ast.BitOr: '|',
+            ast.BitXor: '^',
+            ast.BitAnd: '&',
+            ast.LShift: '<<',
+            ast.RShift: '>>',
+        }
+        return op_map.get(type(op), '+')
     
     def __str__(self) -> str:
         return self.render()
@@ -525,38 +830,223 @@ class For(Generic[T]):
         return f'<div id="{self._id}" data-pynext-for="true">{"".join(parts)}</div>'
     
     def _extract_signal_deps(self) -> list[str]:
-        """Extract signal IDs that the each list depends on."""
-        import inspect
+        """Extract signal NAMES that the each list depends on.
         
+        Uses signal names instead of IDs for reliable lookups since names
+        are stable and consistent between server and client.
+        
+        For Memos, we also extract their underlying signal dependencies
+        so the binding updates when those signals change.
+        """
         if not callable(self.each):
             return []
         
         deps = []
+        underlying_deps = []
         
         # Try to inspect closure variables
         if hasattr(self.each, '__closure__') and self.each.__closure__:
             for cell in self.each.__closure__:
                 try:
                     obj = cell.cell_contents
-                    # Check if it's a Signal or Memo
-                    if hasattr(obj, '_id') and hasattr(obj, '_value'):
-                        deps.append(obj._id)
-                    # Check for Store
-                    elif hasattr(obj, '_id') and hasattr(obj, '_data'):
-                        deps.append(obj._id)
+                    # Check if it's a Memo (has _fn attribute)
+                    if hasattr(obj, '_name') and hasattr(obj, '_fn') and obj._fn is not None:
+                        deps.append(obj._name)
+                        # Also extract the memo's underlying dependencies
+                        if hasattr(obj._fn, '__closure__') and obj._fn.__closure__:
+                            for inner_cell in obj._fn.__closure__:
+                                try:
+                                    inner_obj = inner_cell.cell_contents
+                                    if hasattr(inner_obj, '_name') and hasattr(inner_obj, '_value'):
+                                        underlying_deps.append(inner_obj._name)
+                                except (ValueError, AttributeError):
+                                    pass
+                    # Check if it's a Signal (has _name and _value but no _fn)
+                    elif hasattr(obj, '_name') and hasattr(obj, '_value'):
+                        deps.append(obj._name)
+                    # Check for Store (has _name and _data)
+                    elif hasattr(obj, '_name') and hasattr(obj, '_data'):
+                        deps.append(obj._name)
                 except (ValueError, AttributeError):
                     pass
         
-        return deps
+        # Include underlying deps for memo reactivity
+        all_deps = deps + [d for d in underlying_deps if d not in deps]
+        return all_deps
     
     def _generate_update_expr(self) -> str:
-        """Generate JavaScript expression to get the current list."""
+        """Generate JavaScript expression to get the current list.
+        
+        FUNDAMENTAL: Uses proper AST parsing - no regex patterns.
+        
+        Now that memos are properly hydrated with their computation functions,
+        we can simply read from signals/memos directly. The memo's computation
+        will automatically re-run when its dependencies change.
+        
+        For patterns like `memo().get("key", [])`, we read the memo and access
+        the key using __py.dict.get() for safe dictionary access.
+        """
+        if not callable(self.each):
+            return "[]"
+        
+        # Extract signal/memo dependencies
         deps = self._extract_signal_deps()
         if not deps:
             return "[]"
         
-        # For the first signal dependency, read its value
-        return f"__pynext__.getSignal('{deps[0]}').read()"
+        # Build var-to-signal mapping for AST transpilation
+        var_to_signal = self._build_var_to_signal_map()
+        
+        # Try AST-based transpilation
+        try:
+            js_expr = self._transpile_each_lambda(var_to_signal)
+            if js_expr:
+                return js_expr
+        except Exception:
+            pass
+        
+        # Default: just read the signal/memo directly
+        return f"__pynext__.getSignal('{deps[0]}').read() || []"
+    
+    def _build_var_to_signal_map(self) -> dict:
+        """Build mapping from Python variable names to signal/memo names."""
+        var_to_signal = {}
+        
+        if not callable(self.each):
+            return var_to_signal
+        
+        closure_cells = getattr(self.each, '__closure__', None) or ()
+        code = getattr(self.each, '__code__', None)
+        
+        if code is None:
+            return var_to_signal
+        
+        free_var_names = code.co_freevars
+        
+        if len(closure_cells) != len(free_var_names):
+            return var_to_signal
+        
+        for var_name, cell in zip(free_var_names, closure_cells):
+            try:
+                obj = cell.cell_contents
+                # Check for Signal or Memo
+                if hasattr(obj, '_name'):
+                    var_to_signal[var_name] = obj._name
+            except (ValueError, AttributeError):
+                pass
+        
+        return var_to_signal
+    
+    def _transpile_each_lambda(self, var_to_signal: dict) -> str:
+        """Transpile the each lambda using proper AST parsing.
+        
+        Handles patterns like:
+        - lambda: signal()          → __pynext__.getSignal("name").read()
+        - lambda: signal().get("k") → __py.dict.get(__pynext__.getSignal("name").read(), "k", [])
+        - lambda: signal()["k"]     → (__pynext__.getSignal("name").read() || {})["k"] || []
+        
+        FUNDAMENTAL FIX: When source code contains multiple lambdas (e.g.,
+        For(each=lambda: items())[lambda item, idx: ...]), we identify
+        the correct lambda by matching parameter count from __code__.
+        """
+        import ast
+        import inspect
+        
+        try:
+            source = inspect.getsource(self.each).strip()
+        except (OSError, TypeError):
+            return None
+        
+        try:
+            tree = ast.parse(source, mode='exec')
+        except SyntaxError:
+            return None
+        
+        # The 'each' lambda has 0 parameters - use this to find the correct lambda
+        # when source contains multiple lambdas (e.g., For(...)[lambda item, idx: ...])
+        expected_param_count = len(self.each.__code__.co_varnames)
+        
+        lambda_node = None
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Lambda):
+                # Count parameters in this lambda's AST
+                param_count = len(node.args.args)
+                if param_count == expected_param_count:
+                    lambda_node = node
+                    break
+        
+        if lambda_node is None:
+            return None
+        
+        # Transpile the lambda body
+        return self._for_ast_to_js(lambda_node.body, var_to_signal)
+    
+    def _for_ast_to_js(self, node: "ast.AST", var_to_signal: dict) -> str:
+        """Convert Python AST to JavaScript for For loop expressions.
+        
+        Specialized for list/dict access patterns.
+        """
+        import ast
+        
+        # Method call: signal().get("key", default)
+        if isinstance(node, ast.Call):
+            if isinstance(node.func, ast.Attribute):
+                method_name = node.func.attr
+                
+                # Check if it's calling .get() on a signal/memo result
+                if method_name == 'get' and len(node.args) >= 1:
+                    obj_js = self._for_ast_to_js(node.func.value, var_to_signal)
+                    key_js = self._for_ast_to_js(node.args[0], var_to_signal)
+                    default_js = self._for_ast_to_js(node.args[1], var_to_signal) if len(node.args) > 1 else '[]'
+                    return f"__py.dict.get({obj_js} || {{}}, {key_js}, {default_js})"
+            
+            # Simple call: signal()
+            if isinstance(node.func, ast.Name):
+                func_name = node.func.id
+                if func_name in var_to_signal and len(node.args) == 0:
+                    signal_name = var_to_signal[func_name]
+                    return f'__pynext__.getSignal("{signal_name}").read()'
+        
+        # Subscript: signal()["key"]
+        if isinstance(node, ast.Subscript):
+            obj_js = self._for_ast_to_js(node.value, var_to_signal)
+            
+            if isinstance(node.slice, ast.Constant):
+                key = node.slice.value
+                if isinstance(key, str):
+                    return f'({obj_js} || {{}})["{key}"] || []'
+                else:
+                    return f'({obj_js} || [])[{key}]'
+            else:
+                key_js = self._for_ast_to_js(node.slice, var_to_signal)
+                return f'({obj_js} || {{}})[{key_js}] || []'
+        
+        # Name reference
+        if isinstance(node, ast.Name):
+            name = node.id
+            if name in var_to_signal:
+                signal_name = var_to_signal[name]
+                return f'__pynext__.getSignal("{signal_name}").read()'
+            return name
+        
+        # String/number constants
+        if isinstance(node, ast.Constant):
+            value = node.value
+            if isinstance(value, str):
+                return f'"{value}"'
+            elif isinstance(value, (int, float)):
+                return str(value)
+            elif value is None:
+                return 'null'
+            elif isinstance(value, bool):
+                return 'true' if value else 'false'
+        
+        # List literal
+        if isinstance(node, ast.List):
+            elements = [self._for_ast_to_js(el, var_to_signal) for el in node.elts]
+            return f'[{", ".join(elements)}]'
+        
+        return None
     
     def __str__(self) -> str:
         return self.render()

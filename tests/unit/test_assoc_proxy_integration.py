@@ -589,10 +589,9 @@ class TestCombinedOperations:
 class TestAsyncOperations:
     """Test async methods on proxies."""
     
-    def test_async_all(self):
+    @pytest.mark.asyncio
+    async def test_async_all(self):
         """Test async all() method."""
-        import asyncio
-        
         class Product(MockTable):
             def __init__(self, product_tags: List[ProductTag]):
                 self._product_tags = product_tags
@@ -606,15 +605,13 @@ class TestAsyncOperations:
         product_tags = [ProductTag(i, 1, i, tag=Tag(i, f"tag{i}")) for i in range(3)]
         product = Product(product_tags)
         
-        loop = asyncio.get_event_loop()
-        result = loop.run_until_complete(product.tags.all())
+        result = await product.tags.all()
         
         assert len(result) == 3
     
-    def test_async_first(self):
+    @pytest.mark.asyncio
+    async def test_async_first(self):
         """Test async first() method."""
-        import asyncio
-        
         class Product(MockTable):
             def __init__(self, product_tags: List[ProductTag]):
                 self._product_tags = product_tags
@@ -628,15 +625,13 @@ class TestAsyncOperations:
         product_tags = [ProductTag(1, 1, 1, tag=Tag(1, "first_tag"))]
         product = Product(product_tags)
         
-        loop = asyncio.get_event_loop()
-        result = loop.run_until_complete(product.tags.first())
+        result = await product.tags.first()
         
         assert result.name == "first_tag"
     
-    def test_async_filter(self):
+    @pytest.mark.asyncio
+    async def test_async_filter(self):
         """Test async filter() method."""
-        import asyncio
-        
         class Product(MockTable):
             def __init__(self, product_tags: List[ProductTag]):
                 self._product_tags = product_tags
@@ -654,8 +649,7 @@ class TestAsyncOperations:
         ]
         product = Product(product_tags)
         
-        loop = asyncio.get_event_loop()
-        red_tags = loop.run_until_complete(product.tags.filter(color="red"))
+        red_tags = await product.tags.filter(color="red")
         
         assert len(red_tags) == 2
         assert all(t.color == "red" for t in red_tags)
@@ -690,10 +684,9 @@ class TestPerformancePatterns:
         assert "tag0" in names
         assert "tag99" in names
     
-    def test_early_termination_with_first(self):
+    @pytest.mark.asyncio
+    async def test_early_termination_with_first(self):
         """Use first() for early termination."""
-        import asyncio
-        
         class Product(MockTable):
             access_count = 0
             
@@ -711,8 +704,7 @@ class TestPerformancePatterns:
         product = Product(product_tags)
         Product.access_count = 0
         
-        loop = asyncio.get_event_loop()
-        first = loop.run_until_complete(product.tags.first())
+        first = await product.tags.first()
         
         assert first.name == "tag0"
 

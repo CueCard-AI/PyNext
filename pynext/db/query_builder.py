@@ -761,8 +761,35 @@ class QueryBuilder(Generic[T]):
                     row_dict = dict(zip(columns, row))
                     instance = self._model(**row_dict)
                 else:
-                    # Can't map without column info
-                    instance = row
+                    # Use model's _fields to get column names when SELECT *
+                    model_fields = getattr(self._model, '_fields', None)
+                    if model_fields:
+                        # Get field names from model definition
+                        field_names = list(model_fields.keys())
+                        # Database may return more columns than model defines
+                        # (e.g., created_at, updated_at, etc.)
+                        if len(row) >= len(field_names):
+                            row_dict = dict(zip(field_names, row[:len(field_names)]))
+                            instance = self._model(**row_dict)
+                        else:
+                            # Partial match - map what we can
+                            row_dict = dict(zip(field_names[:len(row)], row))
+                            instance = self._model(**row_dict)
+                    else:
+                        # Try __table_columns__ or __annotations__
+                        table_columns = getattr(self._model, '__table_columns__', None)
+                        if table_columns:
+                            row_dict = dict(zip(table_columns, row))
+                            instance = self._model(**row_dict)
+                        else:
+                            # Last resort: use __annotations__ if available
+                            annotations = getattr(self._model, '__annotations__', None)
+                            if annotations:
+                                row_dict = dict(zip(annotations.keys(), row))
+                                instance = self._model(**row_dict)
+                            else:
+                                # Can't map without column info
+                                instance = row
             else:
                 instance = row
             instances.append(instance)

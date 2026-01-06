@@ -142,7 +142,8 @@ class TestForBindingRegistration:
         for_comp.render()
         
         binding = self.ctx.bindings[0]
-        assert items._id in binding.signal_deps
+        # Signal deps now use names for stable lookups
+        assert "items" in binding.signal_deps
     
     def test_for_binding_has_initial_data(self):
         """For binding has initial data with count and keys."""
@@ -173,7 +174,8 @@ class TestForSignalExtraction:
         for_comp = For(each=lambda: items())[lambda x, i: str(x)]
         
         deps = for_comp._extract_signal_deps()
-        assert items._id in deps
+        # Signal deps now use names instead of IDs
+        assert "items" in deps
     
     def test_extract_store_from_each(self):
         """Extract store from each lambda."""
@@ -200,7 +202,8 @@ class TestForUpdateExpr:
         for_comp = For(each=lambda: items())[lambda x, i: str(x)]
         
         expr = for_comp._generate_update_expr()
-        assert f"getSignal('{items._id}')" in expr
+        # Now uses signal name for stable lookups
+        assert "getSignal('items')" in expr or 'getSignal("items")' in expr
     
     def test_generate_empty_for_no_deps(self):
         """Generate empty array for no dependencies."""

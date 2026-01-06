@@ -1,6 +1,17 @@
 /**
  * PyNext Signals Runtime (Slim)
- * SolidJS-style fine-grained reactivity
+ * 
+ * Lightweight version of the signals runtime for production use.
+ * Compatible with AST transpiler output.
+ * 
+ * Features:
+ * - Signal creation and reactivity
+ * - Effect system for derived values
+ * - Memo for computed values
+ * - Batched updates
+ * - DOM text bindings
+ * - Show/For control flow helpers
+ * - Python runtime helpers (__py.dict.get, __py.bool, etc.)
  */
 (function(g) {
     'use strict';
@@ -9,114 +20,296 @@
     var effects = [];
     var currentEffect = null;
     var batchDepth = 0;
-    var pendingUpdates = [];
+    var batchQueue = new Set();
+
+    // ==========================================================================
+    // Python Runtime Helpers
+    // These match the Python semantics that the transpiler generates
+    // ==========================================================================
+    var __py = {
+        // Boolean conversion (Python's bool())
+        bool: function(v) { return !!v; },
+        
+        // Length (Python's len())
+        len: function(v) { 
+            return v && v.length !== undefined ? v.length : Object.keys(v || {}).length; 
+        },
+        
+        // Dict operations
+        dict: {
+            get: function(d, k, def) { 
+                return d && d[k] !== undefined ? d[k] : (def !== undefined ? def : null); 
+            },
+            keys: function(d) { return Object.keys(d || {}); },
+            values: function(d) { return Object.values(d || {}); },
+            items: function(d) { return Object.entries(d || {}); }
+        },
+        
+        // List operations
+        list: {
+            append: function(l, v) { l.push(v); return l; },
+            filter: function(l, fn) { return l.filter(fn); },
+            map: function(l, fn) { return l.map(fn); }
+        },
+        
+        // Type conversions
+        str: function(v) { return String(v); },
+        int: function(v) { return parseInt(v, 10); },
+        float: function(v) { return parseFloat(v); }
+    };
+
+    // ==========================================================================
+    // Signal System
+    // ==========================================================================
     
     function createSignal(id, value) {
         var subscribers = new Set();
+        
         var signal = {
             id: id,
-            value: value,
-            get: function() {
+            _value: value,
+            
+            // Read the signal value (tracks dependencies)
+            read: function() {
                 if (currentEffect) subscribers.add(currentEffect);
-                return signal.value;
+                return signal._value;
             },
+            
+            // Alias for read() for backwards compatibility
+            get: function() { return signal.read(); },
+            
+            // Set the signal value
             set: function(v) {
-                if (signal.value === v) return;
-                signal.value = v;
+                if (typeof v === 'function') v = v(signal._value);
+                if (signal._value === v) return;
+                signal._value = v;
+                updateDOM(id, v);
+                
                 if (batchDepth > 0) {
-                    pendingUpdates.push(signal);
+                    subscribers.forEach(function(e) { batchQueue.add(e); });
                 } else {
-                    subscribers.forEach(function(fn) { fn(); });
+                    subscribers.forEach(function(fn) { 
+                        if (fn.execute) fn.execute(); else fn(); 
+                    });
                 }
             },
+            
+            // Alias for set()
+            write: function(v) { signal.set(v); },
+            
+            // Subscribe to changes
             subscribe: function(fn) {
-                subscribers.add(fn);
-                return function() { subscribers.delete(fn); };
+                var effect = { execute: fn, dependencies: new Set() };
+                subscribers.add(effect);
+                return function() { subscribers.delete(effect); };
             }
         };
+        
         signals.set(id, signal);
         return signal;
     }
     
-    function getSignal(id) {
-        return signals.get(id);
+    function getSignal(id) { 
+        return signals.get(id); 
     }
     
-    function setSignal(id, value) {
-        var signal = signals.get(id);
-        if (signal) signal.set(value);
+    function setSignal(id, v) { 
+        var s = signals.get(id); 
+        if (s) s.set(v); 
     }
+
+    // ==========================================================================
+    // Effect System
+    // ==========================================================================
     
     function createEffect(fn) {
-        function execute() {
-            currentEffect = execute;
-            try { fn(); } finally { currentEffect = null; }
-        }
-        effects.push(execute);
-        execute();
+        var effect = {
+            execute: function() {
+                currentEffect = effect;
+                try { fn(); } finally { currentEffect = null; }
+            },
+            dependencies: new Set()
+        };
+        effects.push(effect);
+        effect.execute();
+        return effect;
     }
     
-    function createMemo(fn) {
-        var signal = createSignal('memo_' + Math.random().toString(36).slice(2), undefined);
+    function createMemo(id, fn) {
+        var signal = createSignal(id, undefined);
         createEffect(function() { signal.set(fn()); });
-        return signal.get;
+        return signal;
     }
     
     function batch(fn) {
         batchDepth++;
-        try {
-            fn();
-        } finally {
+        try { fn(); } finally {
             batchDepth--;
             if (batchDepth === 0) {
-                var updates = new Set(pendingUpdates);
-                pendingUpdates = [];
-                updates.forEach(function(signal) {
-                    signal.subscribers && signal.subscribers.forEach(function(fn) { fn(); });
-                });
+                var q = Array.from(batchQueue);
+                batchQueue.clear();
+                q.forEach(function(e) { if (e.execute) e.execute(); else e(); });
             }
         }
     }
+
+    // ==========================================================================
+    // DOM Updates
+    // ==========================================================================
     
-    function hydrate(data) {
-        if (!data || !data.signals) return;
-        data.signals.forEach(function(s) {
-            createSignal(s.id, s.value);
+    function updateDOM(id, v) {
+        // Update text bindings
+        var els = document.querySelectorAll('[data-pynext-text="' + id + '"]');
+        els.forEach(function(el) { el.textContent = v; });
+        
+        // Legacy selector
+        els = document.querySelectorAll('[data-signal="' + id + '"]');
+        els.forEach(function(el) { el.textContent = v; });
+    }
+
+    // ==========================================================================
+    // Control Flow Helpers
+    // ==========================================================================
+    
+    function updateShow(id, visible) {
+        var el = document.getElementById(id);
+        if (el) {
+            el.style.display = visible ? '' : 'none';
+            el.setAttribute('data-condition', visible ? 'true' : 'false');
+        }
+    }
+    
+    function updateFor(id, items, renderFn) {
+        var container = document.getElementById(id);
+        if (!container) return;
+        container.innerHTML = '';
+        (items || []).forEach(function(item, idx) {
+            var html = renderFn(item, idx);
+            container.insertAdjacentHTML('beforeend', html);
         });
     }
+
+    // ==========================================================================
+    // Hydration
+    // ==========================================================================
     
-    // DOM binding
-    function bindText(el, signalId) {
-        var signal = getSignal(signalId);
-        if (!signal) return;
-        createEffect(function() { el.textContent = signal.get(); });
+    function hydrate(data) {
+        if (!data) return;
+        
+        // Hydrate signals
+        if (data.signals) {
+            Object.keys(data.signals).forEach(function(name) {
+                var s = data.signals[name];
+                createSignal(name, s.value);
+                if (s.id && s.id !== name) {
+                    signals.set(s.id, signals.get(name));
+                }
+            });
+        }
+        
+        // Hydrate memos (they work like signals on the client)
+        if (data.memos) {
+            Object.keys(data.memos).forEach(function(name) {
+                var m = data.memos[name];
+                createSignal(name, m.value);
+            });
+        }
+        
+        // Attach event handlers
+        if (data.events) {
+            Object.keys(data.events).forEach(function(elId) {
+                var el = document.getElementById(elId);
+                if (!el) return;
+                var handlers = data.events[elId];
+                Object.keys(handlers).forEach(function(eventName) {
+                    var handler = handlers[eventName];
+                    var code = typeof handler === 'string' ? handler : (handler.code || '');
+                    if (!code) return;
+                    try {
+                        var fn = new Function('event', code);
+                        el.addEventListener(eventName, fn);
+                    } catch (e) { console.error('Handler error:', e); }
+                });
+            });
+        }
+        
+        // Set up reactive bindings (Show/For/Text/Attr/Class)
+        if (data.bindings) {
+            data.bindings.forEach(function(b) {
+                var expr = b.update || b.updateExpr;
+                var nodeId = b.nodeId || b.node_id;
+                var type = b.type || b.bindingType;
+                var deps = b.signals || b.signalDeps || [];
+                
+                if (!expr || deps.length === 0) return;
+                
+                createEffect(function() {
+                    try {
+                        // Use new Function instead of eval for consistency and strict mode compatibility
+                        var result = (new Function('return ' + expr))();
+                        if (type === 'show') {
+                            updateShow(nodeId, result);
+                        } else if (type === 'text') {
+                            var el = document.getElementById(nodeId);
+                            if (el) el.textContent = result != null ? result : '';
+                        } else if (type === 'for') {
+                            // For bindings are handled by the For component
+                        } else if (type === 'attr') {
+                            var el = document.getElementById(nodeId);
+                            var attr = b.attr;
+                            if (el && attr) el.setAttribute(attr, result);
+                        } else if (type === 'class') {
+                            var el = document.getElementById(nodeId);
+                            if (el) el.className = result;
+                        }
+                    } catch (e) { console.error('Binding error:', nodeId, e); }
+                });
+            });
+        }
     }
+
+    // ==========================================================================
+    // Global Exports
+    // ==========================================================================
     
-    function bindAttr(el, attr, signalId) {
-        var signal = getSignal(signalId);
-        if (!signal) return;
-        createEffect(function() { el.setAttribute(attr, signal.get()); });
-    }
-    
-    function bindClass(el, className, signalId) {
-        var signal = getSignal(signalId);
-        if (!signal) return;
-        createEffect(function() { el.classList.toggle(className, !!signal.get()); });
-    }
-    
+    // Initialize global namespace
     g.__pynext__ = g.__pynext__ || {};
-    g.__pynext__.signals = signals;
-    g.__pynext__.createSignal = createSignal;
-    g.__pynext__.getSignal = getSignal;
+    g.__pynext__.signals = g.__pynext__.signals || {};
+    g.__pynext__.stores = g.__pynext__.stores || {};
+    g.__pynext__.forms = g.__pynext__.forms || {};
+    g.__pynext__.memos = g.__pynext__.memos || {};
+    
+    // Export functions - wrap to sync with internal Map
+    g.__pynext__.createSignal = function(id, value) {
+        var sig = createSignal(id, value);
+        g.__pynext__.signals[id] = sig;
+        return sig;
+    };
+    
+    g.__pynext__.getSignal = function(id) {
+        return signals.get(id) || g.__pynext__.signals[id];
+    };
+    
     g.__pynext__.setSignal = setSignal;
     g.__pynext__.createEffect = createEffect;
     g.__pynext__.createMemo = createMemo;
     g.__pynext__.batch = batch;
-    g.__pynext__.bindText = bindText;
-    g.__pynext__.bindAttr = bindAttr;
-    g.__pynext__.bindClass = bindClass;
+    g.__pynext__.updateShow = updateShow;
+    g.__pynext__.updateFor = updateFor;
     
+    g.__pynext__.hydrate = function(data) {
+        hydrate(data);
+        // Copy signals to global namespace for debugging/inspection
+        signals.forEach(function(sig, id) { 
+            g.__pynext__.signals[id] = sig; 
+        });
+    };
+    
+    // Python helpers
+    g.__py = __py;
+    
+    // Auto-hydrate if data present
     if (g.__PYNEXT_DATA__) hydrate(g.__PYNEXT_DATA__);
+    if (g.__PYNEXT_HYDRATION__) hydrate(g.__PYNEXT_HYDRATION__);
     
-})(window);
-
+})(typeof window !== 'undefined' ? window : this);

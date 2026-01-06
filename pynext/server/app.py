@@ -22,7 +22,7 @@ from pydantic import BaseModel
 from pynext.router.file_router import FileRouter
 from pynext.server.actions import handle_action_request, get_registry
 from pynext.server.middleware import add_performance_middleware
-from pynext.runtime import get_runtime_js, get_runtime_path
+from pynext.runtime import get_runtime_js, get_runtime_path, is_production
 from pynext.core.errors import (
     PyNextError,
     UnauthorizedError,
@@ -127,12 +127,18 @@ class PyNextApp:
         
         @app.get("/_pynext/runtime.js", include_in_schema=False)
         async def serve_runtime() -> Response:
-            """Serve the PyNext JavaScript runtime."""
-            content = get_runtime_js()
+            """Serve the PyNext JavaScript runtime.
+            
+            In production mode (debug=False), serves minified slim runtime (~17KB).
+            In development mode (debug=True), serves full runtime with comments (~174KB).
+            """
+            # Use minified in production (debug=False)
+            use_minified = not pynext_app.debug
+            content = get_runtime_js(minified=use_minified)
             return Response(
                 content=content,
                 media_type="application/javascript",
-                headers={"Cache-Control": "public, max-age=31536000" if not pynext_app.debug else "no-cache"},
+                headers={"Cache-Control": "public, max-age=31536000" if use_minified else "no-cache"},
             )
         
         @app.get("/_pynext/react-bridge.js", include_in_schema=False)
@@ -147,6 +153,47 @@ class PyNextApp:
                     headers={"Cache-Control": "no-cache" if pynext_app.debug else "public, max-age=31536000"},
                 )
             return Response(content="// React bridge not found", media_type="application/javascript", status_code=404)
+        
+        @app.get("/_pynext/js/{filename}", include_in_schema=False)
+        async def serve_runtime_file(filename: str) -> Response:
+            """Serve any runtime JavaScript file.
+            
+            Automatically uses slim/minified versions in production.
+            Files: browser.js, keyboard.js, focus.js, theme.js, storage.js, sse.js, toast.js
+            """
+            from pynext.runtime import _get_runtime_file
+            
+            # Remove .js extension to get base name
+            base_name = filename.replace('.js', '').replace('.slim', '').replace('.min', '')
+            
+            # Valid runtime files
+            valid_files = {'browser', 'keyboard', 'focus', 'theme', 'storage', 'sse', 'toast', 
+                          'signals', 'forms', 'control_flow', 'reactive', 'navigation'}
+            
+            if base_name not in valid_files:
+                return Response(
+                    content=f"// Unknown runtime file: {filename}",
+                    media_type="application/javascript",
+                    status_code=404
+                )
+            
+            # Get the appropriate file (slim in production)
+            use_slim = not pynext_app.debug
+            file_path = _get_runtime_file(base_name, prefer_slim=use_slim)
+            
+            if file_path.exists():
+                content = file_path.read_text()
+                return Response(
+                    content=content,
+                    media_type="application/javascript",
+                    headers={"Cache-Control": "public, max-age=31536000" if use_slim else "no-cache"},
+                )
+            
+            return Response(
+                content=f"// Runtime file not found: {filename}",
+                media_type="application/javascript",
+                status_code=404
+            )
         
         @app.get("/_pynext/npm/{bundle_name}", include_in_schema=False)
         async def serve_npm_bundle(bundle_name: str) -> Response:
@@ -165,6 +212,9 @@ class PyNextApp:
         async def serve_styles() -> Response:
             """Serve base styles."""
             css = """
+/* Tailwind CSS (for shadcn components) */
+@import url('https://unpkg.com/tailwindcss@^2/dist/tailwind.min.css');
+
 /* PyNext Base Styles */
 *, *::before, *::after {
     box-sizing: border-box;
