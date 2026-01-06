@@ -7,6 +7,7 @@ Provides shared fixtures for unit, integration, and E2E tests.
 import asyncio
 import os
 import sys
+import subprocess
 import tempfile
 from pathlib import Path
 
@@ -31,6 +32,32 @@ from pynext.reactive import Signal, Computed, Effect, Store, batch
 from pynext.core.component import component, page, layout, loading, error, not_found
 from pynext.core.html import div, span, button, h1, p, ul, li, form, input_, a
 from pynext.router.file_router import FileRouter
+
+
+# =============================================================================
+# Ensure Dependencies (esbuild, etc.)
+# =============================================================================
+
+def pytest_sessionstart(session):
+    """Ensure esbuild is installed before running tests."""
+    root_path = Path(__file__).parent.parent
+    node_modules = root_path / "node_modules" / ".bin" / "esbuild"
+    package_json = root_path / "package.json"
+    
+    # Check if esbuild needs to be installed
+    if package_json.exists() and not node_modules.exists():
+        # Run npm install to get esbuild
+        try:
+            subprocess.run(
+                ["npm", "install"],
+                cwd=str(root_path),
+                check=True,
+                capture_output=True,
+                timeout=120
+            )
+        except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
+            # npm install failed or npm not available - tests will use fallback
+            pass
 
 
 # =============================================================================
