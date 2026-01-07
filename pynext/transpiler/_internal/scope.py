@@ -135,6 +135,10 @@ class ScopeTracker:
         self._await_context_depth: int = 0
         # Unified semantic context tracking
         self._context_stack: list[SemanticContext] = []
+        # Phase 33.5: Track names imported from asyncio (for asyncio.sleep handling)
+        self._asyncio_imports: set[str] = set()
+        # Phase 33.5: Track classes that need Proxy wrapping (__getattr__/__setattr__/__delattr__)
+        self._classes_with_attribute_proxy: set[str] = set()
     
     def enter_scope(self) -> None:
         """Enter a new block scope (if, for, while)."""
@@ -335,6 +339,59 @@ class ScopeTracker:
         self._async_generator_functions = set()
         self._await_context_depth = 0
         self._context_stack = []
+        self._asyncio_imports = set()
+    
+    def declare_asyncio_import(self, name: str) -> None:
+        """
+        Mark a name as imported from asyncio.
+        
+        Phase 33.5: Tracks `from asyncio import sleep` style imports so we can
+        transform `sleep(x)` to `__py.sleep(x)` even when called by name alone.
+        
+        Args:
+            name: The imported name (e.g., "sleep", "gather", "run")
+        """
+        self._asyncio_imports.add(name)
+    
+    def is_asyncio_import(self, name: str) -> bool:
+        """
+        Check if a name was imported from asyncio.
+        
+        Phase 33.5: Used to detect if `sleep(x)` should be transformed to `__py.sleep(x)`.
+        
+        Args:
+            name: The name to check
+        
+        Returns:
+            True if this name was imported from asyncio
+        """
+        return name in self._asyncio_imports
+    
+    def declare_class_with_attribute_proxy(self, class_name: str) -> None:
+        """
+        Mark a class as needing Proxy wrapping for attribute access.
+        
+        Phase 33.5: Classes with __getattr__, __setattr__, or __delattr__ need
+        to be wrapped with JavaScript Proxy to intercept attribute access.
+        
+        Args:
+            class_name: Name of the class
+        """
+        self._classes_with_attribute_proxy.add(class_name)
+    
+    def needs_attribute_proxy(self, class_name: str) -> bool:
+        """
+        Check if a class needs Proxy wrapping for attribute access.
+        
+        Phase 33.5: Used during class instantiation to wrap with Proxy.
+        
+        Args:
+            class_name: Name of the class
+        
+        Returns:
+            True if this class has __getattr__/__setattr__/__delattr__
+        """
+        return class_name in self._classes_with_attribute_proxy
     
     # =============================================================================
     # SEMANTIC CONTEXT TRACKING (Unified Context System)

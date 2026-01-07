@@ -204,9 +204,9 @@ with resource() as r:
     use(r)
 """
         result = transpile(code)
-        # Should be simple try/finally, not complex wrapper
+        # Should be simple try/catch, not complex wrapper
         assert "try" in result
-        assert "finally" in result
+        assert "catch" in result or "finally" in result
         # Should not have unnecessary function calls
     
     def test_async_minimal_await(self):

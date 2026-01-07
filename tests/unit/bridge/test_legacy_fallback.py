@@ -159,7 +159,8 @@ class File:
 with File() as f:
     pass
 ''')
-        assert "try" in result and "finally" in result
+        # Phase 33.5: Uses try/catch pattern for exception suppression
+        assert "try" in result and ("catch" in result or "finally" in result)
 
 
 # =============================================================================
@@ -197,33 +198,6 @@ class TestLegacyFallbackDetection:
         # Should return a ReactiveContext (even if empty)
         from pynext.transpiler.reactive import ReactiveContext
         assert isinstance(ctx, ReactiveContext)
-
-
-@pytest.mark.skip(reason="Legacy fallback has been removed - AST-only transpilation now")
-class TestLegacyFallbackOutput:
-    """Test the output of legacy fallback mode. SKIPPED - legacy removed."""
-    
-    def test_legacy_produces_warning_for_empty(self):
-        """Handler with no reactive objects produces warning."""
-        pytest.skip("Legacy fallback removed")
-    
-    def test_legacy_handles_simple_signal(self):
-        """Legacy mode handles simple patterns."""
-        from pynext.core.html import Element
-        
-        # Create an element and test a basic path
-        element = Element("button")
-        
-        # Test with a simple handler that has no closure
-        def simple_handler():
-            print("click")
-        
-        # Legacy path should produce a warning for no reactive state
-        js = element._extract_handler_code_legacy(simple_handler)
-        
-        # Should produce some JS (warning message)
-        assert isinstance(js, str)
-        assert "warn" in js.lower() or "console" in js
 
 
 # =============================================================================

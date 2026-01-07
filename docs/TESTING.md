@@ -1,17 +1,294 @@
 # PyNext Testing Guide
 
+This guide covers how to run the full PyNext test suite, including unit tests, integration tests, transpiler tests, database tests, and E2E browser tests.
+
+---
+
 ## Quick Start
 
+### One Command (Recommended)
+
 ```bash
-# 1. Start PostgreSQL test database
-docker-compose up -d postgres
-
-# 2. Run all tests
-./scripts/test-db.sh
-
-# 3. Stop when done
-docker-compose down
+# Install dependencies and run all tests (auto-starts Docker)
+make test
 ```
+
+### Quick Tests (No Docker Required)
+
+```bash
+# Run without database/E2E tests (~5 minutes)
+make test-quick
+```
+
+### Manual pytest
+
+```bash
+# Run pytest directly (auto-starts Docker if available)
+pytest tests/
+```
+
+---
+
+## Prerequisites
+
+| Requirement | Version | Purpose |
+|-------------|---------|---------|
+| Python | 3.10+ | Core runtime |
+| Node.js | 18+ | esbuild, JS tests |
+| Docker | Latest | PostgreSQL for DB tests |
+| Go | 1.21+ | Go bridge tests (optional) |
+
+---
+
+## Installation
+
+### Install All Dependencies
+
+```bash
+# Python dev dependencies (includes numpy, polars, pandas, playwright)
+pip install -e ".[dev]"
+
+# npm dependencies (esbuild for bundling)
+npm install
+
+# Playwright browsers (for E2E tests)
+playwright install chromium --with-deps
+```
+
+Or use the Makefile:
+
+```bash
+make install
+```
+
+---
+
+## Running Tests
+
+### Using Makefile (Recommended)
+
+| Command | Description |
+|---------|-------------|
+| `make test` | Full test suite (auto-starts PostgreSQL) |
+| `make test-quick` | Skip database and E2E tests |
+| `make test-unit` | Unit tests only |
+| `make test-integration` | Integration tests only |
+| `make test-transpiler` | Transpiler tests only |
+| `make test-e2e` | E2E browser tests |
+
+### Using the Test Script
+
+```bash
+# Full suite with all setup
+./scripts/run_tests.sh
+
+# Quick mode (no database/E2E)
+./scripts/run_tests.sh --quick
+
+# CI mode (stricter settings)
+./scripts/run_tests.sh --ci
+```
+
+### Using pytest Directly
+
+```bash
+# Full suite (conftest.py auto-starts Docker if available)
+pytest tests/ -v
+
+# Specific test files
+pytest tests/unit/transpiler -v
+pytest tests/integration/transpiler -v
+
+# With coverage
+pytest tests/ --cov=pynext --cov-report=html
+
+# Fast mode (stop on first failure)
+pytest tests/ -x --tb=short
+```
+
+---
+
+## Automatic Setup
+
+When you run `pytest tests/`, the test harness automatically:
+
+1. ✅ **npm install** - Installs esbuild if not present
+2. ✅ **Docker** - Starts PostgreSQL container if Docker is available
+3. ✅ **Environment** - Sets `DATABASE_URL` and `TEST_DATABASE_URL`
+4. ✅ **Playwright** - Installs browsers if Playwright is installed
+
+This happens in `tests/conftest.py:pytest_sessionstart()`.
+
+---
+
+## Test Categories
+
+### Unit Tests (~20,000 tests)
+
+```bash
+pytest tests/unit -v
+```
+
+- **Transpiler**: Python → JavaScript conversion
+- **Reactive**: Signals, computed values, effects
+- **Router**: File-based routing
+- **Components**: HTML generation
+
+### Integration Tests (~4,000 tests)
+
+```bash
+pytest tests/integration -v
+```
+
+- **Transpiler**: End-to-end transpilation with JS execution
+- **Database**: PostgreSQL integration
+- **DataFrames**: Polars/Pandas support
+
+### Transpiler Tests
+
+```bash
+pytest tests/unit/transpiler tests/integration/transpiler -v
+```
+
+- **Phase 33.2**: Dunder methods, operators
+- **Phase 33.4**: Client testing tools
+- **Phase 33.5**: Context managers, asyncio.sleep, Proxy
+
+### E2E Tests
+
+```bash
+pytest tests/e2e -v
+```
+
+- **Browser**: Playwright-based UI tests
+- **Requires**: `playwright install chromium`
+
+### Benchmark Tests
+
+```bash
+pytest tests/benchmarks -v --benchmark-only
+```
+
+---
+
+## Docker PostgreSQL
+
+### Start Database
+
+```bash
+# Using Makefile
+make db-up
+
+# Using docker-compose
+docker-compose -f docker-compose.test.yml up -d
+
+# Verify it's running
+docker exec pynext-postgres-test pg_isready -U pynext
+```
+
+### Stop Database
+
+```bash
+# Using Makefile
+make db-down
+
+# Using docker-compose
+docker-compose -f docker-compose.test.yml down
+```
+
+### Connection Details
+
+| Setting | Value |
+|---------|-------|
+| Host | `localhost` |
+| Port | `5433` (non-standard to avoid conflicts) |
+| Database | `pynext_test` |
+| User | `pynext` |
+| Password | `pynext` |
+| URL | `postgresql://pynext:pynext@localhost:5433/pynext_test` |
+
+---
+
+## Test Results Summary
+
+When all tests pass:
+
+```
+24,742 passed, ~50 skipped, 9 xfailed
+```
+
+### Expected Skips
+
+| Category | Count | Reason |
+|----------|-------|--------|
+| Database tests | ~40 | PostgreSQL not running |
+| Go bridge tests | ~7 | Go binary not available |
+| VS Code tests | ~2 | IDE-specific |
+
+With Docker running, skips reduce to ~10 (just Go-specific tests).
+
+---
+
+## CI/CD (GitHub Actions)
+
+The test suite runs automatically on:
+- Push to `main` or `develop`
+- Pull requests to `main`
+
+### Workflows
+
+| Job | Tests | Environment |
+|-----|-------|-------------|
+| `test` | Unit + Integration | Python 3.10, 3.11, 3.12 |
+| `db-tests` | Database + DataFrames | PostgreSQL 16, Go 1.21 |
+| `e2e` | Browser tests | Playwright |
+| `js-tests` | JavaScript tests | Node.js 20 |
+| `lint` | Code quality | Black, Ruff |
+
+---
+
+## Troubleshooting
+
+### Tests skip with "PostgreSQL not available"
+
+```bash
+# Start the database
+make db-up
+
+# Verify connection
+docker exec pynext-postgres-test pg_isready -U pynext
+```
+
+### "esbuild not found" errors
+
+```bash
+# Install npm dependencies
+npm install
+```
+
+### Playwright browser not found
+
+```bash
+# Install browsers
+playwright install chromium --with-deps
+```
+
+### Docker errors on macOS
+
+```bash
+# Restart Docker Desktop
+osascript -e 'quit app "Docker Desktop"'
+sleep 5
+open -a Docker
+sleep 15
+docker ps
+```
+
+---
+
+## Legacy: Database-Specific Testing
+
+The following section covers database-specific testing in more detail.
 
 ---
 

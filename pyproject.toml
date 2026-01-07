@@ -39,17 +39,26 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
+    # Testing
     "pytest>=7.4.0",
     "pytest-asyncio>=0.21.0",
     "pytest-cov>=4.1.0",
     "pytest-benchmark>=4.0.0",
     "pytest-timeout>=2.2.0",
     "httpx>=0.25.0",
+    # E2E / Browser
     "playwright>=1.40.0",
+    # Code quality
     "black>=23.0.0",
     "ruff>=0.1.0",
     "mypy>=1.7.0",
+    # Environment
     "python-dotenv>=1.0.0",
+    # Data processing (required for full test coverage)
+    "numpy>=1.24.0",
+    "polars>=0.19.0",
+    "pyarrow>=14.0.0",
+    "pandas>=2.0.0",
 ]
 
 test = [
@@ -59,6 +68,13 @@ test = [
     "pytest-benchmark>=4.0.0",
     "pytest-timeout>=2.2.0",
     "httpx>=0.25.0",
+    # Data processing
+    "numpy>=1.24.0",
+    "polars>=0.19.0",
+    "pyarrow>=14.0.0",
+    "pandas>=2.0.0",
+    # Database
+    "asyncpg>=0.29.0",
 ]
 
 e2e = [

@@ -1508,9 +1508,25 @@ def _emit_call(node: Call) -> str:
                         # It's a function reference, so we need to call it
                         return f"(async () => {{ return await {coro_js}(); }})()"
                 return "(async () => {})()"  # Empty run() call
+            
+            if node.func.attr == "sleep":
+                # Phase 33.5: asyncio.sleep(seconds) → __py.sleep(seconds)
+                # Runtime: new Promise(resolve => setTimeout(resolve, seconds * 1000))
+                if node.args:
+                    seconds_js = _emit_expr(node.args[0])
+                    return f"__py.sleep({seconds_js})"
+                return "__py.sleep(0)"  # sleep() with no args = sleep(0)
     
     # Handle special Python builtins
     if isinstance(node.func, Name):
+        # Phase 33.5: Handle asyncio.sleep imported as `from asyncio import sleep`
+        scope = get_scope()
+        if node.func.id == "sleep" and scope.is_asyncio_import("sleep"):
+            if node.args:
+                seconds_js = _emit_expr(node.args[0])
+                return f"__py.sleep({seconds_js})"
+            return "__py.sleep(0)"
+        
         builtin = _emit_builtin_call(node.func.id, node.args, node.keywords)
         if builtin is not None:
             return builtin
@@ -1525,6 +1541,7 @@ def _emit_call(node: Call) -> str:
     # Check if this is a class instantiation (not a function call)
     is_class_instantiation = False
     is_generator_function = False
+    needs_proxy_factory = False  # Phase 33.5
     if isinstance(node.func, Name):
         # Check if the name refers to a class (registered in scope)
         scope = get_scope()
@@ -1532,6 +1549,9 @@ def _emit_call(node: Call) -> str:
         # Also handle cls(...) calls in @classmethod
         if not is_class_instantiation and node.func.id == "cls":
             is_class_instantiation = True
+        # Phase 33.5: Check if class needs Proxy factory for attribute access
+        if is_class_instantiation and scope.needs_attribute_proxy(node.func.id):
+            needs_proxy_factory = True
         # Phase 33.2: Check if this is a generator function call
         # We need to wrap it with wrapGenerator to add send(), throw(), close()
         # For now, we'll detect this at runtime by checking if the result is a generator
@@ -1585,6 +1605,9 @@ def _emit_call(node: Call) -> str:
             call = f"{func_js}({args_js}, {kw_js})"
         else:
             call = f"{func_js}({kw_js})"
+        # Phase 33.5: Use Proxy factory for classes with attribute access dunders
+        if needs_proxy_factory:
+            return f"__py_create_{func_js}({args_js}, {kw_js})" if args_js else f"__py_create_{func_js}({kw_js})"
         return f"new {call}" if is_class_instantiation else call
     
     # Build call expression
@@ -1659,6 +1682,9 @@ def _emit_call(node: Call) -> str:
         #     result = await fetch_data()  # fetch_data() returns Promise, not generator
         #     # We don't want: await wrapGenerator(fetch_data())
         if scope.is_in_await_context():
+            # Phase 33.5: Use Proxy factory for classes with attribute access dunders
+            if needs_proxy_factory:
+                return f"__py_create_{func_js}({args_js})" if args_js else f"__py_create_{func_js}()"
             return f"new {call}" if is_class_instantiation else call
         
         # Check for async generator first (more specific)
@@ -1683,6 +1709,9 @@ def _emit_call(node: Call) -> str:
             wrapped_call = f"((gen) => (gen && typeof gen.next === 'function' && typeof gen[Symbol.iterator] === 'function') ? (__py.generators && __py.generators.wrapGenerator ? __py.generators.wrapGenerator(gen) : gen) : gen)({call})"
             return wrapped_call
     
+    # Phase 33.5: Use Proxy factory for classes with attribute access dunders
+    if needs_proxy_factory:
+        return f"__py_create_{func_js}({args_js})" if args_js else f"__py_create_{func_js}()"
     return f"new {call}" if is_class_instantiation else call
 
 

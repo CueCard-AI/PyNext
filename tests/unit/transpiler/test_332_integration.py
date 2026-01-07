@@ -157,7 +157,7 @@ def gen_with_context():
         assert "function*" in result
         assert "yield" in result
         assert "try" in result
-        assert "finally" in result
+        assert "catch" in result or "finally" in result
     
     def test_generator_with_async(self):
         """Async generator with await in yield."""
@@ -207,7 +207,7 @@ def gen_with_context():
         result = transpile(code)
         assert "function*" in result
         assert "try" in result
-        assert "finally" in result
+        assert "catch" in result or "finally" in result
     
     def test_context_with_async(self):
         """Context manager with async."""
@@ -234,7 +234,7 @@ def handle_with_match():
 """
         result = transpile(code)
         assert "try" in result
-        assert "finally" in result
+        assert "catch" in result or "finally" in result
         assert "switch" in result
     
     def test_context_with_class(self):
@@ -248,7 +248,7 @@ class Handler:
         result = transpile(code)
         assert "class" in result
         assert "try" in result
-        assert "finally" in result
+        assert "catch" in result or "finally" in result
 
 
 # =============================================================================

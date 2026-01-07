@@ -265,22 +265,90 @@ def parse_import_from(
             # Built-in module - handle specially
             return _parse_builtin_from_import(node, source)
         
-        path = resolver.resolve_absolute(node.module)
-        if path is None:
-            raise UnsupportedSyntax(
-                message=f"Module '{node.module}' not found",
-                line=node.lineno,
-                col=node.col_offset,
-                source=source,
-                suggestion=f"Ensure '{node.module}.py' exists or use a built-in module."
-            )
+        # Check for pynext.client.* imports (Phase 33.4: stdlib modules)
+        PYNEXT_CLIENT_MODULES = {
+            "pynext.client.datetime": "pynext/runtime/stdlib/datetime.js",
+            "pynext.client.collections": "pynext/runtime/stdlib/collections.js",
+            "pynext.client.itertools": "pynext/runtime/stdlib/itertools.js",
+            "pynext.client.functools": "pynext/runtime/stdlib/functools.js",
+            "pynext.client.operator": "pynext/runtime/stdlib/operator.js",
+            "pynext.client.copy": "pynext/runtime/stdlib/copy.js",
+        }
         
-        module_name = node.module
-        is_relative = False
+        # Special handling for pynext.client (Promise and scheduling)
+        if node.module == "pynext.client":
+            # Check if importing Promise (from promise.js) or scheduling functions (from scheduling.js)
+            promise_names = {"Promise"}
+            scheduling_names = {"queue_microtask", "queueMicrotask", "request_animation_frame", 
+                               "requestAnimationFrame", "request_idle_callback", "requestIdleCallback",
+                               "cancel_idle_callback", "cancelIdleCallback", "cancel_animation_frame",
+                               "cancelAnimationFrame"}
+            
+            imported_names = [alias.name for alias in node.names]
+            has_promise = any(name in promise_names for name in imported_names)
+            has_scheduling = any(name in scheduling_names for name in imported_names)
+            
+            # Create multiple imports if needed
+            results = []
+            if has_promise:
+                promise_imports = [alias for alias in node.names if alias.name in promise_names]
+                if promise_imports:
+                    results.append(ImportFrom(
+                        module="pynext.client",
+                        names=tuple((alias.name, alias.asname if alias.asname else alias.name) for alias in promise_imports),
+                        path="pynext/runtime/promise.js",
+                        is_relative=False,
+                        level=0,
+                        line=node.lineno,
+                        col=node.col_offset
+                    ))
+            
+            if has_scheduling:
+                scheduling_imports = [alias for alias in node.names if alias.name in scheduling_names]
+                if scheduling_imports:
+                    results.append(ImportFrom(
+                        module="pynext.client",
+                        names=tuple((alias.name, alias.asname if alias.asname else alias.name) for alias in scheduling_imports),
+                        path="pynext/runtime/scheduling.js",
+                        is_relative=False,
+                        level=0,
+                        line=node.lineno,
+                        col=node.col_offset
+                    ))
+            
+            if results:
+                current_module = resolver.current_file
+                resolver.add_dependency(current_module, node.module)
+                return results
+            
+            # If no known imports, fall through to normal resolution
         
-        # Track dependency
-        current_module = resolver.current_file
-        resolver.add_dependency(current_module, node.module)
+        if node.module in PYNEXT_CLIENT_MODULES:
+            # Map to runtime stdlib path
+            path = PYNEXT_CLIENT_MODULES[node.module]
+            module_name = node.module
+            is_relative = False
+            
+            # Track dependency
+            current_module = resolver.current_file
+            resolver.add_dependency(current_module, node.module)
+        else:
+            path = resolver.resolve_absolute(node.module)
+            if path is None:
+                raise UnsupportedSyntax(
+                    message=f"Module '{node.module}' not found",
+                    line=node.lineno,
+                    col=node.col_offset,
+                    source=source,
+                    suggestion=f"Ensure '{node.module}.py' exists or use a built-in module."
+                )
+            
+            module_name = node.module
+            is_relative = False
+            
+            # Track dependency
+            current_module = resolver.current_file
+            resolver.add_dependency(current_module, node.module)
     
     # Parse import names
     if len(node.names) == 1 and node.names[0].name == "*":
@@ -332,9 +400,19 @@ def _parse_builtin_from_import(
     """
     # Phase 33.3: Import IR nodes needed for star imports
     from .nodes import ExprStmt, Call
+    from ._internal.scope import get_scope
     
     results = []
     module_name = node.module.split('.')[0]  # Get top-level module
+    
+    # Phase 33.5: Track asyncio imports for special handling (e.g., sleep → __py.sleep)
+    if module_name == "asyncio":
+        scope = get_scope()
+        for alias in node.names:
+            if alias.name != "*":
+                # Track the import name (or alias) so we can transform calls later
+                imported_name = alias.asname if alias.asname else alias.name
+                scope.declare_asyncio_import(imported_name)
     
     for alias in node.names:
         if alias.name == "*":

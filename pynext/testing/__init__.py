@@ -31,8 +31,7 @@ Why PyNext Testing:
 """
 
 from pynext.testing.render import (
-    # Core
-    render,
+    # Core (kept for backward compatibility)
     render_to_string,
     RenderResult,
     HTMLNode,
@@ -40,6 +39,46 @@ from pynext.testing.render import (
     # Signal utilities
     update_signal,
     get_signal_value,
+)
+
+# Client Testing (RTL-style API) - This is the main render() now
+from pynext.testing.client import (
+    render,  # Main render() function (RTL-style)
+    screen,
+    cleanup,
+    within,
+    act,
+    waitFor,
+    renderHook,
+    RTLRenderResult,
+    HookResult,
+)
+
+from pynext.testing.client_events import fireEvent
+
+from pynext.testing.transpiled import (
+    TranspiledJSHarness,
+    run_transpiled,
+    assert_transpiled_output,
+    test_mini_app,
+)
+
+from pynext.testing.mocks import (
+    mock_fetch,
+    mock_navigator,
+    mock_window,
+    mock_document,
+    mock_signal,
+    SignalMockFactory,
+    MockFactory,
+    create_mock_factory,
+    clear_all_mocks,
+    get_mock,
+)
+
+from pynext.testing.coverage import (
+    signal_coverage,
+    coverage_report,
 )
 
 from pynext.testing.assertions import (
@@ -207,13 +246,42 @@ from pynext.testing.coverage import (
 
 
 __all__ = [
-    # Render
-    "render",
+    # Render (base utilities)
     "render_to_string",
     "RenderResult",
     "HTMLNode",
     "update_signal",
     "get_signal_value",
+    
+    # Client Testing (RTL-style)
+    "render",
+    "screen",
+    "cleanup",
+    "within",
+    "act",
+    "waitFor",
+    "renderHook",
+    "RTLRenderResult",
+    "HookResult",
+    "fireEvent",
+    
+    # Transpiled JS Testing
+    "TranspiledJSHarness",
+    "run_transpiled",
+    "assert_transpiled_output",
+    "test_mini_app",
+    
+    # Mocking
+    "mock_fetch",
+    "mock_navigator",
+    "mock_window",
+    "mock_document",
+    "mock_signal",
+    "SignalMockFactory",
+    "MockFactory",
+    "create_mock_factory",
+    "clear_all_mocks",
+    "get_mock",
     
     # Text assertions
     "assert_text",

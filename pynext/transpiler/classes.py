@@ -322,6 +322,10 @@ def _emit_class_def(node: ClassDef, indent: int) -> str:
     if node.has_call_method:
         scope.declare_class_with_call(node.name)
     
+    # Phase 33.5: Register if class needs Proxy for attribute access
+    if node.has_attribute_proxy:
+        scope.declare_class_with_attribute_proxy(node.name)
+    
     # Class header
     if node.bases:
         parts.append(f"{ind}class {node.name} extends {node.bases[0]} {{")
@@ -424,6 +428,15 @@ def _emit_class_def(node: ClassDef, indent: int) -> str:
         parts.append("")  # Blank line before mixin code
         for mixin in mixins:
             parts.append(f"{ind}__py_classes.applyMixins({node.name}, [{mixin}]);")
+    
+    # Phase 33.5: Emit Proxy factory function for classes with attribute access dunders
+    # This wraps new instances with Proxy to intercept __getattr__/__setattr__/__delattr__
+    if node.has_attribute_proxy:
+        parts.append("")  # Blank line before factory
+        parts.append(f"{ind}function __py_create_{node.name}(...args) {{")
+        parts.append(f"{inner_ind}const instance = new {node.name}(...args);")
+        parts.append(f"{inner_ind}return new Proxy(instance, __py.proxy.createAttributeProxy(instance));")
+        parts.append(f"{ind}}}")
     
     return "\n".join(parts)
 

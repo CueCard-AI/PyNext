@@ -331,81 +331,13 @@ def get_test_runtime(include_dunders: bool = True) -> str:
     
     setup_code = setup_path.read_text()
     
-    if not include_dunders:
-        return setup_code
+    # setup.js already includes all dunder methods (__py.dunders.equals, etc.)
+    # so we don't need to load dunders.js separately.
+    # The dunders.js file is kept for direct ES6 module usage but is not
+    # needed for the test runtime since setup.js is self-contained.
+    #
+    # Note: include_dunders flag is now effectively ignored since setup.js
+    # already has all dunder support built-in.
     
-    # Load dunders.js with robust handling
-    runtime_path = root_path / "pynext" / "transpiler" / "runtime"
-    dunders_path = runtime_path / "dunders.js"
-    
-    if not dunders_path.exists():
-        # dunders.js not found - return just setup.js with warning
-        warnings.warn(
-            f"dunders.js not found at {dunders_path}. "
-            "Operator overloading runtime will not be available.",
-            RuntimeWarning
-        )
-        return setup_code
-    
-    # Use robust loader (tries esbuild, falls back gracefully)
-    dunders_code = load_esm_module(dunders_path)
-    
-    # Export to __py.dunders namespace
-    # Note: const dunders is block-scoped, so we need to access it differently
-    # We'll use a try-catch or check via eval to access it
-    export_code = """
-// Export dunders to __py.dunders (Segment 7 fix)
-(function() {
-    if (typeof __py === 'undefined') return;
-    
-    // Try to get dunders from the current scope
-    // Since const is block-scoped, we need to evaluate in the right scope
-    let dundersObj = null;
-    
-    // Try direct access first (works if dunders is in scope)
-    try {
-        if (typeof dunders !== 'undefined' && dunders) {
-            dundersObj = dunders;
-        }
-    } catch (e) {
-        // dunders not in scope, try other methods
-    }
-    
-    // Try to get from global scope (if it was assigned)
-    if (!dundersObj) {
-        if (typeof globalThis !== 'undefined' && globalThis.dunders) {
-            dundersObj = globalThis.dunders;
-        } else if (typeof global !== 'undefined' && global.dunders) {
-            dundersObj = global.dunders;
-        }
-    }
-    
-    // Try module.exports (for esbuild bundles)
-    if (!dundersObj && typeof module !== 'undefined' && module.exports) {
-        const moduleExports = module.exports.default || module.exports;
-        if (moduleExports && typeof moduleExports === 'object') {
-            dundersObj = moduleExports;
-        }
-    }
-    
-    // Finally, try evaluating in the current scope (for const dunders)
-    if (!dundersObj) {
-        try {
-            // Use Function constructor to access const variables in eval scope
-            const getDunders = new Function('try { return dunders; } catch(e) { return null; }');
-            dundersObj = getDunders();
-        } catch (e) {
-            // Failed to access
-        }
-    }
-    
-    // If we found dunders, assign it to __py.dunders
-    if (dundersObj && typeof dundersObj === 'object') {
-        __py.dunders = __py.dunders || {};
-        Object.assign(__py.dunders, dundersObj);
-    }
-})();
-"""
-    
-    return setup_code + "\n\n" + dunders_code + "\n" + export_code
+    return setup_code
 

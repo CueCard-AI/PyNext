@@ -35,18 +35,126 @@ from pynext.router.file_router import FileRouter
 
 
 # =============================================================================
-# Ensure Dependencies (esbuild, etc.)
+# Ensure Dependencies (esbuild, Docker PostgreSQL, Playwright)
 # =============================================================================
 
+def pytest_configure(config):
+    """
+    Set up environment variables BEFORE test collection.
+    
+    This runs before pytest_sessionstart and before modules are imported,
+    ensuring that pytestmark skipif conditions see the correct env vars.
+    """
+    # Check if Docker is available and PostgreSQL is running
+    if _check_docker_available():
+        if _check_postgres_running():
+            # Container already running - set env vars immediately
+            os.environ.setdefault(
+                "DATABASE_URL", 
+                "postgresql://pynext:pynext@localhost:5433/pynext_test"
+            )
+            os.environ.setdefault(
+                "TEST_DATABASE_URL", 
+                "postgresql://pynext:pynext@localhost:5433/pynext_test"
+            )
+            os.environ.setdefault(
+                "PYNEXT_TEST_DB_URL", 
+                "postgresql://pynext:pynext@localhost:5433/pynext_test"
+            )
+
+
+def _check_docker_available() -> bool:
+    """Check if Docker is available."""
+    try:
+        result = subprocess.run(
+            ["docker", "info"],
+            capture_output=True,
+            timeout=10
+        )
+        return result.returncode == 0
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return False
+
+
+def _check_postgres_running() -> bool:
+    """Check if PostgreSQL test container is running and healthy."""
+    try:
+        result = subprocess.run(
+            ["docker", "exec", "pynext-postgres-test", "pg_isready", "-U", "pynext"],
+            capture_output=True,
+            timeout=5
+        )
+        return result.returncode == 0
+    except (FileNotFoundError, subprocess.TimeoutExpired, subprocess.CalledProcessError):
+        return False
+
+
+def _start_postgres_container(root_path: Path) -> bool:
+    """Start PostgreSQL container using docker-compose."""
+    compose_file = root_path / "docker-compose.test.yml"
+    if not compose_file.exists():
+        return False
+    
+    try:
+        # Start the container
+        subprocess.run(
+            ["docker-compose", "-f", str(compose_file), "up", "-d"],
+            cwd=str(root_path),
+            capture_output=True,
+            timeout=60
+        )
+        
+        # Wait for PostgreSQL to be ready (max 30 seconds)
+        import time
+        for _ in range(30):
+            if _check_postgres_running():
+                return True
+            time.sleep(1)
+        
+        return False
+    except (FileNotFoundError, subprocess.TimeoutExpired, subprocess.CalledProcessError):
+        return False
+
+
+def _install_playwright_browsers() -> bool:
+    """Install Playwright browsers if needed."""
+    try:
+        # Check if chromium is installed
+        result = subprocess.run(
+            ["python", "-c", "from playwright.sync_api import sync_playwright; p = sync_playwright().start(); p.chromium; p.stop()"],
+            capture_output=True,
+            timeout=10
+        )
+        if result.returncode == 0:
+            return True
+        
+        # Install browsers
+        subprocess.run(
+            ["playwright", "install", "chromium"],
+            capture_output=True,
+            timeout=300
+        )
+        return True
+    except (FileNotFoundError, subprocess.TimeoutExpired, subprocess.CalledProcessError):
+        return False
+
+
 def pytest_sessionstart(session):
-    """Ensure esbuild is installed before running tests."""
+    """
+    Ensure all test dependencies are available before running tests.
+    
+    This automatically:
+    1. Installs npm dependencies (esbuild)
+    2. Starts PostgreSQL Docker container if available
+    3. Installs Playwright browsers if needed
+    """
     root_path = Path(__file__).parent.parent
+    
+    # 1. Install esbuild via npm
     node_modules = root_path / "node_modules" / ".bin" / "esbuild"
     package_json = root_path / "package.json"
     
-    # Check if esbuild needs to be installed
     if package_json.exists() and not node_modules.exists():
-        # Run npm install to get esbuild
         try:
             subprocess.run(
                 ["npm", "install"],
@@ -56,8 +164,47 @@ def pytest_sessionstart(session):
                 timeout=120
             )
         except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
-            # npm install failed or npm not available - tests will use fallback
-            pass
+            pass  # Tests will use fallback
+    
+    # 2. Start PostgreSQL Docker container if Docker is available
+    if _check_docker_available():
+        if not _check_postgres_running():
+            _start_postgres_container(root_path)
+            if _check_postgres_running():
+                # Set environment variables for tests
+                os.environ.setdefault(
+                    "DATABASE_URL", 
+                    "postgresql://pynext:pynext@localhost:5433/pynext_test"
+                )
+                os.environ.setdefault(
+                    "TEST_DATABASE_URL", 
+                    "postgresql://pynext:pynext@localhost:5433/pynext_test"
+                )
+                os.environ.setdefault(
+                    "PYNEXT_TEST_DB_URL", 
+                    "postgresql://pynext:pynext@localhost:5433/pynext_test"
+                )
+        else:
+            # Container already running, ensure env vars are set
+            os.environ.setdefault(
+                "DATABASE_URL", 
+                "postgresql://pynext:pynext@localhost:5433/pynext_test"
+            )
+            os.environ.setdefault(
+                "TEST_DATABASE_URL", 
+                "postgresql://pynext:pynext@localhost:5433/pynext_test"
+            )
+            os.environ.setdefault(
+                "PYNEXT_TEST_DB_URL", 
+                "postgresql://pynext:pynext@localhost:5433/pynext_test"
+            )
+    
+    # 3. Install Playwright browsers (optional, don't fail if unavailable)
+    try:
+        import playwright
+        _install_playwright_browsers()
+    except ImportError:
+        pass  # Playwright not installed, skip
 
 
 # =============================================================================

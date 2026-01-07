@@ -81,18 +81,29 @@ def _get_emit_expr():
 
 def _emit_with(node: With, indent: int) -> str:
     """
-    Emit with statement to try/finally pattern.
+    Emit with statement to try/catch/finally pattern with proper exception handling.
     
-    CRITICAL: Python's with statement calls __enter__() and assigns its return value.
-    We must:
-    1. Store the context manager object in a temporary variable
-    2. Call __enter__() and assign its return value to the user's variable
-    3. Call __exit__() on the original context manager object (not the user's variable)
+    CRITICAL: Python's with statement:
+    1. Calls __enter__() and assigns its return value
+    2. On exception, passes (exc_type, exc_val, exc_tb) to __exit__
+    3. If __exit__ returns True, exception is suppressed
+    4. On normal exit, calls __exit__(None, None, None)
     
-    Examples:
-        with resource() as r:     → const _ctx = resource();
-                                        const r = _ctx.__enter__();
-                                        try { use(r); } finally { _ctx.__exit__(); }
+    JavaScript pattern:
+        const _ctx = resource();
+        const r = _ctx.__enter__();
+        let _exc = null;
+        try {
+            use(r);
+        } catch (_e) {
+            _exc = _e;
+            if (!_ctx.__exit__(_e.constructor, _e, _e.stack)) {
+                throw _e;  // Re-throw if not suppressed
+            }
+        }
+        if (!_exc) {
+            _ctx.__exit__(null, null, null);
+        }
     """
     prefix = make_indent(indent)
     emit = _get_emit()
@@ -103,7 +114,7 @@ def _emit_with(node: With, indent: int) -> str:
         body = "\n".join(emit(stmt, indent + 1) for stmt in node.body)
         return f"{prefix}try {{\n{body}\n{prefix}}}"
     
-    # Handle multiple context managers with nested try/finally
+    # Handle multiple context managers with nested try/catch pattern
     lines = []
     context_vars = []  # Store context manager variables for __exit__ calls
     
@@ -111,9 +122,9 @@ def _emit_with(node: With, indent: int) -> str:
     for i, item in enumerate(node.items):
         context_js = emit_expr(item.context_expr)
         
-        # Create a temporary variable for the context manager itself
-        # Use _ctx for single context manager, _ctx0, _ctx1, etc. for multiple
+        # Create temporary variables
         ctx_var = f"_ctx{i}" if len(node.items) > 1 else "_ctx"
+        exc_var = f"_exc{i}" if len(node.items) > 1 else "_exc"
         
         if item.is_async:
             # Async context manager
@@ -123,14 +134,12 @@ def _emit_with(node: With, indent: int) -> str:
                     var_name = safe_js_name(item.optional_vars)
                     lines.append(f"{prefix}const {var_name} = await {ctx_var}.__aenter__();")
                 else:
-                    # Multiple variables (tuple unpacking)
-                    # For now, handle as single variable
                     var_name = safe_js_name(item.optional_vars[0] if item.optional_vars else "ctx")
                     lines.append(f"{prefix}const {var_name} = await {ctx_var}.__aenter__();")
             else:
                 lines.append(f"{prefix}await {ctx_var}.__aenter__();")
         else:
-            # Sync context manager - CRITICAL: Call __enter__() and assign its return value
+            # Sync context manager
             lines.append(f"{prefix}const {ctx_var} = {context_js};")
             if item.optional_vars:
                 if isinstance(item.optional_vars, str):
@@ -142,10 +151,12 @@ def _emit_with(node: With, indent: int) -> str:
             else:
                 lines.append(f"{prefix}{ctx_var}.__enter__();")
         
-        context_vars.append((ctx_var, item.is_async))
+        # Initialize exception tracker
+        lines.append(f"{prefix}let {exc_var} = null;")
+        
+        context_vars.append((ctx_var, exc_var, item.is_async))
     
-    # Build nested try/finally blocks
-    # Start with innermost (last item)
+    # Build nested try/catch blocks
     body_lines = []
     for stmt in node.body:
         body_lines.append(emit(stmt, indent + len(node.items)))
@@ -153,7 +164,6 @@ def _emit_with(node: With, indent: int) -> str:
     if not body_lines:
         body_lines.append(f"{make_indent(indent + len(node.items))}/* pass */")
     
-    # Build nested structure
     current_indent = indent + len(node.items) - 1
     current_body = "\n".join(body_lines)
     
@@ -165,23 +175,54 @@ def _emit_with(node: With, indent: int) -> str:
         orelse_body = "\n".join(orelse_lines)
         current_body += f"\n{make_indent(current_indent)}}} else {{\n{orelse_body}\n{make_indent(current_indent)}}}"
     
-    # Wrap in try/finally for each context manager (innermost to outermost)
-    # Use the stored context manager variables for __exit__ calls
+    # Wrap in try/catch for each context manager (innermost to outermost)
     for i in range(len(node.items) - 1, -1, -1):
-        ctx_var, is_async = context_vars[i]
+        ctx_var, exc_var, is_async = context_vars[i]
         exit_method = "__aexit__" if is_async else "__exit__"
+        ind = make_indent(current_indent)
+        ind1 = make_indent(current_indent + 1)
+        ind2 = make_indent(current_indent + 2)
         
-        try_block = f"{make_indent(current_indent)}try {{\n{current_body}\n{make_indent(current_indent)}}}"
-        finally_block = f"{make_indent(current_indent)}finally {{\n{make_indent(current_indent + 1)}"
+        # Build try/catch/finally with proper exception handling
+        try_block = f"{ind}try {{\n{current_body}\n{ind}}}"
         
+        # Catch block: pass exception info to __exit__ and check if suppressed
         if is_async:
-            finally_block += f"await {ctx_var}.{exit_method}();"
+            catch_block = (
+                f"{ind}catch (_e) {{\n"
+                f"{ind1}{exc_var} = _e;\n"
+                f"{ind1}const _suppressed = await {ctx_var}.{exit_method}(_e.constructor, _e, _e.stack || null);\n"
+                f"{ind1}if (!_suppressed) {{\n"
+                f"{ind2}throw _e;\n"
+                f"{ind1}}}\n"
+                f"{ind}}}"
+            )
         else:
-            finally_block += f"{ctx_var}.{exit_method}();"
+            catch_block = (
+                f"{ind}catch (_e) {{\n"
+                f"{ind1}{exc_var} = _e;\n"
+                f"{ind1}const _suppressed = {ctx_var}.{exit_method}(_e.constructor, _e, _e.stack || null);\n"
+                f"{ind1}if (!_suppressed) {{\n"
+                f"{ind2}throw _e;\n"
+                f"{ind1}}}\n"
+                f"{ind}}}"
+            )
         
-        finally_block += f"\n{make_indent(current_indent)}}}"
+        # Normal exit: call __exit__ with null args if no exception
+        if is_async:
+            normal_exit = (
+                f"{ind}if (!{exc_var}) {{\n"
+                f"{ind1}await {ctx_var}.{exit_method}(null, null, null);\n"
+                f"{ind}}}"
+            )
+        else:
+            normal_exit = (
+                f"{ind}if (!{exc_var}) {{\n"
+                f"{ind1}{ctx_var}.{exit_method}(null, null, null);\n"
+                f"{ind}}}"
+            )
         
-        current_body = f"{try_block}\n{finally_block}"
+        current_body = f"{try_block}\n{catch_block}\n{normal_exit}"
         current_indent -= 1
     
     lines.append(current_body)

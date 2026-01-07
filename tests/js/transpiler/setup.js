@@ -2477,12 +2477,238 @@ function call(obj, ...args) {
     return obj(...positionalArgs);
 }
 
+// =============================================================================
+// PHASE 33.2: DUNDER ARITHMETIC OPERATIONS
+// =============================================================================
+
+function dunders_add(a, b) {
+    if (typeof a === 'object' && a !== null && typeof a.__add__ === 'function') {
+        const result = a.__add__(b);
+        if (result !== undefined && result !== null) return result;
+    }
+    if (typeof b === 'object' && b !== null && typeof b.__radd__ === 'function') {
+        const result = b.__radd__(a);
+        if (result !== undefined && result !== null) return result;
+    }
+    if (Array.isArray(a) && Array.isArray(b)) return [...a, ...b];
+    return a + b;
+}
+
+function dunders_sub(a, b) {
+    if (typeof a === 'object' && a !== null && typeof a.__sub__ === 'function') {
+        const result = a.__sub__(b);
+        if (result !== undefined && result !== null) return result;
+    }
+    if (typeof b === 'object' && b !== null && typeof b.__rsub__ === 'function') {
+        const result = b.__rsub__(a);
+        if (result !== undefined && result !== null) return result;
+    }
+    return a - b;
+}
+
+function dunders_mul(a, b) {
+    if (typeof a === 'object' && a !== null && typeof a.__mul__ === 'function') {
+        const result = a.__mul__(b);
+        if (result !== undefined && result !== null) return result;
+    }
+    if (typeof b === 'object' && b !== null && typeof b.__rmul__ === 'function') {
+        const result = b.__rmul__(a);
+        if (result !== undefined && result !== null) return result;
+    }
+    if (typeof a === 'string' && typeof b === 'number') return a.repeat(b);
+    if (typeof b === 'string' && typeof a === 'number') return b.repeat(a);
+    if (Array.isArray(a) && typeof b === 'number') {
+        const result = [];
+        for (let i = 0; i < b; i++) result.push(...a);
+        return result;
+    }
+    return a * b;
+}
+
+function dunders_truediv(a, b) {
+    if (typeof a === 'object' && a !== null && typeof a.__truediv__ === 'function') {
+        const result = a.__truediv__(b);
+        if (result !== undefined && result !== null) return result;
+    }
+    if (typeof b === 'object' && b !== null && typeof b.__rtruediv__ === 'function') {
+        const result = b.__rtruediv__(a);
+        if (result !== undefined && result !== null) return result;
+    }
+    return a / b;
+}
+
+function dunders_floordiv(a, b) {
+    if (typeof a === 'object' && a !== null && typeof a.__floordiv__ === 'function') {
+        const result = a.__floordiv__(b);
+        if (result !== undefined && result !== null) return result;
+    }
+    if (typeof b === 'object' && b !== null && typeof b.__rfloordiv__ === 'function') {
+        const result = b.__rfloordiv__(a);
+        if (result !== undefined && result !== null) return result;
+    }
+    return Math.floor(a / b);
+}
+
+function dunders_mod(a, b) {
+    if (typeof a === 'object' && a !== null && typeof a.__mod__ === 'function') {
+        const result = a.__mod__(b);
+        if (result !== undefined && result !== null) return result;
+    }
+    if (typeof b === 'object' && b !== null && typeof b.__rmod__ === 'function') {
+        const result = b.__rmod__(a);
+        if (result !== undefined && result !== null) return result;
+    }
+    return ((a % b) + b) % b;
+}
+
+function dunders_pow(a, b) {
+    if (typeof a === 'object' && a !== null && typeof a.__pow__ === 'function') {
+        const result = a.__pow__(b);
+        if (result !== undefined && result !== null) return result;
+    }
+    if (typeof b === 'object' && b !== null && typeof b.__rpow__ === 'function') {
+        const result = b.__rpow__(a);
+        if (result !== undefined && result !== null) return result;
+    }
+    return Math.pow(a, b);
+}
+
+function dunders_lshift(a, b) {
+    if (typeof a === 'object' && a !== null && typeof a.__lshift__ === 'function') {
+        const result = a.__lshift__(b);
+        if (result !== undefined && result !== null) return result;
+    }
+    return a << b;
+}
+
+function dunders_rshift(a, b) {
+    if (typeof a === 'object' && a !== null && typeof a.__rshift__ === 'function') {
+        const result = a.__rshift__(b);
+        if (result !== undefined && result !== null) return result;
+    }
+    return a >> b;
+}
+
+function dunders_bitand(a, b) {
+    if (typeof a === 'object' && a !== null && typeof a.__and__ === 'function') {
+        const result = a.__and__(b);
+        if (result !== undefined && result !== null) return result;
+    }
+    return a & b;
+}
+
+function dunders_bitor(a, b) {
+    if (typeof a === 'object' && a !== null && typeof a.__or__ === 'function') {
+        const result = a.__or__(b);
+        if (result !== undefined && result !== null) return result;
+    }
+    return a | b;
+}
+
+function dunders_bitxor(a, b) {
+    if (typeof a === 'object' && a !== null && typeof a.__xor__ === 'function') {
+        const result = a.__xor__(b);
+        if (result !== undefined && result !== null) return result;
+    }
+    return a ^ b;
+}
+
+function dunders_neg(a) {
+    if (typeof a === 'object' && a !== null && typeof a.__neg__ === 'function') {
+        return a.__neg__();
+    }
+    return -a;
+}
+
+function dunders_pos(a) {
+    if (typeof a === 'object' && a !== null && typeof a.__pos__ === 'function') {
+        return a.__pos__();
+    }
+    return +a;
+}
+
+// In-place operators
+function dunders_iadd(a, b) {
+    if (typeof a === 'object' && a !== null && typeof a.__iadd__ === 'function') {
+        return a.__iadd__(b);
+    }
+    return dunders_add(a, b);
+}
+
+function dunders_isub(a, b) {
+    if (typeof a === 'object' && a !== null && typeof a.__isub__ === 'function') {
+        return a.__isub__(b);
+    }
+    return dunders_sub(a, b);
+}
+
+function dunders_imul(a, b) {
+    if (typeof a === 'object' && a !== null && typeof a.__imul__ === 'function') {
+        return a.__imul__(b);
+    }
+    return dunders_mul(a, b);
+}
+
+function dunders_itruediv(a, b) {
+    if (typeof a === 'object' && a !== null && typeof a.__itruediv__ === 'function') {
+        return a.__itruediv__(b);
+    }
+    return dunders_truediv(a, b);
+}
+
+function dunders_ifloordiv(a, b) {
+    if (typeof a === 'object' && a !== null && typeof a.__ifloordiv__ === 'function') {
+        return a.__ifloordiv__(b);
+    }
+    return dunders_floordiv(a, b);
+}
+
+function dunders_imod(a, b) {
+    if (typeof a === 'object' && a !== null && typeof a.__imod__ === 'function') {
+        return a.__imod__(b);
+    }
+    return dunders_mod(a, b);
+}
+
+function dunders_ipow(a, b) {
+    if (typeof a === 'object' && a !== null && typeof a.__ipow__ === 'function') {
+        return a.__ipow__(b);
+    }
+    return dunders_pow(a, b);
+}
+
 // Add Phase 33.2 helpers to __py
 __py.dunders = {
+    // Equality
     equals: dunders_equals,
     notEquals: dunders_notEquals,
     repr: dunders_repr,
     format: dunders_format,
+    // Arithmetic
+    add: dunders_add,
+    sub: dunders_sub,
+    mul: dunders_mul,
+    truediv: dunders_truediv,
+    floordiv: dunders_floordiv,
+    mod: dunders_mod,
+    pow: dunders_pow,
+    // Bitwise
+    lshift: dunders_lshift,
+    rshift: dunders_rshift,
+    bitand: dunders_bitand,
+    bitor: dunders_bitor,
+    bitxor: dunders_bitxor,
+    // Unary
+    neg: dunders_neg,
+    pos: dunders_pos,
+    // In-place
+    iadd: dunders_iadd,
+    isub: dunders_isub,
+    imul: dunders_imul,
+    itruediv: dunders_itruediv,
+    ifloordiv: dunders_ifloordiv,
+    imod: dunders_imod,
+    ipow: dunders_ipow,
 };
 
 __py.proxy = {

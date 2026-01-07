@@ -956,6 +956,7 @@ class ClassDef(JSNode):
     is_abstract: bool = False  # Phase 33.1: ABC support
     abstract_methods: tuple[str, ...] = field(default_factory=tuple)  # Phase 33.1: Abstract method names
     has_call_method: bool = False  # Phase 33.2: True if class has __call__ method
+    has_attribute_proxy: bool = False  # Phase 33.5: True if class has __getattr__/__setattr__/__delattr__
 
 
 @dataclass(frozen=True)

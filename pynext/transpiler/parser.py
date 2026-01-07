@@ -1984,6 +1984,14 @@ def _parse_class_def(node: ast.ClassDef, source: Optional[str] = None, resolver:
         for item in body
     )
     
+    # Phase 33.5: Check if class has attribute access dunders (__getattr__, __setattr__, __delattr__)
+    # These require wrapping instances with JavaScript Proxy
+    ATTRIBUTE_PROXY_DUNDERS = {"__getattr__", "__setattr__", "__delattr__"}
+    has_attribute_proxy = any(
+        isinstance(item, DunderMethod) and item.name in ATTRIBUTE_PROXY_DUNDERS
+        for item in body
+    )
+    
     return ClassDef(
         name=node.name,
         bases=bases,
@@ -1995,6 +2003,7 @@ def _parse_class_def(node: ast.ClassDef, source: Optional[str] = None, resolver:
         is_abstract=is_abstract,
         abstract_methods=tuple(abstract_methods),  # Phase 33.1
         has_call_method=has_call_method,  # Phase 33.2
+        has_attribute_proxy=has_attribute_proxy,  # Phase 33.5
         line=node.lineno,
         col=node.col_offset,
     )

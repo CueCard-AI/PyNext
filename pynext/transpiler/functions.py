@@ -227,6 +227,136 @@ def _emit_function_def(node: FunctionDef, indent: int) -> str:
     return "\n".join(lines)
 
 
+def _is_contextmanager_decorated(decorators: list) -> bool:
+    """
+    Check if a function has @contextmanager decorator.
+    
+    Phase 33.5: Detects contextmanager decorators for special transpilation.
+    
+    Args:
+        decorators: List of Decorator nodes
+    
+    Returns:
+        True if function has @contextmanager or @contextlib.contextmanager
+    """
+    CONTEXTMANAGER_DECORATORS = {"contextmanager", "contextlib.contextmanager"}
+    for decorator in decorators:
+        if decorator.name in CONTEXTMANAGER_DECORATORS:
+            return True
+    return False
+
+
+def _emit_contextmanager_function(node: DecoratedFunction, indent: int) -> str:
+    """
+    Emit @contextmanager decorated generator as a context manager object factory.
+    
+    Phase 33.5: Transpiles Python's @contextmanager pattern to JavaScript.
+    
+    Python Input:
+        @contextmanager
+        def managed_resource(name):
+            resource = acquire(name)
+            try:
+                yield resource
+            finally:
+                release(resource)
+    
+    JavaScript Output:
+        function managed_resource(name) {
+            return {
+                _gen: null,
+                __enter__() {
+                    this._gen = (function*() {
+                        const resource = acquire(name);
+                        try { yield resource; }
+                        finally { release(resource); }
+                    })();
+                    return this._gen.next().value;
+                },
+                __exit__(excType, excVal, excTb) {
+                    try {
+                        if (excType) this._gen.throw(excVal);
+                        else this._gen.next();
+                    } catch (e) { if (e !== excVal) throw e; }
+                    return false;
+                }
+            };
+        }
+    
+    Args:
+        node: DecoratedFunction with @contextmanager decorator
+        indent: Indentation level
+    
+    Returns:
+        JavaScript code for the context manager factory function
+    """
+    prefix = make_indent(indent)
+    inner_prefix = make_indent(indent + 1)
+    gen_prefix = make_indent(indent + 4)
+    func = node.function
+    name = safe_js_name(func.name)
+    
+    # Build parameters
+    params = _build_params_full(func)
+    params_js = ", ".join(params)
+    
+    # Enter scope for generator body
+    scope = get_scope()
+    scope.enter_function_scope()
+    
+    # Declare parameters
+    for arg in func.posonly_args:
+        scope.declare(safe_js_name(arg))
+    for arg in func.args:
+        scope.declare(safe_js_name(arg))
+    if func.vararg:
+        scope.declare(safe_js_name(func.vararg))
+    if func.kwarg:
+        scope.declare(safe_js_name(func.kwarg))
+    for arg in func.kwonly_args:
+        scope.declare(safe_js_name(arg))
+    
+    # Emit generator body
+    emit = _get_emit()
+    body_lines = []
+    for stmt in func.body:
+        body_lines.append(emit(stmt, indent + 4))
+    
+    scope.exit_scope()
+    
+    generator_body = "\n".join(body_lines) if body_lines else f"{gen_prefix}/* pass */"
+    
+    # Build the context manager object factory
+    lines = [
+        f"{prefix}function {name}({params_js}) {{",
+        f"{inner_prefix}return {{",
+        f"{inner_prefix}    _gen: null,",
+        f"{inner_prefix}    __enter__() {{",
+        f"{inner_prefix}        this._gen = (function*() {{",
+        generator_body,
+        f"{inner_prefix}        }})();",
+        f"{inner_prefix}        return this._gen.next().value;",
+        f"{inner_prefix}    }},",
+        f"{inner_prefix}    __exit__(excType, excVal, excTb) {{",
+        f"{inner_prefix}        try {{",
+        f"{inner_prefix}            if (excType) {{ this._gen.throw(excVal); }}",
+        f"{inner_prefix}            else {{ this._gen.next(); }}",
+        f"{inner_prefix}        }} catch (e) {{",
+        f"{inner_prefix}            if (e !== excVal) throw e;",
+        f"{inner_prefix}        }}",
+        f"{inner_prefix}        return false;",
+        f"{inner_prefix}    }}",
+        f"{inner_prefix}}};",
+        f"{prefix}}}",
+    ]
+    
+    # Declare function name in scope
+    scope = get_scope()
+    scope.declare(name)
+    
+    return "\n".join(lines)
+
+
 def _emit_decorated_function(node: DecoratedFunction, indent: int) -> str:
     """
     Emit decorated function.
@@ -243,7 +373,14 @@ def _emit_decorated_function(node: DecoratedFunction, indent: int) -> str:
         @log_calls                  → const foo = __py.log_calls(__py.memoize(function foo() {...}));
         @memoize
         def foo(): ...
+        
+        @contextmanager             → function resource() { return { __enter__() {...}, __exit__() {...} }; }
+        def resource(): ...
     """
+    # Phase 33.5: Handle @contextmanager specially
+    if _is_contextmanager_decorated(node.decorators):
+        return _emit_contextmanager_function(node, indent)
+    
     prefix = make_indent(indent)
     inner_prefix = make_indent(indent + 1)
     func = node.function
@@ -397,10 +534,20 @@ def _emit_decorator(decorator: Decorator) -> str:
     BUILTIN_DECORATORS = {
         "memoize", "debounce", "throttle", "once", "retry",
         "deprecated", "log_calls", "timed", "cached_property",
-        "validate", "lock", "compose"
+        "validate", "lock", "compose", "contextmanager"
     }
     
-    if name in BUILTIN_DECORATORS:
+    # Phase 33.5: Context manager decorators that transform generators to context managers
+    CONTEXTMANAGER_DECORATORS = {"contextmanager", "contextlib.contextmanager"}
+    
+    # Phase 33.4: @typed decorator (runtime type checking)
+    # In production, this is stripped; in dev, it wraps with type checks
+    if name == "typed" or name == "pynext.client.typed" or (name.startswith("pynext.client") and name.endswith("typed")):
+        # @typed decorator - handled specially by transpiler
+        # In production: stripped (no-op)
+        # In dev: wrapped with type validation
+        prefix = ""
+    elif name in BUILTIN_DECORATORS:
         prefix = "__py."
     elif "." in name:
         # Module-qualified decorator

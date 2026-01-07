@@ -1050,6 +1050,181 @@ import * as decorators from './decorators.js';
 import * as dunders from './dunders.js';
 
 // =============================================================================
+// PROXY HELPERS (Phase 33.5)
+// =============================================================================
+
+import { proxy } from './proxy.js';
+
+// =============================================================================
+// ASYNC HELPERS (Phase 33.5)
+// =============================================================================
+
+import { sleep } from './async.js';
+
+// =============================================================================
+// CONTEXT MANAGER HELPERS (Phase 33.5)
+// =============================================================================
+
+/**
+ * Execute a context manager (with statement).
+ * 
+ * Python:
+ *   with resource() as r:
+ *       use(r)
+ * 
+ * JavaScript:
+ *   __py.with(resource(), r => { use(r); });
+ * 
+ * @param {object} cm - Context manager with __enter__/__exit__ methods
+ * @param {function} fn - Function to execute with the resource
+ * @returns {*} Result of fn
+ */
+export function withContext(cm, fn) {
+    const value = cm.__enter__();
+    let excType = null, excVal = null, excTb = null;
+    try {
+        return fn(value);
+    } catch (e) {
+        excType = e.constructor;
+        excVal = e;
+        excTb = e.stack || null;
+        // If __exit__ returns truthy, exception is suppressed
+        if (cm.__exit__(excType, excVal, excTb)) {
+            return undefined;
+        }
+        throw e;
+    } finally {
+        if (!excType) {
+            cm.__exit__(null, null, null);
+        }
+    }
+}
+
+/**
+ * Create a context manager from a generator function (runtime support for @contextmanager).
+ * 
+ * This is the runtime support for functions decorated with @contextmanager.
+ * The transpiler generates code that uses this pattern.
+ * 
+ * IMPORTANT: This properly handles exception suppression. If the generator catches
+ * an exception thrown into it and completes normally (without re-raising), the
+ * exception is suppressed (returns true from __exit__).
+ * 
+ * Python behavior:
+ *   @contextmanager
+ *   def suppress_errors():
+ *       try:
+ *           yield
+ *       except ValueError:
+ *           pass  # Exception suppressed - __exit__ returns True
+ * 
+ * @param {function} genFn - Generator function
+ * @returns {function} Factory that creates context manager objects
+ */
+export function contextmanager(genFn) {
+    return function(...args) {
+        return {
+            _gen: null,
+            
+            __enter__() {
+                this._gen = genFn(...args);
+                const result = this._gen.next();
+                if (result.done) {
+                    throw new Error("Generator did not yield. @contextmanager requires exactly one yield.");
+                }
+                return result.value;
+            },
+            
+            __exit__(excType, excVal, excTb) {
+                try {
+                    if (excType) {
+                        // Throw exception into generator
+                        const result = this._gen.throw(excVal);
+                        // If generator catches and completes without re-raising, suppress
+                        if (result.done) {
+                            return true;  // Suppress exception
+                        }
+                        // Generator yielded again - error!
+                        throw new Error("Generator didn't stop after throw. @contextmanager requires exactly one yield.");
+                    } else {
+                        // Normal exit - complete the generator
+                        const result = this._gen.next();
+                        if (!result.done) {
+                            throw new Error("Generator didn't stop. @contextmanager requires exactly one yield.");
+                        }
+                    }
+                } catch (e) {
+                    // If the exception is the same one we threw in, re-raise it
+                    if (e === excVal) {
+                        return false;  // Don't suppress
+                    }
+                    // Different exception from cleanup code - let it propagate
+                    throw e;
+                }
+                return false;
+            }
+        };
+    };
+}
+
+/**
+ * Create an async context manager from an async generator function.
+ * 
+ * This is the runtime support for functions decorated with @asynccontextmanager.
+ * 
+ * Python behavior:
+ *   @asynccontextmanager
+ *   async def async_resource():
+ *       resource = await acquire()
+ *       try:
+ *           yield resource
+ *       finally:
+ *           await release(resource)
+ * 
+ * @param {function} asyncGenFn - Async generator function
+ * @returns {function} Factory that creates async context manager objects
+ */
+export function asynccontextmanager(asyncGenFn) {
+    return function(...args) {
+        return {
+            _gen: null,
+            
+            async __aenter__() {
+                this._gen = asyncGenFn(...args);
+                const result = await this._gen.next();
+                if (result.done) {
+                    throw new Error("Async generator did not yield. @asynccontextmanager requires exactly one yield.");
+                }
+                return result.value;
+            },
+            
+            async __aexit__(excType, excVal, excTb) {
+                try {
+                    if (excType) {
+                        const result = await this._gen.throw(excVal);
+                        if (result.done) {
+                            return true;  // Suppress exception
+                        }
+                        throw new Error("Async generator didn't stop after throw. @asynccontextmanager requires exactly one yield.");
+                    } else {
+                        const result = await this._gen.next();
+                        if (!result.done) {
+                            throw new Error("Async generator didn't stop. @asynccontextmanager requires exactly one yield.");
+                        }
+                    }
+                } catch (e) {
+                    if (e === excVal) {
+                        return false;
+                    }
+                    throw e;
+                }
+                return false;
+            }
+        };
+    };
+}
+
+// =============================================================================
 // EXPORT DEFAULT OBJECT
 // =============================================================================
 
@@ -1132,6 +1307,14 @@ const __py = {
     compose: decorators.compose,
     // Dunder methods (Phase 33.3: Operator Overloading)
     dunders: dunders.dunders,
+    // Async helpers (Phase 33.5)
+    sleep,
+    // Context manager helpers (Phase 33.5)
+    contextmanager,
+    asynccontextmanager,
+    with: withContext,
+    // Proxy helpers (Phase 33.5)
+    proxy,
 };
 
 export default __py;

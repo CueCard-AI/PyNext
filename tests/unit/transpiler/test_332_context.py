@@ -33,8 +33,9 @@ with open_file("test.txt") as f:
 """
         result = transpile(code)
         assert "try" in result
-        assert "finally" in result
         assert "__exit__" in result
+        # Phase 33.5: Uses try/catch pattern for exception suppression
+        assert "catch" in result or "finally" in result
     
     def test_with_statement_no_variable(self):
         """with statement without variable binding."""
@@ -44,7 +45,7 @@ with lock():
 """
         result = transpile(code)
         assert "try" in result
-        assert "finally" in result
+        assert "catch" in result or "finally" in result
     
     def test_with_statement_simple_body(self):
         """with statement with simple body."""
@@ -54,8 +55,8 @@ with resource() as r:
 """
         result = transpile(code)
         assert "try" in result
-        assert "finally" in result
         assert "__exit__" in result
+        assert "catch" in result or "finally" in result
     
     def test_with_statement_multiple_statements(self):
         """with statement with multiple statements."""
@@ -67,7 +68,7 @@ with resource() as r:
 """
         result = transpile(code)
         assert "try" in result
-        assert "finally" in result
+        assert "catch" in result or "finally" in result
     
     def test_with_statement_with_return(self):
         """with statement with return."""
@@ -78,7 +79,7 @@ def func():
 """
         result = transpile(code)
         assert "try" in result
-        assert "finally" in result
+        assert "catch" in result or "finally" in result
         assert "return" in result
     
     def test_with_statement_with_exception(self):
@@ -92,7 +93,7 @@ with resource() as r:
 """
         result = transpile(code)
         assert "try" in result
-        assert "finally" in result
+        assert "catch" in result or "finally" in result
     
     def test_with_statement_with_conditional(self):
         """with statement with conditional."""
@@ -105,7 +106,7 @@ with resource() as r:
 """
         result = transpile(code)
         assert "try" in result
-        assert "finally" in result
+        assert "catch" in result or "finally" in result
     
     def test_with_statement_with_loop(self):
         """with statement with loop."""
@@ -116,7 +117,7 @@ with resource() as r:
 """
         result = transpile(code)
         assert "try" in result
-        assert "finally" in result
+        assert "catch" in result or "finally" in result
     
     def test_with_statement_with_nested_with(self):
         """Nested with statements."""
@@ -127,7 +128,7 @@ with outer() as o:
 """
         result = transpile(code)
         assert result.count("try") >= 2
-        assert result.count("finally") >= 2
+        assert result.count("catch") >= 2 or result.count("finally") >= 2
     
     def test_with_statement_with_else(self):
         """with statement with else clause (Python doesn't support with...else, test error handling)."""
@@ -159,7 +160,7 @@ with r1() as a, r2() as b:
 """
         result = transpile(code)
         assert result.count("try") >= 2
-        assert result.count("finally") >= 2
+        assert result.count("catch") >= 2 or result.count("finally") >= 2
         assert "__exit__" in result
     
     def test_three_context_managers(self):
@@ -170,7 +171,7 @@ with r1() as a, r2() as b, r3() as c:
 """
         result = transpile(code)
         assert result.count("try") >= 3
-        assert result.count("finally") >= 3
+        assert result.count("catch") >= 3 or result.count("finally") >= 3
     
     def test_multiple_with_one_variable(self):
         """Multiple managers, one with variable."""
@@ -180,7 +181,7 @@ with r1(), r2() as b:
 """
         result = transpile(code)
         assert "try" in result
-        assert "finally" in result
+        assert "catch" in result or "finally" in result
     
     def test_multiple_nested_structure(self):
         """Multiple managers with nested structure."""
@@ -191,7 +192,7 @@ with a() as x, b() as y:
 """
         result = transpile(code)
         assert result.count("try") >= 3
-        assert result.count("finally") >= 3
+        assert result.count("catch") >= 3 or result.count("finally") >= 3
     
     def test_multiple_with_exception(self):
         """Multiple managers with exception."""
@@ -204,7 +205,7 @@ with r1() as a, r2() as b:
 """
         result = transpile(code)
         assert "try" in result
-        assert "finally" in result
+        assert "catch" in result or "finally" in result
 
 
 # =============================================================================
@@ -342,7 +343,7 @@ def func():
         result = transpile(code)
         assert "function" in result
         assert "try" in result
-        assert "finally" in result
+        assert "catch" in result or "finally" in result
     
     def test_with_in_class_method(self):
         """with statement in class method."""
@@ -355,7 +356,7 @@ class Handler:
         result = transpile(code)
         assert "class" in result
         assert "try" in result
-        assert "finally" in result
+        assert "catch" in result or "finally" in result
     
     def test_with_in_generator(self):
         """with statement in generator."""
@@ -367,7 +368,7 @@ def gen():
         result = transpile(code)
         assert "function*" in result
         assert "try" in result
-        assert "finally" in result
+        assert "catch" in result or "finally" in result
     
     def test_with_in_async_function(self):
         """with statement in async function."""
@@ -379,7 +380,7 @@ async def func():
         result = transpile(code)
         assert "async" in result
         assert "try" in result
-        assert "finally" in result
+        assert "catch" in result or "finally" in result
     
     def test_with_with_comprehension(self):
         """with statement with comprehension."""
@@ -389,5 +390,5 @@ with resource() as r:
 """
         result = transpile(code)
         assert "try" in result
-        assert "finally" in result
+        assert "catch" in result or "finally" in result
 

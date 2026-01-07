@@ -1,0 +1,44 @@
+# Docker Compose for PyNext Test Environment
+#
+# This file sets up the test infrastructure including:
+# - PostgreSQL database for integration tests
+#
+# Usage:
+#   docker-compose -f docker-compose.test.yml up -d
+#   pytest tests/
+#   docker-compose -f docker-compose.test.yml down
+#
+# Environment variables set for tests:
+#   DATABASE_URL=postgresql://pynext:pynext@localhost:5433/pynext_test
+#   TEST_DATABASE_URL=postgresql://pynext:pynext@localhost:5433/pynext_test
+
+version: '3.8'
+
+services:
+  # PostgreSQL for integration tests
+  postgres-test:
+    image: postgres:15-alpine
+    container_name: pynext-postgres-test
+    environment:
+      POSTGRES_USER: pynext
+      POSTGRES_PASSWORD: pynext
+      POSTGRES_DB: pynext_test
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_test_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pynext -d pynext_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - pynext-test
+
+networks:
+  pynext-test:
+    driver: bridge
+
+volumes:
+  postgres_test_data:
+

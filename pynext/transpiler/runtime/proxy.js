@@ -169,34 +169,47 @@ export function createSubscriptProxy(target) {
 /**
  * Create a Proxy handler for attribute access (obj.attr).
  * 
- * Handles:
- * - __getattr__(name) for obj.attr when attr doesn't exist
- * - __setattr__(name, value) for obj.attr = value
- * - __delattr__(name) for del obj.attr
+ * Handles Python's attribute access protocol:
+ * - __getattr__(name): Called ONLY when attr doesn't exist (fallback)
+ * - __setattr__(name, value): Called for EVERY attribute assignment (Python behavior)
+ * - __delattr__(name): Called for EVERY attribute deletion (Python behavior)
+ * 
+ * IMPORTANT: This matches Python's semantics where:
+ * - __getattr__ is only called as a fallback for missing attributes
+ * - __setattr__ is ALWAYS called for any attribute assignment
+ * - __delattr__ is ALWAYS called for any attribute deletion
  * 
  * @param {object} target - Object to wrap
- * @returns {Proxy} Proxy object with attribute access
+ * @returns {object} Proxy handler for attribute access
  * 
  * @example
  * const obj = { __getattr__(name) { return this._data[name]; } };
- * const proxied = new Proxy(obj, createAttributeProxy());
- * proxied.attr  // → calls obj.__getattr__("attr")
+ * const proxied = new Proxy(obj, createAttributeProxy(obj));
+ * proxied.attr  // → calls obj.__getattr__("attr") if attr not found
  */
 export function createAttributeProxy(target) {
+    // Cache whether target defines these methods for performance
+    const hasSetattr = typeof target.__setattr__ === 'function';
+    const hasDelattr = typeof target.__delattr__ === 'function';
+    const hasGetattr = typeof target.__getattr__ === 'function';
+    
     return {
         get(target, prop, receiver) {
-            // Skip special properties
-            if (prop === '__proto__' || prop === 'constructor' || prop === 'prototype') {
+            // Skip special properties and symbols
+            if (typeof prop === 'symbol' || 
+                prop === '__proto__' || 
+                prop === 'constructor' || 
+                prop === 'prototype') {
                 return Reflect.get(target, prop, receiver);
             }
             
-            // If property exists directly, return it
+            // If property exists directly, return it (normal lookup)
             if (prop in target || Object.prototype.hasOwnProperty.call(target, prop)) {
                 return Reflect.get(target, prop, receiver);
             }
             
-            // Try __getattr__ for missing attributes
-            if (typeof target.__getattr__ === 'function') {
+            // __getattr__ is only called for MISSING attributes (Python behavior)
+            if (hasGetattr) {
                 try {
                     return target.__getattr__(prop);
                 } catch (e) {
@@ -212,18 +225,17 @@ export function createAttributeProxy(target) {
         },
         
         set(target, prop, value, receiver) {
-            // Skip special properties
-            if (prop === '__proto__' || prop === 'constructor' || prop === 'prototype') {
+            // Skip special properties and symbols
+            if (typeof prop === 'symbol' || 
+                prop === '__proto__' || 
+                prop === 'constructor' || 
+                prop === 'prototype') {
                 return Reflect.set(target, prop, value, receiver);
             }
             
-            // If property exists directly, set it
-            if (prop in target || Object.prototype.hasOwnProperty.call(target, prop)) {
-                return Reflect.set(target, prop, value, receiver);
-            }
-            
-            // Try __setattr__ for attribute assignment
-            if (typeof target.__setattr__ === 'function') {
+            // Python: __setattr__ is ALWAYS called for attribute assignment
+            // This is different from __getattr__ which is only for missing attributes
+            if (hasSetattr) {
                 target.__setattr__(prop, value);
                 return true;
             }
@@ -233,13 +245,13 @@ export function createAttributeProxy(target) {
         },
         
         deleteProperty(target, prop) {
-            // If property exists directly, delete it
-            if (prop in target || Object.prototype.hasOwnProperty.call(target, prop)) {
+            // Skip symbols
+            if (typeof prop === 'symbol') {
                 return Reflect.deleteProperty(target, prop);
             }
             
-            // Try __delattr__ for attribute deletion
-            if (typeof target.__delattr__ === 'function') {
+            // Python: __delattr__ is ALWAYS called for attribute deletion
+            if (hasDelattr) {
                 try {
                     target.__delattr__(prop);
                     return true;
@@ -262,7 +274,7 @@ export function createAttributeProxy(target) {
             }
             
             // Try __getattr__ to see if attribute exists (may throw AttributeError)
-            if (typeof target.__getattr__ === 'function') {
+            if (hasGetattr) {
                 try {
                     target.__getattr__(prop);
                     return true;
