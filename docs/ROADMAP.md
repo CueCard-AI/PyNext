@@ -13134,9 +13134,27 @@ Before moving to Phase 34, ALL of the following must be complete:
 
 ---
 
-#### Phase 34: DOM API Bindings (400 tests, 4 weeks)
+#### Phase 34: DOM API Bindings (625 tests, 7 weeks)
 
-Complete document, Element, and Event interfaces — the foundation for all UI manipulation.
+Complete document, Element, Event, CSS, and browser utility interfaces — the foundation for all UI manipulation.
+
+**Sub-Phase Overview:**
+
+| Sub-Phase | Focus | Tests | Duration |
+|-----------|-------|-------|----------|
+| **34.1** | Core DOM (Document + Element) | 100 | 1 week |
+| **34.2** | CSS Runtime & Styling | 120 | 1 week |
+| **34.3** | CSS Typed Object Model | 135 | 1 week |
+| **34.4** | Events & Interactions | 80 | 1 week |
+| **34.5** | URL, Encoding & Binary Data | 95 | 1 week |
+| **34.6** | Memory Management | 70 | 1 week |
+| **34.7** | Error Boundaries & DX | 25 | 1 week |
+
+---
+
+##### Phase 34.1: Core DOM APIs (100 tests, 1 week)
+
+Document queries, element creation, attributes, traversal, and manipulation.
 
 ##### DOM API Architecture
 
@@ -13198,37 +13216,188 @@ Complete document, Element, and Event interfaces — the foundation for all UI m
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-##### Python API
+###### Python API (Phase 34.1)
 
 ```python
 from pynext.client import document, Element
 
-# Query
+# =============================================================================
+# Document Queries
+# =============================================================================
+
 el = document.getElementById("app")
 el = document.querySelector(".card")
 els = document.querySelectorAll("div.item")
+els = document.getElementsByClassName("item")
+els = document.getElementsByTagName("div")
 
-# Create
+# =============================================================================
+# Element Creation
+# =============================================================================
+
 div = document.createElement("div")
 svg = document.createElementNS("http://www.w3.org/2000/svg", "circle")
 text = document.createTextNode("Hello")
 fragment = document.createDocumentFragment()
+comment = document.createComment("This is a comment")
 
-# Element - Attributes
+# =============================================================================
+# Element Attributes
+# =============================================================================
+
 el.getAttribute("data-id")
 el.setAttribute("data-id", "123")
 el.removeAttribute("disabled")
 el.hasAttribute("hidden")
+el.toggleAttribute("disabled")
 el.dataset.userId  # data-user-id
+el.dataset.userName = "Alice"  # Sets data-user-name
 
-# Element - Classes
-el.classList.add("active", "highlighted")
-el.classList.remove("hidden")
-el.classList.toggle("selected")
-el.classList.contains("active")
+# =============================================================================
+# Element Content
+# =============================================================================
+
+el.textContent = "Hello"
+el.innerHTML = "<span>World</span>"
+el.innerText = "Visible text"
+html = el.outerHTML
+
+# =============================================================================
+# DOM Traversal
+# =============================================================================
+
+el.parentElement
+el.parentNode
+el.children                    # HTMLCollection of child elements
+el.childNodes                  # NodeList including text nodes
+el.firstElementChild
+el.lastElementChild
+el.firstChild
+el.lastChild
+el.nextElementSibling
+el.previousElementSibling
+el.nextSibling
+el.previousSibling
+el.closest(".container")       # Find ancestor matching selector
+el.matches(".active")          # Check if matches selector
+
+# =============================================================================
+# DOM Manipulation
+# =============================================================================
+
+parent.appendChild(child)
+parent.insertBefore(new_child, reference)
+parent.removeChild(child)
+parent.replaceChild(new_child, old_child)
+el.remove()                    # Remove self from parent
+el.cloneNode(deep=True)        # Clone element
+el.append(child1, "text", child2)   # Append multiple
+el.prepend(child1, child2)     # Prepend multiple
+el.after(sibling)              # Insert after
+el.before(sibling)             # Insert before
+el.replaceWith(replacement)    # Replace self
+
+# =============================================================================
+# Element Properties
+# =============================================================================
+
+el.id
+el.tagName                     # "DIV", "SPAN", etc.
 el.className = "foo bar"
+el.childElementCount
+```
 
-# Element - Style (Runtime CSS Manipulation)
+###### Phase 34.1 Checklist
+
+```
+Core DOM APIs (Phase 34.1)
+├── Document Queries (20 tests)
+│   ├── [ ] getElementById
+│   ├── [ ] querySelector
+│   ├── [ ] querySelectorAll
+│   ├── [ ] getElementsByClassName
+│   ├── [ ] getElementsByTagName
+│   └── [ ] getElementsByName
+│
+├── Element Creation (15 tests)
+│   ├── [ ] createElement
+│   ├── [ ] createElementNS (SVG, MathML)
+│   ├── [ ] createTextNode
+│   ├── [ ] createComment
+│   └── [ ] createDocumentFragment
+│
+├── Attributes (20 tests)
+│   ├── [ ] getAttribute / setAttribute
+│   ├── [ ] removeAttribute / hasAttribute
+│   ├── [ ] toggleAttribute
+│   ├── [ ] dataset (data-* attributes)
+│   └── [ ] attributes NamedNodeMap
+│
+├── Content (10 tests)
+│   ├── [ ] textContent
+│   ├── [ ] innerHTML
+│   ├── [ ] innerText
+│   └── [ ] outerHTML
+│
+├── Traversal (15 tests)
+│   ├── [ ] parentElement / parentNode
+│   ├── [ ] children / childNodes
+│   ├── [ ] first/lastElementChild
+│   ├── [ ] next/previousElementSibling
+│   ├── [ ] closest()
+│   └── [ ] matches()
+│
+└── Manipulation (20 tests)
+    ├── [ ] appendChild / insertBefore
+    ├── [ ] removeChild / replaceChild
+    ├── [ ] remove()
+    ├── [ ] cloneNode()
+    ├── [ ] append() / prepend()
+    ├── [ ] before() / after()
+    └── [ ] replaceWith()
+```
+
+###### Files to Create (Phase 34.1)
+
+- `pynext/client/dom.py` — Document and Element Python stubs
+- `pynext/client/node.py` — Node, NodeList, HTMLCollection
+- `pynext/runtime/dom/document.js` — Document API runtime
+- `pynext/runtime/dom/element.js` — Element API runtime
+- `tests/unit/client/test_341_document.py` — Document tests
+- `tests/unit/client/test_341_element.py` — Element tests
+
+---
+
+##### Phase 34.2: CSS Runtime & Styling (120 tests, 1 week)
+
+Inline styles, CSS custom properties, computed styles, and classList.
+
+# Element - Dimensions (Phase 34.2)
+rect = el.getBoundingClientRect()
+# rect.top, rect.left, rect.width, rect.height, rect.x, rect.y
+el.offsetWidth, el.offsetHeight
+el.offsetTop, el.offsetLeft
+el.clientWidth, el.clientHeight
+el.clientTop, el.clientLeft
+el.scrollWidth, el.scrollHeight
+el.scrollTop, el.scrollLeft
+
+# Element - Focus
+el.focus()
+el.blur()
+document.activeElement
+el.tabIndex = 0
+```
+
+###### Python API (Phase 34.2)
+
+```python
+from pynext.client import document, window
+
+# =============================================================================
+# Inline Style Manipulation
+# =============================================================================
+
 # Direct property access (camelCase)
 el.style.display = "flex"
 el.style.backgroundColor = "red"
@@ -13238,7 +13407,14 @@ el.style.transform = "translateX(100px) rotate(45deg)"
 el.style.transition = "all 0.3s ease-in-out"
 el.style.willChange = "transform"  # Performance hint
 
+# Vendor prefixes
+el.style.webkitTransform = "rotate(45deg)"
+el.style.mozTransform = "rotate(45deg)"
+
+# =============================================================================
 # CSS Custom Properties (Variables)
+# =============================================================================
+
 el.style.setProperty("--primary-color", "#3b82f6")
 el.style.setProperty("--spacing", "16px")
 el.style.setProperty("--opacity", "0.8")
@@ -13250,7 +13426,13 @@ root = document.documentElement
 root.style.setProperty("--theme-bg", "#ffffff")
 root.style.setProperty("--theme-fg", "#000000")
 
-# Computed Styles (read actual rendered values)
+# Style priority (important)
+el.style.setProperty("color", "red", "important")
+
+# =============================================================================
+# Computed Styles
+# =============================================================================
+
 computed = window.getComputedStyle(el)
 actual_width = computed.width                    # "200px"
 actual_bg = computed.backgroundColor             # "rgb(255, 0, 0)"
@@ -13260,11 +13442,12 @@ actual_var = computed.getPropertyValue("--primary-color")
 # Computed styles for pseudo-elements
 before_styles = window.getComputedStyle(el, "::before")
 after_content = before_styles.content
+after_styles = window.getComputedStyle(el, "::after")
 
-# Style priority (important)
-el.style.setProperty("color", "red", "important")
+# =============================================================================
+# cssText (Full Inline Style String)
+# =============================================================================
 
-# Inline style as string
 el.style.cssText = "display: flex; gap: 8px; padding: 16px;"
 full_style = el.style.cssText
 
@@ -13273,45 +13456,80 @@ num_styles = el.style.length
 for i in range(el.style.length):
     prop_name = el.style.item(i)  # e.g., "background-color"
 
-# Element - Content
-el.textContent = "Hello"
-el.innerHTML = "<span>World</span>"
-el.innerText = "Visible text"
-el.outerHTML
+# =============================================================================
+# classList API
+# =============================================================================
 
-# Element - Dimensions
-rect = el.getBoundingClientRect()
-# rect.top, rect.left, rect.width, rect.height
-el.offsetWidth, el.offsetHeight
-el.clientWidth, el.clientHeight
-el.scrollWidth, el.scrollHeight
-el.scrollTop, el.scrollLeft
+el.classList.add("active", "highlighted")
+el.classList.remove("hidden")
+el.classList.toggle("selected")
+el.classList.toggle("selected", force=True)  # Force add
+el.classList.contains("active")
+el.classList.replace("old-class", "new-class")
+el.classList.item(0)  # First class
+el.classList.length
+el.className = "foo bar"
 
-# Element - Traversal
-el.parentElement
-el.children
-el.firstElementChild
-el.lastElementChild
-el.nextElementSibling
-el.previousElementSibling
-el.closest(".container")
-el.matches(".active")
-
-# Element - Manipulation
-parent.appendChild(child)
-parent.insertBefore(new_child, reference)
-parent.removeChild(child)
-parent.replaceChild(new_child, old_child)
-el.remove()
-el.cloneNode(deep=True)
-
-# Element - Focus
-el.focus()
-el.blur()
-document.activeElement
+# Iterate over classes
+for cls in el.classList:
+    print(cls)
 ```
 
-##### Event Types
+###### Phase 34.2 Checklist
+
+```
+CSS Runtime & Styling (Phase 34.2)
+├── Style Property Access (40 tests)
+│   ├── [ ] el.style.<property> = value (all CSS properties)
+│   ├── [ ] el.style.cssText get/set
+│   ├── [ ] el.style.length
+│   ├── [ ] el.style.item(index)
+│   ├── [ ] Vendor prefixes (-webkit-, -moz-)
+│   └── [ ] Style property name conversion (camelCase ↔ kebab-case)
+│
+├── CSS Custom Properties (30 tests)
+│   ├── [ ] el.style.setProperty("--var", value)
+│   ├── [ ] el.style.getPropertyValue("--var")
+│   ├── [ ] el.style.removeProperty("--var")
+│   ├── [ ] document.documentElement root variables
+│   ├── [ ] setProperty with priority ("important")
+│   └── [ ] Cascading variable inheritance
+│
+├── Computed Styles (30 tests)
+│   ├── [ ] window.getComputedStyle(el)
+│   ├── [ ] window.getComputedStyle(el, "::before")
+│   ├── [ ] window.getComputedStyle(el, "::after")
+│   ├── [ ] All property getters
+│   ├── [ ] getPropertyValue for variables
+│   └── [ ] Resolved values (px, rgb, etc.)
+│
+└── classList (20 tests)
+    ├── [ ] classList.add(class1, class2, ...)
+    ├── [ ] classList.remove(class1, class2, ...)
+    ├── [ ] classList.toggle(class)
+    ├── [ ] classList.toggle(class, force)
+    ├── [ ] classList.contains(class)
+    ├── [ ] classList.replace(oldClass, newClass)
+    ├── [ ] classList.item(index)
+    ├── [ ] classList.length
+    └── [ ] className get/set
+```
+
+###### Files to Create (Phase 34.2)
+
+- `pynext/client/style.py` — CSSStyleDeclaration stub
+- `pynext/client/css_vars.py` — CSS Custom Properties helpers
+- `pynext/runtime/dom/style.js` — Style manipulation runtime
+- `pynext/transpiler/css.py` — camelCase ↔ kebab-case conversion
+- `tests/unit/client/test_342_style.py` — Style tests
+- `tests/unit/client/test_342_classlist.py` — classList tests
+- `tests/unit/client/test_342_computed.py` — Computed style tests
+
+---
+
+##### Phase 34.3: CSS Typed Object Model (135 tests, 1 week)
+
+Modern, type-safe CSS manipulation with CSS factory methods and StylePropertyMap.
 
 ```python
 from pynext.client import MouseEvent, KeyboardEvent, TouchEvent
@@ -13365,49 +13583,97 @@ def on_input(event: InputEvent):
 # Custom Events
 event = CustomEvent("myevent", {"detail": {"foo": "bar"}})
 el.dispatchEvent(event)
+
+# =============================================================================
+# Event Listeners
+# =============================================================================
+
+def on_click(event):
+    print(f"Clicked at {event.clientX}, {event.clientY}")
+
+el.addEventListener("click", on_click)
+el.addEventListener("click", on_click, {"capture": True, "once": True})
+el.removeEventListener("click", on_click)
+
+# Event delegation
+def delegate_click(event):
+    target = event.target.closest("[data-action]")
+    if target:
+        action = target.dataset.action
+        handle_action(action)
+
+container.addEventListener("click", delegate_click)
 ```
 
-##### CSS Runtime Manipulation Checklist
+###### Phase 34.4 Checklist
 
 ```
-CSS Runtime Support (included in Phase 34)
-├── Style Property Access (40 tests)
-│   ├── [ ] el.style.<property> = value (all CSS properties)
-│   ├── [ ] el.style.cssText get/set
-│   ├── [ ] el.style.length
-│   ├── [ ] el.style.item(index)
-│   ├── [ ] Vendor prefixes (-webkit-, -moz-)
-│   └── [ ] Style property name conversion (camelCase ↔ kebab-case)
+Events & Interactions (Phase 34.4)
+├── Mouse Events (15 tests)
+│   ├── [ ] click, dblclick, contextmenu
+│   ├── [ ] mousedown, mouseup, mousemove
+│   ├── [ ] mouseenter, mouseleave, mouseover, mouseout
+│   ├── [ ] Event properties (clientX/Y, pageX/Y, offsetX/Y)
+│   ├── [ ] button, buttons, modifiers (alt, ctrl, shift, meta)
+│   └── [ ] wheel event
 │
-├── CSS Custom Properties (30 tests)
-│   ├── [ ] el.style.setProperty("--var", value)
-│   ├── [ ] el.style.getPropertyValue("--var")
-│   ├── [ ] el.style.removeProperty("--var")
-│   ├── [ ] document.documentElement root variables
-│   ├── [ ] setProperty with priority ("important")
-│   └── [ ] Cascading variable inheritance
+├── Keyboard Events (15 tests)
+│   ├── [ ] keydown, keyup, keypress
+│   ├── [ ] key, code properties
+│   ├── [ ] repeat property
+│   ├── [ ] Modifier keys
+│   └── [ ] Key combinations
 │
-├── Computed Styles (30 tests)
-│   ├── [ ] window.getComputedStyle(el)
-│   ├── [ ] window.getComputedStyle(el, "::before")
-│   ├── [ ] window.getComputedStyle(el, "::after")
-│   ├── [ ] All property getters
-│   ├── [ ] getPropertyValue for variables
-│   └── [ ] Resolved values (px, rgb, etc.)
+├── Touch Events (10 tests)
+│   ├── [ ] touchstart, touchmove, touchend, touchcancel
+│   ├── [ ] touches, changedTouches, targetTouches
+│   ├── [ ] Touch.identifier, clientX/Y
+│   └── [ ] Multi-touch handling
 │
-└── classList (20 tests)
-    ├── [ ] classList.add(class1, class2, ...)
-    ├── [ ] classList.remove(class1, class2, ...)
-    ├── [ ] classList.toggle(class)
-    ├── [ ] classList.toggle(class, force)
-    ├── [ ] classList.contains(class)
-    ├── [ ] classList.replace(oldClass, newClass)
-    ├── [ ] classList.item(index)
-    ├── [ ] classList.length
-    └── [ ] className get/set
+├── Drag Events (10 tests)
+│   ├── [ ] dragstart, drag, dragend
+│   ├── [ ] dragenter, dragover, dragleave, drop
+│   ├── [ ] dataTransfer.setData/getData
+│   ├── [ ] dataTransfer.files
+│   └── [ ] effectAllowed, dropEffect
+│
+├── Form Events (10 tests)
+│   ├── [ ] submit, reset
+│   ├── [ ] input, change
+│   ├── [ ] focus, blur, focusin, focusout
+│   └── [ ] InputEvent (inputType, data, isComposing)
+│
+├── Custom Events (10 tests)
+│   ├── [ ] CustomEvent constructor
+│   ├── [ ] detail property
+│   ├── [ ] dispatchEvent
+│   └── [ ] Event bubbling/capturing
+│
+└── Event Methods (10 tests)
+    ├── [ ] preventDefault()
+    ├── [ ] stopPropagation()
+    ├── [ ] stopImmediatePropagation()
+    ├── [ ] target, currentTarget
+    └── [ ] addEventListener options (capture, once, passive)
 ```
 
-##### CSS Typed Object Model (Typed OM)
+###### Files to Create (Phase 34.4)
+
+- `pynext/client/events.py` — All event type stubs
+- `pynext/client/events.pyi` — Type stubs for IDE
+- `pynext/runtime/dom/events.js` — Event handling runtime
+- `tests/unit/client/test_344_mouse_events.py`
+- `tests/unit/client/test_344_keyboard_events.py`
+- `tests/unit/client/test_344_touch_events.py`
+- `tests/unit/client/test_344_custom_events.py`
+
+---
+
+##### Phase 34.5: URL, Encoding & Binary Data (95 tests, 1 week)
+
+URL parsing, text encoding/decoding, base64, and typed arrays.
+
+###### Python API (Phase 34.5)
 
 Modern, type-safe CSS manipulation with better performance than string-based APIs.
 
@@ -13604,10 +13870,10 @@ rgb = color.toRGB()
 hsl = color.toHSL()
 ```
 
-##### CSS Typed OM Checklist
+###### Phase 34.3 Checklist
 
 ```
-CSS Typed OM Support (Phase 34)
+CSS Typed OM (Phase 34.3)
 ├── CSS Factory Methods (30 tests)
 │   ├── [ ] CSS.px(), CSS.percent(), CSS.em(), CSS.rem()
 │   ├── [ ] CSS.vw(), CSS.vh(), CSS.vmin(), CSS.vmax()
@@ -13663,9 +13929,17 @@ CSS Typed OM Support (Phase 34)
     └── [ ] Color space conversion
 ```
 
-##### URL and URLSearchParams API
+###### Files to Create (Phase 34.3)
 
-Essential for URL parsing and manipulation in any web application.
+- `pynext/client/typed_om.py` — CSS factory, CSSUnitValue, StylePropertyMap
+- `pynext/client/css_color.py` — CSS color types and manipulation
+- `pynext/runtime/dom/typed_om.js` — Typed OM runtime
+- `tests/unit/client/test_343_css_factory.py` — CSS factory tests
+- `tests/unit/client/test_343_unit_value.py` — CSSUnitValue tests
+- `tests/unit/client/test_343_transform.py` — Transform tests
+- `tests/unit/client/test_343_color.py` — Color tests
+
+---
 
 ```python
 from pynext.client import URL, URLSearchParams
@@ -13800,10 +14074,6 @@ def is_same_origin(url_string):
     except:
         return False
 ```
-
-##### Text Encoding and Base64 APIs
-
-Essential for binary data handling, text encoding, and data transfer.
 
 ```python
 from pynext.client import TextEncoder, TextDecoder, btoa, atob, Blob, Uint8Array
@@ -13956,9 +14226,65 @@ def download_base64(base64_data, filename, mime_type):
     URL.revokeObjectURL(url)
 ```
 
-##### Structured Clone API
+###### Phase 34.5 Checklist
 
-Deep copying complex objects with support for built-in types and circular references.
+```
+URL, Encoding & Binary Data (Phase 34.5)
+├── URL API (25 tests)
+│   ├── [ ] URL constructor (absolute, relative with base)
+│   ├── [ ] All URL properties (href, protocol, hostname, etc.)
+│   ├── [ ] URL property setters
+│   ├── [ ] url.toString(), url.toJSON()
+│   ├── [ ] url.searchParams integration
+│   └── [ ] URL.createObjectURL / revokeObjectURL
+│
+├── URLSearchParams (25 tests)
+│   ├── [ ] Constructor (string, object, array of tuples)
+│   ├── [ ] get(), getAll()
+│   ├── [ ] set(), append()
+│   ├── [ ] has(), delete()
+│   ├── [ ] sort()
+│   ├── [ ] Iteration (keys, values, entries)
+│   └── [ ] toString()
+│
+├── TextEncoder (15 tests)
+│   ├── [ ] encode()
+│   ├── [ ] encodeInto()
+│   └── [ ] encoding property
+│
+├── TextDecoder (20 tests)
+│   ├── [ ] Constructor with encoding options
+│   ├── [ ] decode() with various encodings
+│   ├── [ ] Streaming decode
+│   ├── [ ] fatal and ignoreBOM options
+│   └── [ ] Common encodings (utf-8, iso-8859-1, utf-16)
+│
+└── Base64 & Binary (10 tests)
+    ├── [ ] btoa() for ASCII strings
+    ├── [ ] atob() for base64 decoding
+    ├── [ ] ArrayBuffer, TypedArrays
+    └── [ ] DataView
+```
+
+###### Files to Create (Phase 34.5)
+
+- `pynext/client/url.py` — URL and URLSearchParams
+- `pynext/client/encoding.py` — TextEncoder, TextDecoder, base64
+- `pynext/client/binary.py` — ArrayBuffer, TypedArrays, DataView
+- `pynext/runtime/dom/url.js` — URL runtime
+- `pynext/runtime/dom/encoding.js` — Encoding runtime
+- `tests/unit/client/test_345_url.py`
+- `tests/unit/client/test_345_search_params.py`
+- `tests/unit/client/test_345_encoding.py`
+- `tests/unit/client/test_345_binary.py`
+
+---
+
+##### Phase 34.6: Memory Management (70 tests, 1 week)
+
+Weak references, structured cloning, and memory-safe patterns.
+
+###### Python API (Phase 34.6)
 
 ```python
 from pynext.client import structuredClone
@@ -14100,10 +14426,6 @@ def pass_to_component(state):
     # Ensure component can't mutate parent state
     return structuredClone(state)
 ```
-
-##### Weak References and Memory Management
-
-Essential for avoiding memory leaks in long-running applications.
 
 ```python
 from pynext.client import WeakRef, WeakMap, WeakSet, FinalizationRegistry
@@ -14291,44 +14613,10 @@ def get_element_config(element):
     return element_metadata.get(element)
 ```
 
-##### URL, Encoding, and Memory Checklist
+###### Phase 34.6 Checklist
 
 ```
-URL and Encoding Support (Phase 34)
-├── URL API (25 tests)
-│   ├── [ ] URL constructor (absolute, relative with base)
-│   ├── [ ] All URL properties (href, protocol, hostname, etc.)
-│   ├── [ ] URL property setters
-│   ├── [ ] url.toString(), url.toJSON()
-│   ├── [ ] url.searchParams integration
-│   └── [ ] URL.createObjectURL / revokeObjectURL
-│
-├── URLSearchParams (25 tests)
-│   ├── [ ] Constructor (string, object, array of tuples)
-│   ├── [ ] get(), getAll()
-│   ├── [ ] set(), append()
-│   ├── [ ] has(), delete()
-│   ├── [ ] sort()
-│   ├── [ ] Iteration (keys, values, entries)
-│   └── [ ] toString()
-│
-├── TextEncoder (15 tests)
-│   ├── [ ] encode()
-│   ├── [ ] encodeInto()
-│   └── [ ] encoding property
-│
-├── TextDecoder (20 tests)
-│   ├── [ ] Constructor with encoding options
-│   ├── [ ] decode() with various encodings
-│   ├── [ ] Streaming decode
-│   ├── [ ] fatal and ignoreBOM options
-│   └── [ ] Common encodings (utf-8, iso-8859-1, utf-16)
-│
-├── Base64 (10 tests)
-│   ├── [ ] btoa() for ASCII strings
-│   ├── [ ] atob() for base64 decoding
-│   └── [ ] Unicode handling helpers
-│
+Memory Management (Phase 34.6)
 ├── structuredClone (20 tests)
 │   ├── [ ] Deep cloning primitives and objects
 │   ├── [ ] Date, RegExp, Map, Set cloning
@@ -14351,16 +14639,31 @@ URL and Encoding Support (Phase 34)
 │   ├── [ ] add(), has(), delete()
 │   └── [ ] Automatic cleanup on value GC
 │
-└── FinalizationRegistry (15 tests)
+└── FinalizationRegistry (10 tests)
     ├── [ ] Constructor with callback
     ├── [ ] register() with held value
     ├── [ ] register() with unregister token
     └── [ ] unregister()
 ```
 
-##### Type Stubs for IDE Autocomplete (.pyi files)
+###### Files to Create (Phase 34.6)
 
-Type stub files for full IDE support on all DOM APIs.
+- `pynext/client/clone.py` — structuredClone
+- `pynext/client/weakref.py` — WeakRef, WeakMap, WeakSet, FinalizationRegistry
+- `pynext/runtime/dom/clone.js` — Clone runtime
+- `pynext/runtime/dom/weakref.js` — Weak reference runtime
+- `tests/unit/client/test_346_structured_clone.py`
+- `tests/unit/client/test_346_weakref.py`
+- `tests/unit/client/test_346_weakmap.py`
+- `tests/unit/client/test_346_finalization.py`
+
+---
+
+##### Phase 34.7: Error Boundaries & DX (25 tests, 1 week)
+
+Error handling components and IDE developer experience.
+
+###### Type Stubs for IDE Autocomplete (.pyi files)
 
 ```python
 # =============================================================================
@@ -14501,9 +14804,7 @@ class Element(Node):
     def requestFullscreen(self, options: Optional[dict] = None) -> Awaitable[None]: ...
 ```
 
-##### Error Boundaries
-
-Graceful error handling for client-side components.
+###### Error Boundaries
 
 ```python
 from pynext.client import ErrorBoundary, error_boundary
@@ -14637,10 +14938,10 @@ def RecoverableComponent():
     return DisplayData(data())
 ```
 
-##### Error Boundary Checklist
+###### Phase 34.7 Checklist
 
 ```
-Error Boundaries (Phase 34)
+Error Boundaries & DX (Phase 34.7)
 ├── ErrorBoundary Component (8 tests)
 │   ├── [ ] Catch errors in children
 │   ├── [ ] Render fallback on error
@@ -14658,17 +14959,28 @@ Error Boundaries (Phase 34)
 │   ├── [ ] Closest boundary catches
 │   └── [ ] Sibling isolation
 │
-└── Dev/Prod Modes (7 tests)
-    ├── [ ] Development: full stack trace
-    ├── [ ] Development: Python source links
-    ├── [ ] Production: user-friendly message
-    ├── [ ] Production: error reporting
-    └── [ ] Mode configuration
+└── Type Stubs (7 tests)
+    ├── [ ] document.pyi autocomplete
+    ├── [ ] element.pyi autocomplete
+    ├── [ ] events.pyi autocomplete
+    └── [ ] IDE integration tests
 ```
+
+###### Files to Create (Phase 34.7)
+
+- `pynext/client/error_boundary.py` — ErrorBoundary component and decorator
+- `pynext/client/document.pyi` — Type stubs for document
+- `pynext/client/element.pyi` — Type stubs for Element
+- `pynext/client/events.pyi` — Type stubs for events
+- `pynext/client/node.pyi` — Type stubs for Node, NodeList
+- `tests/unit/client/test_347_error_boundary.py`
+- `tests/unit/client/test_347_type_stubs.py`
+
+---
 
 ##### What Phase 34 Enables
 
-After Phase 34, you can directly manipulate the DOM from Python:
+After completing all Phase 34 sub-phases, you can directly manipulate the DOM from Python:
 
 ```python
 from pynext.client import client, document, window
@@ -14764,26 +15076,7 @@ def smooth_scroll_to(element_id: str):
         )
 ```
 
-##### Files to Create
-
-- `pynext/client/dom.py` — document, Element stubs
-- `pynext/client/events.py` — All event type stubs
-- `pynext/client/style.py` — CSSStyleDeclaration, runtime style manipulation
-- `pynext/client/css_vars.py` — CSS Custom Properties helpers and utilities
-- `pynext/client/typed_om.py` — CSS Typed OM (CSS factory, CSSUnitValue, StylePropertyMap)
-- `pynext/client/css_color.py` — CSS color types and manipulation
-- `pynext/client/url.py` — URL and URLSearchParams
-- `pynext/client/encoding.py` — TextEncoder, TextDecoder, base64 utilities
-- `pynext/client/clone.py` — structuredClone implementation
-- `pynext/client/weakref.py` — WeakRef, WeakMap, WeakSet, FinalizationRegistry
-- `pynext/client/error_boundary.py` — ErrorBoundary component and decorator
-- `pynext/transpiler/css.py` — Style property name transpilation (camelCase → kebab-case)
-- `pynext/client/document.pyi` — Type stubs for document
-- `pynext/client/element.pyi` — Type stubs for Element
-- `pynext/client/events.pyi` — Type stubs for events
-- `pynext/client/node.pyi` — Type stubs for Node, NodeList
-
-##### Success Criteria
+##### Phase 34 Success Criteria
 
 | Metric | Target |
 |--------|--------|
@@ -14797,15 +15090,19 @@ def smooth_scroll_to(element_id: str):
 | Memory APIs | Full WeakRef, WeakMap, WeakSet, FinalizationRegistry |
 | Error Boundaries | Component and decorator patterns |
 | Type Stubs | Full IDE autocomplete for all DOM APIs |
-| Test coverage | 695+ unit tests |
+| Test coverage | 625+ unit tests |
 
-##### Milestones
+##### Phase 34 Milestones
 
-1. **Week 1:** document queries, createElement, attributes
-2. **Week 2:** classList, runtime style manipulation, CSS variables
-3. **Week 3:** getComputedStyle, dimensions, traversal, DOM manipulation
-4. **Week 4:** All event types, URL/URLSearchParams, encoding APIs
-5. **Week 5:** structuredClone, WeakRef, WeakMap, WeakSet, FinalizationRegistry
+| Week | Sub-Phase | Deliverables |
+|------|-----------|--------------|
+| 1 | 34.1 | Document queries, createElement, attributes, traversal, manipulation |
+| 2 | 34.2 | classList, el.style, CSS variables, getComputedStyle |
+| 3 | 34.3 | CSS Typed OM, CSSUnitValue, transforms, colors |
+| 4 | 34.4 | Mouse, keyboard, touch, drag events |
+| 5 | 34.5 | URL, URLSearchParams, TextEncoder/Decoder, base64 |
+| 6 | 34.6 | structuredClone, WeakRef, WeakMap, WeakSet |
+| 7 | 34.7 | Error boundaries, type stubs, IDE integration |
 
 ---
 
