@@ -13372,23 +13372,6 @@ Core DOM APIs (Phase 34.1)
 
 Inline styles, CSS custom properties, computed styles, and classList.
 
-# Element - Dimensions (Phase 34.2)
-rect = el.getBoundingClientRect()
-# rect.top, rect.left, rect.width, rect.height, rect.x, rect.y
-el.offsetWidth, el.offsetHeight
-el.offsetTop, el.offsetLeft
-el.clientWidth, el.clientHeight
-el.clientTop, el.clientLeft
-el.scrollWidth, el.scrollHeight
-el.scrollTop, el.scrollLeft
-
-# Element - Focus
-el.focus()
-el.blur()
-document.activeElement
-el.tabIndex = 0
-```
-
 ###### Python API (Phase 34.2)
 
 ```python
@@ -13531,6 +13514,136 @@ CSS Runtime & Styling (Phase 34.2)
 
 Modern, type-safe CSS manipulation with CSS factory methods and StylePropertyMap.
 
+###### Python API (Phase 34.3)
+
+```python
+from pynext.client import CSS, CSSUnitValue, CSSKeywordValue, CSSTransformValue
+
+# =============================================================================
+# CSS Unit Values
+# =============================================================================
+
+width = CSS.px(100)           # CSSUnitValue: 100px
+height = CSS.percent(50)      # CSSUnitValue: 50%
+margin = CSS.em(2)            # CSSUnitValue: 2em
+padding = CSS.rem(1.5)        # CSSUnitValue: 1.5rem
+angle = CSS.deg(45)           # CSSUnitValue: 45deg
+time = CSS.ms(300)            # CSSUnitValue: 300ms
+
+# CSSUnitValue properties and arithmetic
+value = CSS.px(100)
+value.value       # 100 (numeric value)
+value.unit        # "px" (unit string)
+str(value)        # "100px"
+doubled = value.mul(2)        # 200px
+half = value.div(2)           # 50px
+
+# =============================================================================
+# CSS Calc and Math Functions
+# =============================================================================
+
+width = CSS.calc("100% - 20px")
+min_val = CSS.min(CSS.px(100), CSS.percent(50))
+max_val = CSS.max(CSS.px(100), CSS.percent(50))
+clamped = CSS.clamp(CSS.px(100), CSS.percent(50), CSS.px(300))
+
+# =============================================================================
+# StylePropertyMap (el.attributeStyleMap)
+# =============================================================================
+
+style_map = el.attributeStyleMap
+style_map.set("width", CSS.px(100))
+style_map.set("height", CSS.percent(50))
+width = style_map.get("width")
+style_map.delete("width")
+style_map.clear()
+
+# =============================================================================
+# CSS Transforms (Typed)
+# =============================================================================
+
+translate = CSS.translate(CSS.px(100), CSS.px(50))
+rotate = CSS.rotate(CSS.deg(45))
+scale = CSS.scale(2, 1.5)
+
+transform = CSSTransformValue([
+    CSS.translate(CSS.px(100), CSS.px(50)),
+    CSS.rotate(CSS.deg(45)),
+    CSS.scale(2),
+])
+style_map.set("transform", transform)
+
+# =============================================================================
+# CSS Colors (Typed)
+# =============================================================================
+
+red = CSS.color("red")
+rgb_color = CSS.rgb(255, 0, 0)
+hsl_color = CSS.hsl(0, 100, 50)
+oklch_color = CSS.oklch(0.7, 0.15, 30)
+lighter = red.lighten(20)
+darker = red.darken(20)
+```
+
+###### Phase 34.3 Checklist
+
+```
+CSS Typed OM (Phase 34.3)
+├── CSS Factory Methods (30 tests)
+│   ├── [ ] CSS.px(), CSS.percent(), CSS.em(), CSS.rem()
+│   ├── [ ] CSS.vw(), CSS.vh(), CSS.vmin(), CSS.vmax()
+│   ├── [ ] CSS.deg(), CSS.rad(), CSS.turn()
+│   ├── [ ] CSS.ms(), CSS.s()
+│   ├── [ ] CSS.keyword(), CSS.calc()
+│   └── [ ] CSS.min(), CSS.max(), CSS.clamp()
+│
+├── CSSUnitValue (25 tests)
+│   ├── [ ] value and unit properties
+│   ├── [ ] toString()
+│   ├── [ ] add(), sub(), mul(), div()
+│   ├── [ ] equals()
+│   └── [ ] to() unit conversion
+│
+├── CSSTransformValue (20 tests)
+│   ├── [ ] CSS.translate(), CSS.rotate(), CSS.scale()
+│   ├── [ ] CSS.skew(), CSS.matrix(), CSS.perspective()
+│   ├── [ ] CSSTransformValue constructor
+│   └── [ ] toMatrix() conversion
+│
+├── StylePropertyMap (25 tests)
+│   ├── [ ] el.attributeStyleMap
+│   ├── [ ] set(), get(), has(), delete(), clear()
+│   ├── [ ] keys(), values(), entries()
+│   └── [ ] size property
+│
+├── Computed Style Map (15 tests)
+│   ├── [ ] el.computedStyleMap()
+│   └── [ ] get() returns resolved values
+│
+└── CSS Color (20 tests)
+    ├── [ ] CSS.color(), CSS.rgb(), CSS.hsl()
+    ├── [ ] CSS.oklch(), CSS.oklab()
+    └── [ ] Color manipulation (lighten, darken, alpha)
+```
+
+###### Files to Create (Phase 34.3)
+
+- `pynext/client/typed_om.py` — CSS factory, CSSUnitValue, StylePropertyMap
+- `pynext/client/css_color.py` — CSS color types and manipulation
+- `pynext/runtime/dom/typed_om.js` — Typed OM runtime
+- `tests/unit/client/test_343_css_factory.py`
+- `tests/unit/client/test_343_unit_value.py`
+- `tests/unit/client/test_343_transform.py`
+- `tests/unit/client/test_343_color.py`
+
+---
+
+##### Phase 34.4: Events & Interactions (80 tests, 1 week)
+
+Mouse, keyboard, touch, drag, and input events with full type safety.
+
+###### Python API (Phase 34.4)
+
 ```python
 from pynext.client import MouseEvent, KeyboardEvent, TouchEvent
 
@@ -13543,7 +13656,6 @@ def on_click(event: MouseEvent):
     event.button                      # 0=left, 1=middle, 2=right
     event.buttons                     # Bitmask of pressed buttons
     event.altKey, event.ctrlKey       # Modifiers
-    event.metaKey, event.shiftKey
 
 # Keyboard Events
 @client
@@ -13551,8 +13663,6 @@ def on_keydown(event: KeyboardEvent):
     event.key                         # "Enter", "a", "Escape"
     event.code                        # "KeyA", "Enter", "Space"
     event.repeat                      # True if held
-    event.altKey, event.ctrlKey
-    event.metaKey, event.shiftKey
 
 # Touch Events
 @client
@@ -13560,49 +13670,23 @@ def on_touch(event: TouchEvent):
     for touch in event.touches:
         touch.identifier
         touch.clientX, touch.clientY
-        touch.target
     event.changedTouches
-    event.targetTouches
 
 # Drag Events
 @client
 def on_drag(event: DragEvent):
     event.dataTransfer.setData("text/plain", data)
     event.dataTransfer.getData("text/plain")
-    event.dataTransfer.effectAllowed = "move"
-    event.dataTransfer.dropEffect = "copy"
     event.dataTransfer.files
-
-# Input Events
-@client
-def on_input(event: InputEvent):
-    event.data                        # Inserted text
-    event.inputType                   # "insertText", "deleteContentBackward"
-    event.isComposing
 
 # Custom Events
 event = CustomEvent("myevent", {"detail": {"foo": "bar"}})
 el.dispatchEvent(event)
 
-# =============================================================================
 # Event Listeners
-# =============================================================================
-
-def on_click(event):
-    print(f"Clicked at {event.clientX}, {event.clientY}")
-
 el.addEventListener("click", on_click)
 el.addEventListener("click", on_click, {"capture": True, "once": True})
 el.removeEventListener("click", on_click)
-
-# Event delegation
-def delegate_click(event):
-    target = event.target.closest("[data-action]")
-    if target:
-        action = target.dataset.action
-        handle_action(action)
-
-container.addEventListener("click", delegate_click)
 ```
 
 ###### Phase 34.4 Checklist
@@ -13674,272 +13758,6 @@ Events & Interactions (Phase 34.4)
 URL parsing, text encoding/decoding, base64, and typed arrays.
 
 ###### Python API (Phase 34.5)
-
-Modern, type-safe CSS manipulation with better performance than string-based APIs.
-
-```python
-from pynext.client import CSS, CSSUnitValue, CSSKeywordValue
-
-# =============================================================================
-# CSS Unit Values
-# =============================================================================
-
-# Create typed CSS values
-width = CSS.px(100)           # CSSUnitValue: 100px
-height = CSS.percent(50)      # CSSUnitValue: 50%
-margin = CSS.em(2)            # CSSUnitValue: 2em
-padding = CSS.rem(1.5)        # CSSUnitValue: 1.5rem
-angle = CSS.deg(45)           # CSSUnitValue: 45deg
-time = CSS.ms(300)            # CSSUnitValue: 300ms
-time_s = CSS.s(0.3)           # CSSUnitValue: 0.3s
-
-# All CSS unit types
-CSS.px(100)      # pixels
-CSS.percent(50)  # percentage
-CSS.em(2)        # em
-CSS.rem(1.5)     # rem
-CSS.vw(100)      # viewport width
-CSS.vh(100)      # viewport height
-CSS.vmin(50)     # viewport min
-CSS.vmax(50)     # viewport max
-CSS.ch(10)       # character width
-CSS.ex(5)        # x-height
-CSS.deg(45)      # degrees
-CSS.rad(1.57)    # radians
-CSS.turn(0.5)    # turns
-CSS.ms(300)      # milliseconds
-CSS.s(0.3)       # seconds
-CSS.fr(1)        # flex fraction
-CSS.dpi(96)      # dots per inch
-CSS.dpcm(38)     # dots per cm
-CSS.dppx(2)      # dots per pixel
-
-# CSSUnitValue properties
-value = CSS.px(100)
-value.value       # 100 (numeric value)
-value.unit        # "px" (unit string)
-str(value)        # "100px"
-
-# Arithmetic with CSSUnitValues
-width = CSS.px(100)
-doubled = width.mul(2)           # 200px
-half = width.div(2)              # 50px
-added = width.add(CSS.px(50))    # 150px (same units)
-subtracted = width.sub(CSS.px(30))  # 70px
-
-# Convert between compatible units
-px_value = CSS.px(96)
-inch_value = px_value.to("in")   # 1in (at 96dpi)
-
-# =============================================================================
-# CSS Calc and Math Functions
-# =============================================================================
-
-# calc() expressions
-width = CSS.calc("100% - 20px")
-complex_calc = CSS.calc("(100vw - 2rem) / 3")
-
-# CSS math functions
-min_val = CSS.min(CSS.px(100), CSS.percent(50))
-max_val = CSS.max(CSS.px(100), CSS.percent(50))
-clamped = CSS.clamp(CSS.px(100), CSS.percent(50), CSS.px(300))
-
-# =============================================================================
-# CSS Keyword Values
-# =============================================================================
-
-display = CSS.keyword("flex")
-position = CSS.keyword("absolute")
-inherit_val = CSS.keyword("inherit")
-initial_val = CSS.keyword("initial")
-unset_val = CSS.keyword("unset")
-
-# =============================================================================
-# Attribute Style Map (Element.attributeStyleMap)
-# =============================================================================
-
-# Get the attribute style map
-style_map = el.attributeStyleMap
-
-# Set typed values (more performant than string-based)
-style_map.set("width", CSS.px(100))
-style_map.set("height", CSS.percent(50))
-style_map.set("margin-top", CSS.rem(2))
-style_map.set("transform", CSS.translate(CSS.px(100), CSS.px(50)))
-style_map.set("background-color", CSS.color("red"))
-
-# Get typed values
-width = style_map.get("width")        # CSSUnitValue
-if width:
-    pixels = width.value              # 100
-    unit = width.unit                 # "px"
-
-# Check if property is set
-has_width = style_map.has("width")    # True/False
-
-# Delete a property
-style_map.delete("width")
-
-# Clear all inline styles
-style_map.clear()
-
-# Iterate over all properties
-for prop in style_map.keys():
-    print(prop)                       # "width", "height", etc.
-
-for value in style_map.values():
-    print(value)                      # CSSUnitValue objects
-
-for prop, value in style_map.entries():
-    print(f"{prop}: {value}")
-
-# Size of style map
-num_props = style_map.size
-
-# Append (for multi-value properties like transform)
-style_map.append("transform", CSS.rotate(CSS.deg(45)))
-
-# =============================================================================
-# Computed Style Map (Read-only)
-# =============================================================================
-
-computed_map = el.computedStyleMap()
-
-# Get computed typed values
-width = computed_map.get("width")     # CSSUnitValue with resolved value
-font_size = computed_map.get("font-size")
-
-# All computed values are resolved (e.g., "auto" → actual pixels)
-
-# =============================================================================
-# CSS Transform Values (Typed)
-# =============================================================================
-
-# Transform functions as typed values
-translate = CSS.translate(CSS.px(100), CSS.px(50))
-translate3d = CSS.translate3d(CSS.px(100), CSS.px(50), CSS.px(25))
-rotate = CSS.rotate(CSS.deg(45))
-rotate3d = CSS.rotate3d(1, 0, 0, CSS.deg(45))
-scale = CSS.scale(2, 1.5)
-scale3d = CSS.scale3d(2, 1.5, 1)
-skew = CSS.skew(CSS.deg(30), CSS.deg(15))
-matrix = CSS.matrix(1, 0, 0, 1, 100, 50)
-matrix3d = CSS.matrix3d(...)  # 16 values
-perspective = CSS.perspective(CSS.px(1000))
-
-# CSSTransformValue (list of transforms)
-transform = CSSTransformValue([
-    CSS.translate(CSS.px(100), CSS.px(50)),
-    CSS.rotate(CSS.deg(45)),
-    CSS.scale(2),
-])
-style_map.set("transform", transform)
-
-# Get transform components
-for component in transform:
-    if component.is2D:
-        print(f"2D transform: {component}")
-
-# Convert to DOMMatrix
-matrix = transform.toMatrix()
-
-# =============================================================================
-# CSS Color Values (Typed)
-# =============================================================================
-
-# Color types
-red = CSS.color("red")
-hex_color = CSS.color("#ff0000")
-rgb_color = CSS.rgb(255, 0, 0)
-rgba_color = CSS.rgba(255, 0, 0, 0.5)
-hsl_color = CSS.hsl(0, 100, 50)
-hsla_color = CSS.hsla(0, 100, 50, 0.5)
-oklch_color = CSS.oklch(0.7, 0.15, 30)
-
-# Color manipulation
-color = CSS.color("blue")
-lighter = color.lighten(20)           # 20% lighter
-darker = color.darken(20)             # 20% darker
-alpha_adjusted = color.alpha(0.5)     # Set alpha
-
-# Color mixing
-mixed = CSS.colorMix("in oklch", "red", "blue", 0.5)
-
-# Color space conversion
-rgb = color.toRGB()
-hsl = color.toHSL()
-```
-
-###### Phase 34.3 Checklist
-
-```
-CSS Typed OM (Phase 34.3)
-├── CSS Factory Methods (30 tests)
-│   ├── [ ] CSS.px(), CSS.percent(), CSS.em(), CSS.rem()
-│   ├── [ ] CSS.vw(), CSS.vh(), CSS.vmin(), CSS.vmax()
-│   ├── [ ] CSS.deg(), CSS.rad(), CSS.turn()
-│   ├── [ ] CSS.ms(), CSS.s()
-│   ├── [ ] CSS.fr(), CSS.ch(), CSS.ex()
-│   ├── [ ] CSS.keyword()
-│   ├── [ ] CSS.calc()
-│   ├── [ ] CSS.min(), CSS.max(), CSS.clamp()
-│   └── [ ] CSS.number() for unitless values
-│
-├── CSSUnitValue (25 tests)
-│   ├── [ ] value and unit properties
-│   ├── [ ] toString()
-│   ├── [ ] add(), sub(), mul(), div()
-│   ├── [ ] equals()
-│   ├── [ ] to() unit conversion
-│   └── [ ] Type coercion
-│
-├── CSSTransformValue (20 tests)
-│   ├── [ ] CSS.translate(), CSS.translate3d()
-│   ├── [ ] CSS.rotate(), CSS.rotate3d()
-│   ├── [ ] CSS.scale(), CSS.scale3d()
-│   ├── [ ] CSS.skew(), CSS.skewX(), CSS.skewY()
-│   ├── [ ] CSS.matrix(), CSS.matrix3d()
-│   ├── [ ] CSS.perspective()
-│   ├── [ ] CSSTransformValue constructor
-│   ├── [ ] toMatrix() conversion
-│   └── [ ] is2D flag
-│
-├── StylePropertyMap (25 tests)
-│   ├── [ ] el.attributeStyleMap
-│   ├── [ ] set(property, value)
-│   ├── [ ] get(property)
-│   ├── [ ] has(property)
-│   ├── [ ] delete(property)
-│   ├── [ ] clear()
-│   ├── [ ] append() for multi-value
-│   ├── [ ] keys(), values(), entries()
-│   └── [ ] size property
-│
-├── Computed Style Map (15 tests)
-│   ├── [ ] el.computedStyleMap()
-│   ├── [ ] get() returns resolved values
-│   └── [ ] Iteration
-│
-└── CSS Color (20 tests)
-    ├── [ ] CSS.color(), CSS.rgb(), CSS.rgba()
-    ├── [ ] CSS.hsl(), CSS.hsla()
-    ├── [ ] CSS.oklch(), CSS.oklab()
-    ├── [ ] Color manipulation (lighten, darken, alpha)
-    ├── [ ] colorMix()
-    └── [ ] Color space conversion
-```
-
-###### Files to Create (Phase 34.3)
-
-- `pynext/client/typed_om.py` — CSS factory, CSSUnitValue, StylePropertyMap
-- `pynext/client/css_color.py` — CSS color types and manipulation
-- `pynext/runtime/dom/typed_om.js` — Typed OM runtime
-- `tests/unit/client/test_343_css_factory.py` — CSS factory tests
-- `tests/unit/client/test_343_unit_value.py` — CSSUnitValue tests
-- `tests/unit/client/test_343_transform.py` — Transform tests
-- `tests/unit/client/test_343_color.py` — Color tests
-
----
 
 ```python
 from pynext.client import URL, URLSearchParams
