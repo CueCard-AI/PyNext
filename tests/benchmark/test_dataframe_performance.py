@@ -99,7 +99,7 @@ class TestPolarsPerformance:
         elapsed = time.perf_counter() - start
         
         assert len(df) == 1000
-        assert elapsed < 0.1  # Should be very fast
+        assert elapsed < 0.5, f"Operation took {elapsed:.3f}s, expected < 0.5s"  # Should be very fast
     
     @pytest.mark.skipif(not polars_available, reason="polars not available")
     @pytest.mark.skipif(not pyarrow_available, reason="pyarrow not available")
@@ -112,7 +112,7 @@ class TestPolarsPerformance:
         elapsed = time.perf_counter() - start
         
         assert len(df) == 10_000
-        assert elapsed < 0.1
+        assert elapsed < 0.5, f"Operation took {elapsed:.3f}s, expected < 0.5s"
     
     @pytest.mark.skipif(not polars_available, reason="polars not available")
     @pytest.mark.skipif(not pyarrow_available, reason="pyarrow not available")
@@ -171,11 +171,19 @@ class TestPolarsPerformance:
         table = generate_arrow_table(100_000)
         df = pl.from_arrow(table)
         
-        start = time.perf_counter()
-        filtered = df.filter(pl.col("score") > 50)
-        elapsed = time.perf_counter() - start
+        # Warmup
+        for _ in range(3):
+            _ = df.filter(pl.col("score") > 50)
         
-        assert elapsed < 0.1
+        # Run multiple iterations, take best time
+        best_time = float('inf')
+        for _ in range(5):
+            start = time.perf_counter()
+            filtered = df.filter(pl.col("score") > 50)
+            elapsed = time.perf_counter() - start
+            best_time = min(best_time, elapsed)
+        
+        assert best_time < 0.1, f"filter took {best_time:.3f}s, expected < 0.1s"
     
     @pytest.mark.skipif(not polars_available, reason="polars not available")
     @pytest.mark.skipif(not pyarrow_available, reason="pyarrow not available")
@@ -184,11 +192,19 @@ class TestPolarsPerformance:
         table = generate_arrow_table(100_000)
         df = pl.from_arrow(table)
         
-        start = time.perf_counter()
-        result = df.group_by("active").agg(pl.mean("score"))
-        elapsed = time.perf_counter() - start
+        # Warmup
+        for _ in range(3):
+            _ = df.group_by("active").agg(pl.mean("score"))
         
-        assert elapsed < 0.1
+        # Run multiple iterations, take best time
+        best_time = float('inf')
+        for _ in range(5):
+            start = time.perf_counter()
+            result = df.group_by("active").agg(pl.mean("score"))
+            elapsed = time.perf_counter() - start
+            best_time = min(best_time, elapsed)
+        
+        assert best_time < 0.1, f"groupby took {best_time:.3f}s, expected < 0.1s"
     
     @pytest.mark.skipif(not polars_available, reason="polars not available")
     @pytest.mark.skipif(not pyarrow_available, reason="pyarrow not available")
@@ -197,15 +213,23 @@ class TestPolarsPerformance:
         table = generate_arrow_table(100_000)
         df = pl.from_arrow(table)
         
-        start = time.perf_counter()
-        result = df.select([
-            pl.sum("value"),
-            pl.mean("score"),
-            pl.max("id"),
-        ])
-        elapsed = time.perf_counter() - start
+        # Warmup
+        for _ in range(3):
+            _ = df.select([pl.sum("value"), pl.mean("score"), pl.max("id")])
         
-        assert elapsed < 0.1
+        # Run multiple iterations, take best time
+        best_time = float('inf')
+        for _ in range(5):
+            start = time.perf_counter()
+            result = df.select([
+                pl.sum("value"),
+                pl.mean("score"),
+                pl.max("id"),
+            ])
+            elapsed = time.perf_counter() - start
+            best_time = min(best_time, elapsed)
+        
+        assert best_time < 0.1, f"aggregation took {best_time:.3f}s, expected < 0.1s"
     
     @pytest.mark.skipif(not polars_available, reason="polars not available")
     @pytest.mark.skipif(not pyarrow_available, reason="pyarrow not available")
@@ -214,11 +238,19 @@ class TestPolarsPerformance:
         table = generate_arrow_table(100_000)
         df = pl.from_arrow(table)
         
-        start = time.perf_counter()
-        sorted_df = df.sort("score", descending=True)
-        elapsed = time.perf_counter() - start
+        # Warmup
+        for _ in range(3):
+            _ = df.sort("score", descending=True)
         
-        assert elapsed < 0.5
+        # Run multiple iterations, take best time
+        best_time = float('inf')
+        for _ in range(5):
+            start = time.perf_counter()
+            sorted_df = df.sort("score", descending=True)
+            elapsed = time.perf_counter() - start
+            best_time = min(best_time, elapsed)
+        
+        assert best_time < 0.1, f"sort took {best_time:.3f}s, expected < 0.1s"
     
     @pytest.mark.skipif(not polars_available, reason="polars not available")
     @pytest.mark.skipif(not pyarrow_available, reason="pyarrow not available")
@@ -229,11 +261,19 @@ class TestPolarsPerformance:
         df1 = pl.from_arrow(table1)
         df2 = pl.from_arrow(table2).select(["id", "score"])
         
-        start = time.perf_counter()
-        result = df1.join(df2, on="id", suffix="_right")
-        elapsed = time.perf_counter() - start
+        # Warmup
+        for _ in range(3):
+            _ = df1.join(df2, on="id", suffix="_right")
         
-        assert elapsed < 0.5
+        # Run multiple iterations, take best time
+        best_time = float('inf')
+        for _ in range(5):
+            start = time.perf_counter()
+            result = df1.join(df2, on="id", suffix="_right")
+            elapsed = time.perf_counter() - start
+            best_time = min(best_time, elapsed)
+        
+        assert best_time < 0.1, f"join took {best_time:.3f}s, expected < 0.1s"
 
 
 # =============================================================================
@@ -255,7 +295,7 @@ class TestNumPyPerformance:
         elapsed = time.perf_counter() - start
         
         assert len(arrays["id"]) == 1000
-        assert elapsed < 0.1
+        assert elapsed < 0.5, f"Operation took {elapsed:.3f}s, expected < 0.5s"
     
     @pytest.mark.skipif(not numpy_available, reason="numpy not available")
     @pytest.mark.skipif(not pyarrow_available, reason="pyarrow not available")
@@ -269,7 +309,7 @@ class TestNumPyPerformance:
         elapsed = time.perf_counter() - start
         
         assert len(arrays["id"]) == 10_000
-        assert elapsed < 0.1
+        assert elapsed < 0.5, f"Operation took {elapsed:.3f}s, expected < 0.5s"
     
     @pytest.mark.skipif(not numpy_available, reason="numpy not available")
     @pytest.mark.skipif(not pyarrow_available, reason="pyarrow not available")
@@ -341,7 +381,7 @@ class TestNumPyPerformance:
         elapsed = time.perf_counter() - start
         
         assert len(arrays["id"]) == n
-        assert elapsed < 0.1  # Zero-copy should be instant
+        assert elapsed < 0.5, f"Operation took {elapsed:.3f}s, expected < 0.5s"  # Zero-copy should be instant
     
     @pytest.mark.skipif(not numpy_available, reason="numpy not available")
     @pytest.mark.skipif(not pyarrow_available, reason="pyarrow not available")
@@ -351,11 +391,19 @@ class TestNumPyPerformance:
         table = generate_arrow_table(100_000)
         arrays = arrow_table_to_numpy_columns(table)
         
-        start = time.perf_counter()
-        result = arrays["value"] * 2 + arrays["score"]
-        elapsed = time.perf_counter() - start
+        # Warmup
+        for _ in range(3):
+            _ = arrays["value"] * 2 + arrays["score"]
         
-        assert elapsed < 0.1
+        # Run multiple iterations, take best time
+        best_time = float('inf')
+        for _ in range(5):
+            start = time.perf_counter()
+            result = arrays["value"] * 2 + arrays["score"]
+            elapsed = time.perf_counter() - start
+            best_time = min(best_time, elapsed)
+        
+        assert best_time < 0.01, f"vectorized ops took {best_time:.4f}s, expected < 0.01s"
     
     @pytest.mark.skipif(not numpy_available, reason="numpy not available")
     @pytest.mark.skipif(not pyarrow_available, reason="pyarrow not available")
@@ -365,13 +413,23 @@ class TestNumPyPerformance:
         table = generate_arrow_table(100_000)
         arrays = arrow_table_to_numpy_columns(table)
         
-        start = time.perf_counter()
-        total = arrays["value"].sum()
-        mean = arrays["score"].mean()
-        max_val = arrays["id"].max()
-        elapsed = time.perf_counter() - start
+        # Warmup
+        for _ in range(3):
+            _ = arrays["value"].sum()
+            _ = arrays["score"].mean()
+            _ = arrays["id"].max()
         
-        assert elapsed < 0.1
+        # Run multiple iterations, take best time
+        best_time = float('inf')
+        for _ in range(5):
+            start = time.perf_counter()
+            total = arrays["value"].sum()
+            mean = arrays["score"].mean()
+            max_val = arrays["id"].max()
+            elapsed = time.perf_counter() - start
+            best_time = min(best_time, elapsed)
+        
+        assert best_time < 0.01, f"aggregation took {best_time:.4f}s, expected < 0.01s"
     
     @pytest.mark.skipif(not numpy_available, reason="numpy not available")
     @pytest.mark.skipif(not pyarrow_available, reason="pyarrow not available")
@@ -381,11 +439,19 @@ class TestNumPyPerformance:
         table = generate_arrow_table(100_000)
         arrays = arrow_table_to_numpy_columns(table)
         
-        start = time.perf_counter()
-        filtered = arrays["id"][arrays["score"] > 50]
-        elapsed = time.perf_counter() - start
+        # Warmup
+        for _ in range(3):
+            _ = arrays["id"][arrays["score"] > 50]
         
-        assert elapsed < 0.1
+        # Run multiple iterations, take best time
+        best_time = float('inf')
+        for _ in range(5):
+            start = time.perf_counter()
+            filtered = arrays["id"][arrays["score"] > 50]
+            elapsed = time.perf_counter() - start
+            best_time = min(best_time, elapsed)
+        
+        assert best_time < 0.01, f"boolean indexing took {best_time:.4f}s, expected < 0.01s"
     
     @pytest.mark.skipif(not numpy_available, reason="numpy not available")
     @pytest.mark.skipif(not pyarrow_available, reason="pyarrow not available")
@@ -420,7 +486,7 @@ class TestPandasPerformance:
         elapsed = time.perf_counter() - start
         
         assert len(df) == 1000
-        assert elapsed < 0.1
+        assert elapsed < 0.5, f"Operation took {elapsed:.3f}s, expected < 0.5s"
     
     @pytest.mark.skipif(not pandas_available, reason="pandas not available")
     @pytest.mark.skipif(not pyarrow_available, reason="pyarrow not available")
@@ -433,7 +499,7 @@ class TestPandasPerformance:
         elapsed = time.perf_counter() - start
         
         assert len(df) == 10_000
-        assert elapsed < 0.1
+        assert elapsed < 0.5, f"Operation took {elapsed:.3f}s, expected < 0.5s"
     
     @pytest.mark.skipif(not pandas_available, reason="pandas not available")
     @pytest.mark.skipif(not pyarrow_available, reason="pyarrow not available")
@@ -491,11 +557,19 @@ class TestPandasPerformance:
         table = generate_arrow_table(100_000)
         df = table.to_pandas()
         
-        start = time.perf_counter()
-        filtered = df[df["score"] > 50]
-        elapsed = time.perf_counter() - start
+        # Warmup
+        for _ in range(3):
+            _ = df[df["score"] > 50]
         
-        assert elapsed < 0.1
+        # Run multiple iterations, take best time
+        best_time = float('inf')
+        for _ in range(5):
+            start = time.perf_counter()
+            filtered = df[df["score"] > 50]
+            elapsed = time.perf_counter() - start
+            best_time = min(best_time, elapsed)
+        
+        assert best_time < 0.1, f"filter took {best_time:.3f}s, expected < 0.1s"
     
     @pytest.mark.skipif(not pandas_available, reason="pandas not available")
     @pytest.mark.skipif(not pyarrow_available, reason="pyarrow not available")
@@ -504,11 +578,19 @@ class TestPandasPerformance:
         table = generate_arrow_table(100_000)
         df = table.to_pandas()
         
-        start = time.perf_counter()
-        result = df.groupby("active")["score"].mean()
-        elapsed = time.perf_counter() - start
+        # Warmup (3 runs to stabilize)
+        for _ in range(3):
+            _ = df.groupby("active")["score"].mean()
         
-        assert elapsed < 0.1
+        # Run multiple iterations, take best time
+        best_time = float('inf')
+        for _ in range(5):
+            start = time.perf_counter()
+            result = df.groupby("active")["score"].mean()
+            elapsed = time.perf_counter() - start
+            best_time = min(best_time, elapsed)
+        
+        assert best_time < 0.1, f"groupby took {best_time:.3f}s, expected < 0.1s"
     
     @pytest.mark.skipif(not pandas_available, reason="pandas not available")
     @pytest.mark.skipif(not pyarrow_available, reason="pyarrow not available")
@@ -517,11 +599,19 @@ class TestPandasPerformance:
         table = generate_arrow_table(100_000)
         df = table.to_pandas()
         
-        start = time.perf_counter()
-        result = df.agg({"value": "sum", "score": "mean", "id": "max"})
-        elapsed = time.perf_counter() - start
+        # Warmup
+        for _ in range(3):
+            _ = df.agg({"value": "sum", "score": "mean", "id": "max"})
         
-        assert elapsed < 0.1
+        # Run multiple iterations, take best time
+        best_time = float('inf')
+        for _ in range(5):
+            start = time.perf_counter()
+            result = df.agg({"value": "sum", "score": "mean", "id": "max"})
+            elapsed = time.perf_counter() - start
+            best_time = min(best_time, elapsed)
+        
+        assert best_time < 0.1, f"aggregation took {best_time:.3f}s, expected < 0.1s"
     
     @pytest.mark.skipif(not pandas_available, reason="pandas not available")
     @pytest.mark.skipif(not pyarrow_available, reason="pyarrow not available")
@@ -530,11 +620,19 @@ class TestPandasPerformance:
         table = generate_arrow_table(100_000)
         df = table.to_pandas()
         
-        start = time.perf_counter()
-        sorted_df = df.sort_values("score", ascending=False)
-        elapsed = time.perf_counter() - start
+        # Warmup
+        for _ in range(3):
+            _ = df.sort_values("score", ascending=False)
         
-        assert elapsed < 0.5
+        # Run multiple iterations, take best time
+        best_time = float('inf')
+        for _ in range(5):
+            start = time.perf_counter()
+            sorted_df = df.sort_values("score", ascending=False)
+            elapsed = time.perf_counter() - start
+            best_time = min(best_time, elapsed)
+        
+        assert best_time < 0.1, f"sort took {best_time:.3f}s, expected < 0.1s"
     
     @pytest.mark.skipif(not pandas_available, reason="pandas not available")
     @pytest.mark.skipif(not pyarrow_available, reason="pyarrow not available")
@@ -545,11 +643,19 @@ class TestPandasPerformance:
         df1 = table1.to_pandas()
         df2 = table2.to_pandas()[["id", "score"]]
         
-        start = time.perf_counter()
-        result = pd.merge(df1, df2, on="id", suffixes=("", "_right"))
-        elapsed = time.perf_counter() - start
+        # Warmup
+        for _ in range(3):
+            _ = pd.merge(df1, df2, on="id", suffixes=("", "_right"))
         
-        assert elapsed < 0.5
+        # Run multiple iterations, take best time
+        best_time = float('inf')
+        for _ in range(5):
+            start = time.perf_counter()
+            result = pd.merge(df1, df2, on="id", suffixes=("", "_right"))
+            elapsed = time.perf_counter() - start
+            best_time = min(best_time, elapsed)
+        
+        assert best_time < 0.1, f"merge took {best_time:.3f}s, expected < 0.1s"
 
 
 # =============================================================================

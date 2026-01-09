@@ -1954,6 +1954,7 @@ def _emit_method_call(node: Call) -> Optional[str]:
     - Special handling (complex transformations)
     
     Phase 18.4: Standard library module.function() calls
+    Phase 34.1: DOM API passthrough
     """
     if not isinstance(node.func, Attribute):
         return None
@@ -1964,6 +1965,86 @@ def _emit_method_call(node: Call) -> Optional[str]:
     
     # Get keyword arguments
     kwargs = {kw[0]: _emit_expr(kw[1]) for kw in node.keywords}
+    
+    # =========================================================================
+    # DOM API PASSTHROUGH (Phase 34.1)
+    # =========================================================================
+    # DOM APIs should pass through unchanged. We detect DOM calls by:
+    # 1. Calls on known DOM objects (classList, dataset, style, attributes)
+    # 2. Calls where the method name is a known DOM method
+    # 3. Chained calls on document (document.*)
+    
+    # Import DOM method registry
+    from pynext.transpiler.dom import is_dom_method
+    
+    # Check if this is a method call on a DOM object property
+    # e.g., el.classList.add() or el.dataset.* or el.style.setProperty()
+    DOM_OBJECT_PROPERTIES = {"classList", "dataset", "style", "attributes"}
+    DOM_OBJECT_METHODS = {
+        # DOMTokenList (classList) methods
+        "add", "contains", "toggle", "replace", "supports", "item",
+        # CSSStyleDeclaration methods
+        "getPropertyValue", "setProperty", "removeProperty", "getPropertyPriority",
+        # NamedNodeMap methods
+        "getNamedItem", "setNamedItem", "removeNamedItem",
+        # ForEach and iterator methods (also valid on NodeList, HTMLCollection)
+        "forEach", "entries", "keys", "values",
+    }
+    
+    # Element DOM methods that conflict with Python list/string methods
+    # These need special detection to pass through correctly
+    DOM_ELEMENT_METHODS_CONFLICTING = {
+        "remove",       # el.remove() vs list.remove(item)
+        "append",       # el.append(child) vs list.append(item)
+        "prepend",      # el.prepend(child)
+        "after",        # el.after(sibling)
+        "before",       # el.before(sibling)
+        "replaceWith",  # el.replaceWith(new)
+        "replaceChildren",  # el.replaceChildren(...)
+    }
+    
+    # Detect if we're calling a method on a DOM object (like classList, style, etc.)
+    if isinstance(node.func.value, Attribute):
+        parent_attr = node.func.value.attr
+        if parent_attr in DOM_OBJECT_PROPERTIES and method in DOM_OBJECT_METHODS:
+            # This is a DOM method call - pass through unchanged
+            args_str = ", ".join(args_js)
+            return f"{obj_js}.{method}({args_str})"
+        # Also handle .classList.remove() specifically - "remove" is not in DOM_OBJECT_METHODS
+        # because it conflicts with Python list.remove(), but for classList it should pass through
+        if parent_attr == "classList" and method == "remove":
+            args_str = ", ".join(args_js)
+            return f"{obj_js}.remove({args_str})"
+    
+    # Check for document.* method calls (should always pass through)
+    if isinstance(node.func.value, Name) and node.func.value.id == "document":
+        # document.getElementById, document.querySelector, etc.
+        args_str = ", ".join(args_js)
+        return f"document.{method}({args_str})"
+    
+    # Check for window.* method calls (Phase 34.2 - should always pass through)
+    if isinstance(node.func.value, Name) and node.func.value.id == "window":
+        # window.getComputedStyle, window.matchMedia, etc.
+        args_str = ", ".join(args_js)
+        return f"window.{method}({args_str})"
+    
+    # Check for DOM element methods that conflict with Python list/string methods
+    # We detect these by checking if:
+    # 1. The method is in the conflicting set
+    # 2. The method is called with arguments that don't match Python list/string patterns
+    if method in DOM_ELEMENT_METHODS_CONFLICTING:
+        # el.remove() with no arguments is DOM remove (vs list.remove(item) which requires an argument)
+        if method == "remove" and len(args_js) == 0:
+            return f"{obj_js}.remove()"
+        # el.append(node) or el.append(node1, node2) - DOM append can take multiple args
+        # Python list.append only takes 1 argument
+        if method == "append" and len(args_js) != 1:
+            args_str = ", ".join(args_js)
+            return f"{obj_js}.append({args_str})"
+        # For other methods in this set (prepend, after, before, etc.), pass through
+        if method in {"prepend", "after", "before", "replaceWith", "replaceChildren"}:
+            args_str = ", ".join(args_js)
+            return f"{obj_js}.{method}({args_str})"
     
     # =========================================================================
     # STANDARD LIBRARY MODULES (Phase 18.4)

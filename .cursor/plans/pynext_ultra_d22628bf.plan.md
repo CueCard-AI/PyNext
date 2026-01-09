@@ -140,15 +140,15 @@ graph TB
 - **What**: Hoist loop-invariant code outside loops
 - **Examples**:
   ```python
-                        # Before:
-                        for i in range(n):
-                            x = expensive()  # Doesn't depend on i
-                            arr[i] = x + i
-                        
-                        # After:
-                        x = expensive()
-                        for i in range(n):
-                            arr[i] = x + i
+                            # Before:
+                            for i in range(n):
+                                x = expensive()  # Doesn't depend on i
+                                arr[i] = x + i
+                            
+                            # After:
+                            x = expensive()
+                            for i in range(n):
+                                arr[i] = x + i
   ```
 
 
@@ -163,14 +163,14 @@ graph TB
 - **What**: Unroll small loops
 - **Examples**:
   ```python
-                        # Before:
-                        for i in range(3):
-                            process(i)
-                        
-                        # After:
-                        process(0)
-                        process(1)
-                        process(2)
+                            # Before:
+                            for i in range(3):
+                                process(i)
+                            
+                            # After:
+                            process(0)
+                            process(1)
+                            process(2)
   ```
 
 
@@ -195,12 +195,12 @@ graph TB
 - **What**: Combine adjacent loops over same data
 - **Examples**:
   ```python
-                        # Before:
-                        for x in a: process(x)
-                        for x in a: process2(x)
-                        
-                        # After:
-                        for x in a: process(x); process2(x)
+                            # Before:
+                            for x in a: process(x)
+                            for x in a: process2(x)
+                            
+                            # After:
+                            for x in a: process(x); process2(x)
   ```
 
 
@@ -231,17 +231,17 @@ graph TB
 - **What**: Convert tail calls to loops
 - **Examples**:
   ```python
-                        # Before:
-                        def factorial(n, acc=1):
-                            if n == 0: return acc
-                            return factorial(n - 1, acc * n)
-                        
-                        # After:
-                        def factorial(n, acc=1):
-                            while True:
+                            # Before:
+                            def factorial(n, acc=1):
                                 if n == 0: return acc
-                                acc = acc * n
-                                n = n - 1
+                                return factorial(n - 1, acc * n)
+                            
+                            # After:
+                            def factorial(n, acc=1):
+                                while True:
+                                    if n == 0: return acc
+                                    acc = acc * n
+                                    n = n - 1
   ```
 
 
@@ -260,13 +260,13 @@ graph TB
 - **What**: Remove bounds checks when provably safe
 - **Examples**:
   ```python
-                        # Before:
-                        for i in range(len(arr)):
-                            x = arr[i]  # Has bounds check
-                        
-                        # After:
-                        for i in range(len(arr)):
-                            x = arr[i]  # No bounds check (proven safe)
+                            # Before:
+                            for i in range(len(arr)):
+                                x = arr[i]  # Has bounds check
+                            
+                            # After:
+                            for i in range(len(arr)):
+                                x = arr[i]  # No bounds check (proven safe)
   ```
 
 
@@ -281,12 +281,12 @@ graph TB
 - **What**: Remove null checks when provably safe
 - **Examples**:
   ```python
-                        # Before:
-                        if obj is not None:
-                            x = obj.prop  # Has null check
-                        
-                        # After:
-                        x = obj.prop  # No null check (proven safe)
+                            # Before:
+                            if obj is not None:
+                                x = obj.prop  # Has null check
+                            
+                            # After:
+                            x = obj.prop  # No null check (proven safe)
   ```
 
 
@@ -316,15 +316,15 @@ graph TB
 - **What**: Generate SIMD code for array operations
 - **Examples**:
   ```python
-                        # Before:
-                        for i in range(n):
-                            result[i] = arr[i] * 2
-                        
-                        # After (SIMD):
-                        for i in range(0, n, 4):
-                            vec = SIMD.load(arr, i)
-                            doubled = SIMD.mul(vec, 2)
-                            SIMD.store(result, i, doubled)
+                            # Before:
+                            for i in range(n):
+                                result[i] = arr[i] * 2
+                            
+                            # After (SIMD):
+                            for i in range(0, n, 4):
+                                vec = SIMD.load(arr, i)
+                                doubled = SIMD.mul(vec, 2)
+                                SIMD.store(result, i, doubled)
   ```
 
 
@@ -504,5 +504,3 @@ graph TB
 - `pynext/transpiler/parallel.py`
 - `pynext/transpiler/webgpu.py`
 - `pynext/transpiler/wasm.py`
-- `pynext/transpiler/multi_target.py`
-- `pynext/bundler/ultra.py`

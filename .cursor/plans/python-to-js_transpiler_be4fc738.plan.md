@@ -1,45 +1,3 @@
----
-name: Python-to-JS Transpiler
-overview: Build a production-grade Python-to-JavaScript transpiler that can convert entire Python applications to browser-executable JavaScript, enabling PyNext apps to run entirely client-side while maintaining Python semantics.
-todos:
-  - id: transpiler-parser
-    content: "Build enhanced parser: module-level AST, imports, reactive detection"
-    status: pending
-  - id: transpiler-stmt
-    content: "Implement statement emitters: if/for/while/def/return/assign"
-    status: pending
-  - id: transpiler-expr
-    content: "Implement expression emitters: calls, binops, comprehensions"
-    status: pending
-  - id: transpiler-class
-    content: "Implement class transpilation: __init__, methods, inheritance"
-    status: pending
-  - id: transpiler-exceptions
-    content: Implement try/except/finally with exception type matching
-    status: pending
-  - id: transpiler-async
-    content: Implement async/await transpilation
-    status: pending
-  - id: transpiler-decorators
-    content: Implement decorator transpilation
-    status: pending
-  - id: transpiler-unpacking
-    content: Implement *args, **kwargs, and spread operators
-    status: pending
-  - id: transpiler-runtime
-    content: "Build Python runtime library: builtins, types, exceptions"
-    status: pending
-  - id: transpiler-pynext
-    content: "Integrate with PyNext: signals, effects, DOM, hydration"
-    status: pending
-  - id: transpiler-tests
-    content: "Comprehensive test suite: 500+ test cases"
-    status: pending
-  - id: transpiler-linear
-    content: Verify Linear app works end-to-end with transpiler
-    status: pending
----
-
 # Python-to-JavaScript Transpiler
 
 ## Architecture Overview
@@ -73,6 +31,8 @@ flowchart TB
     RUNTIME --> JS
 ```
 
+
+
 ## Core Components
 
 ### 1. Enhanced Parser ([pynext/transpiler/parser.py](pynext/transpiler/parser.py))
@@ -98,27 +58,7 @@ class PyNextAST:
 
 ### 2. AST Transformer ([pynext/transpiler/transformer.py](pynext/transpiler/transformer.py))
 
-Normalizes Python-specific constructs into JS-compatible forms:
-
-| Python Construct | Transformation |
-
-|-----------------|----------------|
-
-| `[x*2 for x in items]` | `items.map(x => x*2)` |
-
-| `{k: v for k,v in items}` | `Object.fromEntries(items.map(([k,v]) => [k,v]))` |
-
-| `*args, **kwargs` | Rest/spread operators |
-
-| `a if b else c` | `b ? a : c` |
-
-| `try/except/finally` | `try/catch/finally` with error type matching |
-
-| `async def / await` | Direct mapping (ES2017+) |
-
-| `class Foo(Bar):` | `class Foo extends Bar` |
-
-| `@decorator` | Wrapper function application |
+Normalizes Python-specific constructs into JS-compatible forms:| Python Construct | Transformation ||-----------------|----------------|| `[x*2 for x in items]` | `items.map(x => x*2)` || `{k: v for k,v in items}` | `Object.fromEntries(items.map(([k,v]) => [k,v])) `|| `*args, **kwargs` | Rest/spread operators || `a if b else c` | `b ? a : c` || `try/except/finally` | `try/catch/finally` with error type matching || `async def / await` | Direct mapping (ES2017+) || `class Foo(Bar):` | `class Foo extends Bar` || `@decorator` | Wrapper function application |
 
 ### 3. Semantic Analyzer ([pynext/transpiler/analyzer.py](pynext/transpiler/analyzer.py))
 
@@ -151,6 +91,8 @@ function handle_submit(form) {
     }
 }
 ```
+
+
 
 ### 5. Python Runtime ([pynext/transpiler/runtime/](pynext/transpiler/runtime/))
 
@@ -210,7 +152,7 @@ JavaScript library providing Python semantics:
 
 ## File Structure
 
-```
+```javascript
 pynext/transpiler/
     __init__.py          # Public API: transpile(), transpile_file()
     parser.py            # Python AST -> PyNextAST
@@ -225,6 +167,8 @@ pynext/transpiler/
     errors.py            # Transpilation errors
     sourcemap.py         # Source map generation
 ```
+
+
 
 ## Key Decisions
 
@@ -245,5 +189,3 @@ pynext/transpiler/
 
 - 100% of Linear app handlers transpilable
 - Generated JS within 2x size of hand-written equivalent
-- < 5KB runtime overhead (gzipped)
-- < 100ms transpilation for typical component

@@ -1,6 +1,5 @@
 """
-PyNext Client Utilities Tests
+PyNext Client Tests
 
-Tests for client-side utilities including type checking.
+Unit tests for client-side DOM APIs and utilities.
 """
-

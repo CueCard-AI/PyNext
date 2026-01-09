@@ -275,8 +275,30 @@ def parse_import_from(
             "pynext.client.copy": "pynext/runtime/stdlib/copy.js",
         }
         
-        # Special handling for pynext.client (Promise and scheduling)
+        # Special handling for pynext.client (Phase 34.1: DOM, Promise, scheduling)
         if node.module == "pynext.client":
+            # Import DOM passthrough detection
+            from pynext.transpiler.dom import should_skip_import
+            
+            # DOM passthrough imports - these are browser globals or type-only
+            # They don't need any JS import, just skip them
+            dom_passthrough_names = {
+                # Browser globals
+                "document", "window", "console", "localStorage", "sessionStorage",
+                "location", "history", "navigator", "screen",
+                # Type-only imports (no JS needed)
+                "Document", "Element", "Node", "NodeList", "HTMLCollection",
+                "DOMTokenList", "DOMStringMap", "NamedNodeMap", "Attr",
+                "Text", "Comment", "DocumentFragment",
+                "CSSStyleDeclaration", "DOMRect",
+                # Node type constants
+                "ELEMENT_NODE", "TEXT_NODE", "COMMENT_NODE", "DOCUMENT_NODE",
+                "DOCUMENT_FRAGMENT_NODE",
+            }
+            
+            # Type checking imports (handled separately)
+            type_checking_names = {"typed", "enable_type_checking", "is_type_checking_enabled"}
+            
             # Check if importing Promise (from promise.js) or scheduling functions (from scheduling.js)
             promise_names = {"Promise"}
             scheduling_names = {"queue_microtask", "queueMicrotask", "request_animation_frame", 
@@ -285,10 +307,23 @@ def parse_import_from(
                                "cancelAnimationFrame"}
             
             imported_names = [alias.name for alias in node.names]
+            
+            # Separate DOM passthrough imports from real imports
+            dom_imports = [name for name in imported_names if name in dom_passthrough_names]
+            type_check_imports = [name for name in imported_names if name in type_checking_names]
             has_promise = any(name in promise_names for name in imported_names)
             has_scheduling = any(name in scheduling_names for name in imported_names)
             
-            # Create multiple imports if needed
+            # If ALL imports are DOM passthrough or type-only, skip entirely
+            all_passthrough = all(
+                name in dom_passthrough_names or name in type_checking_names
+                for name in imported_names
+            )
+            if all_passthrough and not has_promise and not has_scheduling:
+                # No JS import needed - these are browser globals or stripped in transpilation
+                return []
+            
+            # Create multiple imports if needed for non-passthrough imports
             results = []
             if has_promise:
                 promise_imports = [alias for alias in node.names if alias.name in promise_names]
@@ -320,6 +355,10 @@ def parse_import_from(
                 current_module = resolver.current_file
                 resolver.add_dependency(current_module, node.module)
                 return results
+            
+            # If only DOM passthrough imports (already handled above), return empty
+            if dom_imports and not has_promise and not has_scheduling:
+                return []
             
             # If no known imports, fall through to normal resolution
         

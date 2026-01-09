@@ -10014,11 +10014,13 @@ mindmap
 
 ---
 
-### Phase 33: Core Language Transpilation Overview
+### Phase 33: Core Language Transpilation Overview ✅ COMPLETE
 
 **Goal:** Complete Python language transpilation for client-side execution — every construct needed to write Python that runs as JavaScript in the browser.
 
-**Total Scope:** ~975 tests across 4 sub-phases, ~13 weeks
+**Total Scope:** ~1200 tests across 5 sub-phases, ~14 weeks
+
+**Status: ✅ COMPLETE** — All sub-phases implemented with comprehensive test coverage.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -13134,27 +13136,32 @@ Before moving to Phase 34, ALL of the following must be complete:
 
 ---
 
-#### Phase 34: DOM API Bindings (625 tests, 7 weeks)
+#### Phase 34: DOM API Bindings (1218 tests, 9 weeks)
 
 Complete document, Element, Event, CSS, and browser utility interfaces — the foundation for all UI manipulation.
 
+**Progress: 4/9 sub-phases complete (748 tests implemented)**
+
 **Sub-Phase Overview:**
 
-| Sub-Phase | Focus | Tests | Duration |
-|-----------|-------|-------|----------|
-| **34.1** | Core DOM (Document + Element) | 100 | 1 week |
-| **34.2** | CSS Runtime & Styling | 120 | 1 week |
-| **34.3** | CSS Typed Object Model | 135 | 1 week |
-| **34.4** | Events & Interactions | 80 | 1 week |
-| **34.5** | URL, Encoding & Binary Data | 95 | 1 week |
-| **34.6** | Memory Management | 70 | 1 week |
-| **34.7** | Error Boundaries & DX | 25 | 1 week |
+| Sub-Phase | Focus | Tests | Duration | Status |
+|-----------|-------|-------|----------|--------|
+| **34.1** | Core DOM (Document + Element) | 125 | 1 week | ✅ Complete |
+| **34.2** | CSS Runtime & Styling | 248 | 1 week | ✅ Complete |
+| **34.3** | CSS Typed Object Model | 335 | 1 week | ✅ Complete |
+| **34.3.1** | Modern CSS Units | 40 | 1 day | ✅ Complete |
+| **34.4** | Events & Interactions | 80 | 1 week | ⏳ Pending |
+| **34.5** | URL, Encoding & Binary Data | 95 | 1 week | ⏳ Pending |
+| **34.6** | Memory Management | 70 | 1 week | ⏳ Pending |
+| **34.7** | Error Boundaries & DX | 25 | 1 week | ⏳ Pending |
+| **34.8** | Shadow DOM & Web Components | 200 | 2 weeks | ⏳ Pending |
 
 ---
 
-##### Phase 34.1: Core DOM APIs (100 tests, 1 week)
+##### Phase 34.1: Core DOM APIs ✅ COMPLETE (125 tests)
 
 Document queries, element creation, attributes, traversal, and manipulation.
+**Status:** Completed with 125 tests (25% above target). Zero-runtime passthrough design.
 
 ##### DOM API Architecture
 
@@ -13307,70 +13314,82 @@ el.className = "foo bar"
 el.childElementCount
 ```
 
-###### Phase 34.1 Checklist
+###### Phase 34.1 Checklist ✅ COMPLETE (125 tests)
 
 ```
-Core DOM APIs (Phase 34.1)
-├── Document Queries (20 tests)
-│   ├── [ ] getElementById
-│   ├── [ ] querySelector
-│   ├── [ ] querySelectorAll
-│   ├── [ ] getElementsByClassName
-│   ├── [ ] getElementsByTagName
-│   └── [ ] getElementsByName
+Core DOM APIs (Phase 34.1) ✅ COMPLETE
+├── Document Queries (12 tests) ✅
+│   ├── [x] getElementById
+│   ├── [x] querySelector
+│   ├── [x] querySelectorAll
+│   ├── [x] getElementsByClassName
+│   ├── [x] getElementsByTagName
+│   └── [x] getElementsByName
 │
-├── Element Creation (15 tests)
-│   ├── [ ] createElement
-│   ├── [ ] createElementNS (SVG, MathML)
-│   ├── [ ] createTextNode
-│   ├── [ ] createComment
-│   └── [ ] createDocumentFragment
+├── Element Creation (8 tests) ✅
+│   ├── [x] createElement
+│   ├── [x] createElementNS (SVG, MathML)
+│   ├── [x] createTextNode
+│   ├── [x] createComment
+│   └── [x] createDocumentFragment
 │
-├── Attributes (20 tests)
-│   ├── [ ] getAttribute / setAttribute
-│   ├── [ ] removeAttribute / hasAttribute
-│   ├── [ ] toggleAttribute
-│   ├── [ ] dataset (data-* attributes)
-│   └── [ ] attributes NamedNodeMap
+├── Attributes (22 tests) ✅
+│   ├── [x] getAttribute / setAttribute
+│   ├── [x] removeAttribute / hasAttribute
+│   ├── [x] toggleAttribute
+│   ├── [x] dataset (data-* attributes)
+│   └── [x] attributes NamedNodeMap
 │
-├── Content (10 tests)
-│   ├── [ ] textContent
-│   ├── [ ] innerHTML
-│   ├── [ ] innerText
-│   └── [ ] outerHTML
+├── Content (16 tests) ✅
+│   ├── [x] textContent
+│   ├── [x] innerHTML
+│   ├── [x] innerText
+│   └── [x] outerHTML
 │
-├── Traversal (15 tests)
-│   ├── [ ] parentElement / parentNode
-│   ├── [ ] children / childNodes
-│   ├── [ ] first/lastElementChild
-│   ├── [ ] next/previousElementSibling
-│   ├── [ ] closest()
-│   └── [ ] matches()
+├── Traversal (20 tests) ✅
+│   ├── [x] parentElement / parentNode
+│   ├── [x] children / childNodes
+│   ├── [x] first/lastElementChild
+│   ├── [x] next/previousElementSibling
+│   ├── [x] closest()
+│   └── [x] matches()
 │
-└── Manipulation (20 tests)
-    ├── [ ] appendChild / insertBefore
-    ├── [ ] removeChild / replaceChild
-    ├── [ ] remove()
-    ├── [ ] cloneNode()
-    ├── [ ] append() / prepend()
-    ├── [ ] before() / after()
-    └── [ ] replaceWith()
+├── Manipulation (19 tests) ✅
+│   ├── [x] appendChild / insertBefore
+│   ├── [x] removeChild / replaceChild
+│   ├── [x] remove()
+│   ├── [x] cloneNode()
+│   ├── [x] append() / prepend()
+│   ├── [x] before() / after()
+│   └── [x] replaceWith()
+│
+└── Integration Tests (17 tests) ✅
+    └── [x] Mini-app patterns (test_341_dom_parity.py)
 ```
 
-###### Files to Create (Phase 34.1)
+###### Files Created (Phase 34.1) ✅
 
-- `pynext/client/dom.py` — Document and Element Python stubs
-- `pynext/client/node.py` — Node, NodeList, HTMLCollection
-- `pynext/runtime/dom/document.js` — Document API runtime
-- `pynext/runtime/dom/element.js` — Element API runtime
-- `tests/unit/client/test_341_document.py` — Document tests
-- `tests/unit/client/test_341_element.py` — Element tests
+- ✅ `pynext/client/dom.py` — Document and Element Python stubs (1573 lines)
+- ✅ `pynext/client/node.py` — Node, NodeList, HTMLCollection (1006 lines)
+- ✅ `pynext/transpiler/dom.py` — DOM passthrough detection (609 lines)
+- ✅ `tests/unit/client/test_341_document.py` — Document tests (31 tests)
+- ✅ `tests/unit/client/test_341_element_attrs.py` — Attribute tests (22 tests)
+- ✅ `tests/unit/client/test_341_element_content.py` — Content tests (16 tests)
+- ✅ `tests/unit/client/test_341_traversal.py` — Traversal tests (20 tests)
+- ✅ `tests/unit/client/test_341_manipulation.py` — Manipulation tests (19 tests)
+- ✅ `tests/integration/transpiler/test_341_dom_parity.py` — Integration tests (17 tests)
+- ✅ `docs/features/DOM_API.md` — API Reference documentation
+- ✅ `docs/internals/TRANSPILATION_DOM.md` — Transpilation mechanism docs
+- ✅ `docs/test-case-tracking/phase-34/phase-34-1/TEST_OVERVIEW.md` — Test overview
+
+**Note:** Runtime files (`pynext/runtime/dom/*.js`) were not needed because DOM APIs use
+**Zero-Runtime Passthrough** — DOM calls transpile to identical JavaScript with no runtime helpers.
 
 ---
 
-##### Phase 34.2: CSS Runtime & Styling (120 tests, 1 week)
+##### Phase 34.2: CSS Runtime & Styling ✅ COMPLETE (248 tests, 1 week)
 
-Inline styles, CSS custom properties, computed styles, and classList.
+Inline styles, CSS custom properties, computed styles, classList, and Web Animations API.
 
 ###### Python API (Phase 34.2)
 
@@ -13458,59 +13477,146 @@ for cls in el.classList:
     print(cls)
 ```
 
-###### Phase 34.2 Checklist
+###### Phase 34.2 Checklist ✅ COMPLETE (248 tests)
 
 ```
-CSS Runtime & Styling (Phase 34.2)
-├── Style Property Access (40 tests)
-│   ├── [ ] el.style.<property> = value (all CSS properties)
-│   ├── [ ] el.style.cssText get/set
-│   ├── [ ] el.style.length
-│   ├── [ ] el.style.item(index)
-│   ├── [ ] Vendor prefixes (-webkit-, -moz-)
-│   └── [ ] Style property name conversion (camelCase ↔ kebab-case)
+CSS Runtime & Styling (Phase 34.2) ✅ COMPLETE
+├── Style Property Access (35 tests) ✅
+│   ├── [x] el.style.<property> = value (200+ CSS properties)
+│   ├── [x] el.style.cssText get/set
+│   ├── [x] el.style.length
+│   ├── [x] el.style.item(index)
+│   ├── [x] Vendor prefixes (-webkit-, -moz-)
+│   └── [x] Style property name conversion (camelCase ↔ kebab-case)
 │
-├── CSS Custom Properties (30 tests)
-│   ├── [ ] el.style.setProperty("--var", value)
-│   ├── [ ] el.style.getPropertyValue("--var")
-│   ├── [ ] el.style.removeProperty("--var")
-│   ├── [ ] document.documentElement root variables
-│   ├── [ ] setProperty with priority ("important")
-│   └── [ ] Cascading variable inheritance
+├── Pythonic Style Access (25 tests) ✅
+│   ├── [x] StylesProxy dictionary-style access
+│   ├── [x] el.styles["background-color"] = "red"
+│   ├── [x] el.styles.update({...}) bulk updates
+│   ├── [x] el.styles.clear() remove all
+│   ├── [x] keys(), values(), items() iteration
+│   └── [x] get() with default values
 │
-├── Computed Styles (30 tests)
-│   ├── [ ] window.getComputedStyle(el)
-│   ├── [ ] window.getComputedStyle(el, "::before")
-│   ├── [ ] window.getComputedStyle(el, "::after")
-│   ├── [ ] All property getters
-│   ├── [ ] getPropertyValue for variables
-│   └── [ ] Resolved values (px, rgb, etc.)
+├── CSS Custom Properties (25 tests) ✅
+│   ├── [x] el.style.setProperty("--var", value)
+│   ├── [x] el.style.getPropertyValue("--var")
+│   ├── [x] el.style.removeProperty("--var")
+│   ├── [x] set_css_var() / get_css_var() helpers
+│   ├── [x] set_theme() bulk variable setting
+│   ├── [x] toggle_theme() light/dark switching
+│   └── [x] document.documentElement root variables
 │
-└── classList (20 tests)
-    ├── [ ] classList.add(class1, class2, ...)
-    ├── [ ] classList.remove(class1, class2, ...)
-    ├── [ ] classList.toggle(class)
-    ├── [ ] classList.toggle(class, force)
-    ├── [ ] classList.contains(class)
-    ├── [ ] classList.replace(oldClass, newClass)
-    ├── [ ] classList.item(index)
-    ├── [ ] classList.length
-    └── [ ] className get/set
+├── Computed Styles (25 tests) ✅
+│   ├── [x] window.getComputedStyle(el)
+│   ├── [x] window.getComputedStyle(el, "::before")
+│   ├── [x] window.getComputedStyle(el, "::after")
+│   ├── [x] All property getters
+│   ├── [x] getPropertyValue for variables
+│   └── [x] window.matchMedia() media queries
+│
+├── classList (23 tests) ✅
+│   ├── [x] classList.add(class1, class2, ...)
+│   ├── [x] classList.remove(class1, class2, ...)
+│   ├── [x] classList.toggle(class)
+│   ├── [x] classList.toggle(class, force)
+│   ├── [x] classList.contains(class)
+│   ├── [x] classList.replace(oldClass, newClass)
+│   ├── [x] classList.item(index)
+│   ├── [x] classList.length
+│   ├── [x] classList iteration (for cls in classList)
+│   ├── [x] classes() conditional class builder
+│   └── [x] className get/set
+│
+├── Web Animations API (20 tests) ✅
+│   ├── [x] el.animate(keyframes, options)
+│   ├── [x] Animation control (play, pause, cancel, reverse)
+│   ├── [x] fade_in() / fade_out() helpers
+│   ├── [x] slide_in() / slide_out() helpers
+│   ├── [x] scale_in() / scale_out() helpers
+│   └── [x] shake() / pulse() effect helpers
+│
+├── Integration Tests (38 tests) ✅
+│   └── [x] Mini-app patterns (test_342_css_parity.py)
+│
+├── E2E Browser Behavior Tests (12 tests) ✅
+│   ├── [x] CSS variable inheritance (parent → child cascade)
+│   ├── [x] Deeply nested variable inheritance
+│   ├── [x] Variable override at child level
+│   ├── [x] :root variable accessibility
+│   ├── [x] Percentage → px resolution
+│   ├── [x] em → px resolution
+│   ├── [x] Color name → rgb resolution
+│   ├── [x] Hex color → rgb resolution
+│   ├── [x] calc() → px resolution
+│   ├── [x] ::before pseudo-element styles
+│   ├── [x] ::after pseudo-element styles
+│   └── [x] Pseudo-element variable inheritance
+│
+├── Edge Case Unit Tests (26 tests) ✅
+│   ├── [x] Empty string style removal
+│   ├── [x] Numeric properties (zIndex, opacity, flexGrow)
+│   ├── [x] CSS variable fallback syntax (var(--x, fallback))
+│   ├── [x] Nested CSS variable fallback
+│   ├── [x] var() inside calc()
+│   ├── [x] Chained DOM calls (getElementById().style.x)
+│   ├── [x] Conditional/ternary styling
+│   ├── [x] classList.toggle with force=False
+│   ├── [x] Vendor prefixes (-moz-, -ms-)
+│   ├── [x] Or-default style patterns
+│   ├── [x] CSS keyword values (inherit, initial, unset)
+│   └── [x] Invalid CSS value handling (transpiler passthrough)
+│
+└── E2E Edge Case Tests (19 tests) ✅
+    ├── [x] Empty string removes inline style
+    ├── [x] removeProperty removes style
+    ├── [x] classList deduplication (add existing)
+    ├── [x] Remove nonexistent class (no error)
+    ├── [x] setProperty with !important
+    ├── [x] cssText includes !important
+    ├── [x] Style on detached element
+    ├── [x] Computed style on detached element
+    ├── [x] Animation cancel
+    ├── [x] Animation pause/resume
+    ├── [x] transitionend event fires
+    ├── [x] transitionend event properties
+    ├── [x] Multiple animations simultaneously
+    ├── [x] getAnimations() returns all
+    ├── [x] Cancel one animation, keep others
+    ├── [x] Invalid CSS value ignored by browser
+    ├── [x] Valid value after invalid
+    ├── [x] inherit keyword applies parent value
+    └── [x] initial keyword resets to default
 ```
 
-###### Files to Create (Phase 34.2)
+###### Files Created (Phase 34.2) ✅
 
-- `pynext/client/style.py` — CSSStyleDeclaration stub
-- `pynext/client/css_vars.py` — CSS Custom Properties helpers
-- `pynext/runtime/dom/style.js` — Style manipulation runtime
-- `pynext/transpiler/css.py` — camelCase ↔ kebab-case conversion
-- `tests/unit/client/test_342_style.py` — Style tests
-- `tests/unit/client/test_342_classlist.py` — classList tests
-- `tests/unit/client/test_342_computed.py` — Computed style tests
+- ✅ `pynext/client/dom.py` — Extended CSSStyleDeclaration with 200+ CSS properties
+- ✅ `pynext/client/window.py` — window.getComputedStyle, matchMedia stubs
+- ✅ `pynext/client/styles.py` — StylesProxy for dictionary-style access
+- ✅ `pynext/client/css_vars.py` — set_css_var, get_css_var, set_theme helpers
+- ✅ `pynext/client/style_utils.py` — classes(), set_styles(), toggle_class()
+- ✅ `pynext/client/animation.py` — Web Animations API + helper functions
+- ✅ `pynext/transpiler/dom.py` — Extended with CSS method passthrough
+- ✅ `tests/unit/client/test_342_style_properties.py` — Style property tests (35 tests)
+- ✅ `tests/unit/client/test_342_styles_dict.py` — StylesProxy tests (25 tests)
+- ✅ `tests/unit/client/test_342_css_variables.py` — CSS variable tests (25 tests)
+- ✅ `tests/unit/client/test_342_computed_styles.py` — Computed style tests (25 tests)
+- ✅ `tests/unit/client/test_342_classList.py` — classList tests (23 tests)
+- ✅ `tests/unit/client/test_342_animation.py` — Animation tests (20 tests)
+- ✅ `tests/unit/client/test_342_css_parity.py` — Mini-app integration tests (38 tests)
+- ✅ `tests/e2e/test_css_browser_behavior.py` — E2E browser behavior tests (12 tests)
+- ✅ `tests/unit/client/test_342_edge_cases.py` — Edge case unit tests (26 tests)
+- ✅ `tests/e2e/test_css_edge_cases.py` — E2E edge case tests (19 tests)
+- ✅ `docs/features/CSS_STYLING.md` — API Reference documentation
+- ✅ `docs/internals/TRANSPILATION_CSS.md` — Transpilation mechanism docs
+- ✅ `docs/test-case-tracking/phase-34/phase-34-2/TEST_OVERVIEW.md` — Test overview
+
+**Note:** Runtime files were not needed because CSS APIs use **Zero-Runtime Passthrough** —
+CSS calls transpile to identical JavaScript with no runtime helpers.
 
 ---
 
-##### Phase 34.3: CSS Typed Object Model (135 tests, 1 week)
+##### Phase 34.3: CSS Typed Object Model ✅ COMPLETE (335 tests, 1 week)
 
 Modern, type-safe CSS manipulation with CSS factory methods and StylePropertyMap.
 
@@ -13585,56 +13691,173 @@ lighter = red.lighten(20)
 darker = red.darken(20)
 ```
 
-###### Phase 34.3 Checklist
+###### Phase 34.3 Checklist ✅
 
 ```
-CSS Typed OM (Phase 34.3)
-├── CSS Factory Methods (30 tests)
-│   ├── [ ] CSS.px(), CSS.percent(), CSS.em(), CSS.rem()
-│   ├── [ ] CSS.vw(), CSS.vh(), CSS.vmin(), CSS.vmax()
-│   ├── [ ] CSS.deg(), CSS.rad(), CSS.turn()
-│   ├── [ ] CSS.ms(), CSS.s()
-│   ├── [ ] CSS.keyword(), CSS.calc()
-│   └── [ ] CSS.min(), CSS.max(), CSS.clamp()
+CSS Typed OM (Phase 34.3) ✅ COMPLETE
+├── CSS Factory Methods (40 tests) ✅
+│   ├── [x] CSS.px(), CSS.percent(), CSS.em(), CSS.rem()
+│   ├── [x] CSS.vw(), CSS.vh(), CSS.vmin(), CSS.vmax()
+│   ├── [x] CSS.deg(), CSS.rad(), CSS.turn(), CSS.grad()
+│   ├── [x] CSS.ms(), CSS.s()
+│   ├── [x] CSS.keyword(), CSS.number(), CSS.calc()
+│   └── [x] CSS.min(), CSS.max(), CSS.clamp()
 │
-├── CSSUnitValue (25 tests)
-│   ├── [ ] value and unit properties
-│   ├── [ ] toString()
-│   ├── [ ] add(), sub(), mul(), div()
-│   ├── [ ] equals()
-│   └── [ ] to() unit conversion
+├── CSSUnitValue (35 tests) ✅
+│   ├── [x] value and unit properties
+│   ├── [x] toString()
+│   ├── [x] add(), sub(), mul(), div()
+│   ├── [x] equals(), to(), toSum()
+│   └── [x] Chained arithmetic
 │
-├── CSSTransformValue (20 tests)
-│   ├── [ ] CSS.translate(), CSS.rotate(), CSS.scale()
-│   ├── [ ] CSS.skew(), CSS.matrix(), CSS.perspective()
-│   ├── [ ] CSSTransformValue constructor
-│   └── [ ] toMatrix() conversion
+├── CSSTransformValue (30 tests) ✅
+│   ├── [x] CSS.translate(), CSS.translate3d(), CSS.translateX/Y/Z()
+│   ├── [x] CSS.rotate(), CSS.rotate3d(), CSS.rotateX/Y/Z()
+│   ├── [x] CSS.scale(), CSS.scale3d(), CSS.scaleX/Y/Z()
+│   ├── [x] CSS.skew(), CSS.skewX(), CSS.skewY()
+│   ├── [x] CSS.perspective(), CSS.matrix(), CSS.matrix3d()
+│   ├── [x] CSSTransformValue constructor
+│   └── [x] toMatrix(), is2D, length properties
 │
-├── StylePropertyMap (25 tests)
-│   ├── [ ] el.attributeStyleMap
-│   ├── [ ] set(), get(), has(), delete(), clear()
-│   ├── [ ] keys(), values(), entries()
-│   └── [ ] size property
+├── StylePropertyMap (35 tests) ✅
+│   ├── [x] el.attributeStyleMap
+│   ├── [x] set(), get(), has(), delete(), clear()
+│   ├── [x] keys(), values(), entries(), forEach()
+│   ├── [x] size property, getAll()
+│   └── [x] Various CSS value types
 │
-├── Computed Style Map (15 tests)
-│   ├── [ ] el.computedStyleMap()
-│   └── [ ] get() returns resolved values
+├── Computed Style Map (15 tests) ✅
+│   ├── [x] el.computedStyleMap()
+│   ├── [x] get() returns resolved values
+│   └── [x] Iteration and properties
 │
-└── CSS Color (20 tests)
-    ├── [ ] CSS.color(), CSS.rgb(), CSS.hsl()
-    ├── [ ] CSS.oklch(), CSS.oklab()
-    └── [ ] Color manipulation (lighten, darken, alpha)
+├── CSS Color (35 tests) ✅
+│   ├── [x] CSS.color(), CSS.rgb(), CSS.hsl(), CSS.hwb()
+│   ├── [x] CSS.oklch(), CSS.oklab(), CSS.lab(), CSS.lch()
+│   ├── [x] Color manipulation (lighten, darken, saturate, desaturate)
+│   ├── [x] Alpha manipulation (alpha, fadeIn, fadeOut)
+│   ├── [x] Mix, invert, complement, rotate
+│   └── [x] Conversion (toRGB, toHSL, toOKLCH, toHex)
+│
+├── Integration Parity Tests (30 tests) ✅
+│   ├── [x] Theme system with CSS units
+│   ├── [x] Responsive layout patterns
+│   ├── [x] Animation with typed values
+│   ├── [x] Dynamic calculations
+│   └── [x] Component styling patterns
+│
+└── E2E Browser Tests (25 tests) ✅
+    ├── [x] CSS factory in browser
+    ├── [x] Arithmetic operations
+    ├── [x] StylePropertyMap
+    ├── [x] ComputedStyleMap
+    └── [x] CSSTransformValue
 ```
 
-###### Files to Create (Phase 34.3)
+###### Files Created (Phase 34.3) ✅
 
-- `pynext/client/typed_om.py` — CSS factory, CSSUnitValue, StylePropertyMap
-- `pynext/client/css_color.py` — CSS color types and manipulation
-- `pynext/runtime/dom/typed_om.js` — Typed OM runtime
-- `tests/unit/client/test_343_css_factory.py`
-- `tests/unit/client/test_343_unit_value.py`
-- `tests/unit/client/test_343_transform.py`
-- `tests/unit/client/test_343_color.py`
+**Core Implementation:**
+- `pynext/client/typed_om.py` — CSS factory, CSSUnitValue, StylePropertyMap types (1,200+ lines)
+- `pynext/client/css_color.py` — CSS color types and manipulation methods
+- `pynext/transpiler/dom.py` — Updated with CSS Typed OM globals/methods/properties
+- `pynext/client/__init__.py` — Updated exports
+
+**Documentation:**
+- `docs/features/CSS_TYPED_OM.md` — Feature documentation
+- `docs/internals/TRANSPILATION_TYPED_OM.md` — Transpilation mechanism docs
+
+**Tests (335 total):**
+- `tests/unit/client/test_343_css_factory.py` (40 tests)
+- `tests/unit/client/test_343_unit_value.py` (35 tests)
+- `tests/unit/client/test_343_transform.py` (30 tests)
+- `tests/unit/client/test_343_color.py` (35 tests)
+- `tests/unit/client/test_343_style_map.py` (35 tests)
+- `tests/unit/client/test_343_computed_map.py` (15 tests)
+- `tests/unit/client/test_343_edge_cases.py` (20 tests) — negative, zero, large, float precision
+- `tests/unit/client/test_343_time_units.py` (10 tests) — CSS.s(), CSS.ms() time units
+- `tests/unit/client/test_343_benchmarks.py` (10 tests) — performance benchmarks
+- `tests/unit/client/test_343_image_values.py` (10 tests) — CSS.url(), gradients
+- `tests/unit/client/test_343_risk_areas.py` (25 tests) — unit conversion, CSS.supports(), CSSUnparsedValue, shorthand expansion, type mismatches, null handling, long transform chains, nested calc(), serialization round-trip
+- `tests/unit/client/test_343_complete_coverage.py` (15 tests) — CSS.escape(), DOMMatrix ops, animation integration, type narrowing, matchMedia
+- `tests/integration/transpiler/test_343_typed_om_parity.py` (30 tests)
+- `tests/e2e/test_343_typed_om_browser.py` (25 tests)
+
+---
+
+##### Phase 34.3.1: Modern CSS Units ✅ COMPLETE (40 tests, 1 day)
+
+CSS Level 4 units with excellent modern browser support for responsive design.
+
+###### Dynamic Viewport Units
+
+Account for mobile browser UI (address bar, toolbar):
+
+```python
+from pynext.client import CSS
+
+# Small viewport (UI fully visible - smallest size)
+height = CSS.svh(100)  # Safe for mobile with keyboard visible
+
+# Large viewport (UI hidden - largest size)
+height = CSS.lvh(100)  # When user scrolls and browser UI hides
+
+# Dynamic viewport (adapts in real-time)
+height = CSS.dvh(100)  # Smoothly adjusts as UI appears/disappears
+```
+
+###### Container Query Units
+
+Responsive components relative to their container, not the viewport:
+
+```python
+# Size relative to container
+width = CSS.cqw(50)    # 50% of container width
+height = CSS.cqh(50)   # 50% of container height
+
+# Writing-mode aware (for internationalization)
+inline = CSS.cqi(100)  # Container inline size
+block = CSS.cqb(100)   # Container block size
+
+# Min/max of container dimensions
+size = CSS.cqmin(50)   # Smaller dimension
+size = CSS.cqmax(50)   # Larger dimension
+```
+
+###### Advanced Typography Units
+
+For precise typography-relative sizing:
+
+```python
+# Cap height (height of capital letters)
+icon = CSS.cap(1)      # Icon matches capital letter height
+
+# Ideographic character (CJK uniform width)
+width = CSS.ic(20)     # Width for 20 CJK characters
+
+# Line height
+spacing = CSS.lh(1)    # One line of text
+gap = CSS.rlh(2)       # Two root line-heights
+```
+
+###### Browser Support
+
+| Feature | Chrome | Safari | Firefox |
+|---------|--------|--------|---------|
+| Dynamic viewport (svh/lvh/dvh) | 108+ | 15.4+ | 101+ |
+| Container queries (cqw/cqh) | 105+ | 16+ | 110+ |
+| Typography (cap/ic/lh/rlh) | 77+ | 13+ | 96+ |
+
+###### Files Created (Phase 34.3.1) ✅
+
+**Implementation:**
+- `pynext/client/typed_om.py` — Added 16 new factory methods
+
+**Tests (40 total):**
+- `tests/unit/client/test_3431_modern_units.py` (40 tests)
+  - Dynamic viewport units (svw, svh, lvw, lvh, dvw, dvh): 12 tests
+  - Container query units (cqw, cqh, cqi, cqb, cqmin, cqmax): 12 tests
+  - Typography units (cap, ic, lh, rlh): 11 tests
+  - Cross-unit integration: 5 tests
 
 ---
 
@@ -14793,6 +15016,883 @@ Error Boundaries & DX (Phase 34.7)
 - `pynext/client/node.pyi` — Type stubs for Node, NodeList
 - `tests/unit/client/test_347_error_boundary.py`
 - `tests/unit/client/test_347_type_stubs.py`
+
+---
+
+##### Phase 34.8: Shadow DOM & Web Components (200 tests, 2 weeks)
+
+**Pure Python Shadow DOM** — Encapsulated components with scoped styles, slot projection, and SSR support. Zero raw HTML/CSS/JS in your Python code.
+
+###### Design Philosophy
+
+Shadow DOM provides true style encapsulation — your component's styles can't leak out, and external styles can't leak in. PyNext makes this 100% Pythonic:
+
+```python
+from pynext.client import client, shadow, slot, scoped_styles
+
+# =============================================================================
+# Core Pattern: @shadow Decorator
+# =============================================================================
+
+@shadow  # Creates shadow root automatically
+@client
+def Card(title: str):
+    """A card component with encapsulated styles."""
+    return div(class_="card")[
+        # Scoped styles - only apply inside this shadow DOM
+        scoped_styles({
+            ".card": {
+                "border-radius": "8px",
+                "box-shadow": "0 2px 8px rgba(0,0,0,0.1)",
+                "padding": "16px",
+            },
+            "h2": {
+                "margin": "0 0 8px 0",
+                "color": "var(--heading-color, #1a1a1a)",
+            },
+        }),
+        
+        h2()[title],
+        slot(),  # Renders children passed to this component
+    ]
+
+# Usage - completely Pythonic
+def App():
+    return Card(title="Welcome")[
+        p()["This content is projected into the slot"],
+        button()["Click me"],
+    ]
+```
+
+###### Shadow DOM Core API
+
+```python
+from pynext.client import (
+    shadow,          # @shadow decorator for component encapsulation
+    slot,            # slot() function for content projection
+    scoped_styles,   # scoped_styles({...}) for encapsulated CSS
+    ShadowMode,      # "open" | "closed" enum
+)
+
+# =============================================================================
+# @shadow Decorator
+# =============================================================================
+
+@shadow(mode="open")  # default - shadow root accessible via element.shadowRoot
+@client
+def OpenComponent():
+    return div()["Inspectable shadow DOM"]
+
+@shadow(mode="closed")  # shadow root not accessible from outside
+@client
+def ClosedComponent():
+    return div()["Private shadow DOM"]
+
+@shadow(delegates_focus=True)  # focus moves to first focusable element inside
+@client
+def FocusableComponent():
+    return div()[
+        input(type="text", placeholder="Auto-focused"),
+    ]
+
+# =============================================================================
+# Shadow Root Attachment Options
+# =============================================================================
+
+@shadow(
+    mode="open",
+    delegates_focus=False,
+    slot_assignment="named",  # "named" | "manual"
+)
+@client
+def AdvancedShadowComponent():
+    pass
+```
+
+###### Scoped Styles
+
+```python
+from pynext.client import scoped_styles, use_theme_var
+
+# =============================================================================
+# scoped_styles() - CSS-in-Python
+# =============================================================================
+
+@shadow
+@client
+def Button(variant: str = "primary"):
+    """Button with variants using scoped styles."""
+    return button(class_=f"btn btn-{variant}")[
+        scoped_styles({
+            # Base styles
+            ".btn": {
+                "padding": "8px 16px",
+                "border": "none",
+                "border-radius": "4px",
+                "cursor": "pointer",
+                "font-weight": "600",
+                "transition": "all 0.2s ease",
+            },
+            # Variants
+            ".btn-primary": {
+                "background": use_theme_var("primary", "#3b82f6"),
+                "color": "white",
+            },
+            ".btn-secondary": {
+                "background": use_theme_var("secondary", "#64748b"),
+                "color": "white",
+            },
+            ".btn-outline": {
+                "background": "transparent",
+                "border": f"2px solid {use_theme_var('primary', '#3b82f6')}",
+                "color": use_theme_var("primary", "#3b82f6"),
+            },
+            # Hover states
+            ".btn:hover": {
+                "transform": "translateY(-1px)",
+                "box-shadow": "0 4px 12px rgba(0,0,0,0.15)",
+            },
+            # Disabled state
+            ".btn:disabled": {
+                "opacity": "0.5",
+                "cursor": "not-allowed",
+                "transform": "none",
+            },
+        }),
+        
+        slot(),  # Button text/content
+    ]
+
+# Usage
+def App():
+    return div()[
+        Button(variant="primary")["Submit"],
+        Button(variant="secondary")["Cancel"],
+        Button(variant="outline")["Learn More"],
+    ]
+
+# =============================================================================
+# Theme Variables with Fallbacks
+# =============================================================================
+
+def use_theme_var(name: str, fallback: str = "") -> str:
+    """
+    Reference a CSS variable from the light DOM (parent page).
+    
+    This bridges the shadow boundary - your component can respond
+    to theme changes from the outside.
+    """
+    var_name = name if name.startswith("--") else f"--{name}"
+    return f"var({var_name}, {fallback})" if fallback else f"var({var_name})"
+
+# Example: Component that adapts to page theme
+@shadow
+@client
+def ThemeAwareCard():
+    return div(class_="card")[
+        scoped_styles({
+            ".card": {
+                # Uses --bg-color from light DOM, falls back to white
+                "background": use_theme_var("bg-color", "white"),
+                "color": use_theme_var("text-color", "#1a1a1a"),
+                "border": f"1px solid {use_theme_var('border-color', '#e5e7eb')}",
+            },
+        }),
+        slot(),
+    ]
+```
+
+###### Slot Projection
+
+```python
+from pynext.client import slot, NamedSlot
+
+# =============================================================================
+# Default Slot
+# =============================================================================
+
+@shadow
+@client
+def Container():
+    return div(class_="container")[
+        scoped_styles({".container": {"padding": "20px"}}),
+        slot(),  # All children go here
+    ]
+
+# Usage
+Container()[
+    p()["This goes into the default slot"],
+    p()["So does this"],
+]
+
+# =============================================================================
+# Named Slots
+# =============================================================================
+
+@shadow
+@client
+def Dialog(title: str = ""):
+    """A dialog with header, body, and footer slots."""
+    return div(class_="dialog")[
+        scoped_styles({
+            ".dialog": {
+                "border-radius": "8px",
+                "box-shadow": "0 10px 40px rgba(0,0,0,0.2)",
+                "max-width": "500px",
+            },
+            ".header": {
+                "padding": "16px 20px",
+                "border-bottom": "1px solid #e5e7eb",
+                "font-weight": "600",
+            },
+            ".body": {"padding": "20px"},
+            ".footer": {
+                "padding": "12px 20px",
+                "border-top": "1px solid #e5e7eb",
+                "display": "flex",
+                "justify-content": "flex-end",
+                "gap": "8px",
+            },
+        }),
+        
+        header(class_="header")[
+            slot(name="header")[title or "Dialog"],  # Fallback content
+        ],
+        div(class_="body")[
+            slot(),  # Default slot = main content
+        ],
+        footer(class_="footer")[
+            slot(name="actions")[
+                # Default actions if none provided
+                button()["Close"],
+            ],
+        ],
+    ]
+
+# Usage with named slots
+def ConfirmDialog():
+    return Dialog()[
+        # Named slot: header
+        span(slot="header")["Confirm Action"],
+        
+        # Default slot: body content
+        p()["Are you sure you want to delete this item?"],
+        
+        # Named slot: actions
+        div(slot="actions")[
+            button(class_="cancel")["Cancel"],
+            button(class_="confirm")["Delete"],
+        ],
+    ]
+
+# =============================================================================
+# Slot Fallback Content
+# =============================================================================
+
+@shadow
+@client
+def Avatar(src: str = "", name: str = ""):
+    """Avatar with fallback to initials."""
+    return div(class_="avatar")[
+        scoped_styles({
+            ".avatar": {
+                "width": "40px",
+                "height": "40px",
+                "border-radius": "50%",
+                "overflow": "hidden",
+                "display": "flex",
+                "align-items": "center",
+                "justify-content": "center",
+                "background": "#e5e7eb",
+            },
+            "img": {"width": "100%", "height": "100%", "object-fit": "cover"},
+            ".initials": {"font-weight": "600", "color": "#4b5563"},
+        }),
+        
+        slot()[
+            # Fallback: show initials if no image provided
+            span(class_="initials")[
+                name[:2].upper() if name else "?"
+            ] if not src else img(src=src, alt=name),
+        ],
+    ]
+
+# =============================================================================
+# Slot Events (slotchange)
+# =============================================================================
+
+@shadow
+@client
+def TabPanel():
+    """Track when slotted content changes."""
+    
+    def on_slot_change(event):
+        slotted_elements = event.target.assignedElements()
+        console.log(f"Slot now contains {len(slotted_elements)} elements")
+    
+    return div()[
+        slot(on_slotchange=on_slot_change),
+    ]
+```
+
+###### Custom Elements (Web Components)
+
+```python
+from pynext.client import define_element, CustomElement
+
+# =============================================================================
+# Defining Custom Elements
+# =============================================================================
+
+@define_element("my-counter")  # Registers as <my-counter> in the DOM
+@shadow
+@client
+def Counter(initial: int = 0):
+    """A custom counter element."""
+    count = Signal(initial)
+    
+    return div(class_="counter")[
+        scoped_styles({
+            ".counter": {
+                "display": "flex",
+                "align-items": "center",
+                "gap": "8px",
+            },
+            "button": {
+                "width": "32px",
+                "height": "32px",
+                "border-radius": "50%",
+                "border": "none",
+                "cursor": "pointer",
+            },
+            ".count": {"font-size": "24px", "font-weight": "bold"},
+        }),
+        
+        button(on_click=lambda: count.update(lambda c: c - 1))["-"],
+        span(class_="count")[count],
+        button(on_click=lambda: count.update(lambda c: c + 1))["+"],
+    ]
+
+# Now usable as:
+# - Python: Counter(initial=5)
+# - HTML: <my-counter initial="5"></my-counter>
+
+# =============================================================================
+# Lifecycle Callbacks
+# =============================================================================
+
+@define_element("my-widget")
+@shadow
+@client
+def Widget():
+    """Component with lifecycle hooks."""
+    
+    def on_connected():
+        """Called when element is added to DOM."""
+        console.log("Widget connected!")
+    
+    def on_disconnected():
+        """Called when element is removed from DOM."""
+        console.log("Widget disconnected, cleaning up...")
+    
+    def on_adopted():
+        """Called when element is moved to new document."""
+        console.log("Widget adopted!")
+    
+    def on_attribute_changed(name: str, old_value: str, new_value: str):
+        """Called when observed attribute changes."""
+        console.log(f"Attribute {name}: {old_value} → {new_value}")
+    
+    # Register lifecycle callbacks
+    use_lifecycle(
+        connected=on_connected,
+        disconnected=on_disconnected,
+        adopted=on_adopted,
+        attribute_changed=on_attribute_changed,
+        observed_attributes=["theme", "size"],
+    )
+    
+    return div()["Widget content"]
+
+# =============================================================================
+# Form-Associated Custom Elements
+# =============================================================================
+
+@define_element("fancy-input", form_associated=True)
+@shadow
+@client
+def FancyInput(name: str, required: bool = False):
+    """Custom input that participates in forms."""
+    value = Signal("")
+    
+    # Form association
+    internals = use_element_internals()
+    
+    def on_input(e):
+        new_value = e.target.value
+        value.set(new_value)
+        internals.setFormValue(new_value)  # Report value to form
+        
+        # Custom validation
+        if required and not new_value:
+            internals.setValidity({"valueMissing": True}, "This field is required")
+        else:
+            internals.setValidity({})  # Clear errors
+    
+    return div(class_="input-wrapper")[
+        scoped_styles({
+            ".input-wrapper": {"position": "relative"},
+            "input": {
+                "padding": "12px 16px",
+                "border": "2px solid #e5e7eb",
+                "border-radius": "8px",
+                "width": "100%",
+                "transition": "border-color 0.2s",
+            },
+            "input:focus": {
+                "border-color": "#3b82f6",
+                "outline": "none",
+            },
+            "input:invalid": {"border-color": "#ef4444"},
+        }),
+        
+        input(
+            type="text",
+            name=name,
+            required=required,
+            on_input=on_input,
+        ),
+    ]
+
+# Usage in a form
+def ContactForm():
+    return form(on_submit=handle_submit)[
+        FancyInput(name="email", required=True),
+        FancyInput(name="message"),
+        button(type="submit")["Send"],
+    ]
+```
+
+###### SSR Integration (Declarative Shadow DOM)
+
+```python
+from pynext.client import shadow, DSD
+
+# =============================================================================
+# Server-Side Rendering with Declarative Shadow DOM
+# =============================================================================
+
+# PyNext automatically uses Declarative Shadow DOM for SSR
+# No special configuration needed!
+
+@shadow
+@client
+def SSRCard(title: str):
+    return div(class_="card")[
+        scoped_styles({".card": {"padding": "16px"}}),
+        h2()[title],
+        slot(),
+    ]
+
+# Server renders this as:
+# <div>
+#   <template shadowrootmode="open">
+#     <style>.card { padding: 16px; }</style>
+#     <div class="card">
+#       <h2>Hello</h2>
+#       <slot></slot>
+#     </div>
+#   </template>
+#   <!-- Slotted content rendered here -->
+# </div>
+
+# =============================================================================
+# Hydration
+# =============================================================================
+
+# Shadow DOM components hydrate automatically.
+# The browser parses <template shadowrootmode="open"> before JS runs,
+# so content is visible immediately (no flash of unstyled content).
+
+# PyNext's hydration:
+# 1. Detects existing shadow roots from DSD
+# 2. Attaches event listeners
+# 3. Connects reactive state
+# 4. No DOM manipulation needed (already rendered correctly)
+
+# =============================================================================
+# Streaming SSR
+# =============================================================================
+
+# Shadow DOM components work with streaming:
+# - Component structure sent first
+# - Scoped styles included inline (no external CSS to load)
+# - Suspense boundaries work inside shadow DOM
+
+@shadow
+@client
+async def StreamingShadowComponent():
+    data = await fetch_data()  # Suspends here
+    return div()[
+        scoped_styles({...}),
+        DataDisplay(data),
+    ]
+```
+
+###### Testing Shadow DOM
+
+```python
+from pynext.testing import render, within_shadow
+import pytest
+
+# =============================================================================
+# Unit Testing Shadow Components
+# =============================================================================
+
+def test_shadow_component_renders():
+    """Test that shadow component renders correctly."""
+    result = render(Card(title="Test Card")[
+        p()["Card content"],
+    ])
+    
+    # Query inside shadow DOM
+    shadow = result.get_shadow_root()
+    assert shadow.query_selector("h2").text_content == "Test Card"
+    assert shadow.query_selector(".card") is not None
+
+def test_slot_projection():
+    """Test that slotted content is projected correctly."""
+    result = render(Dialog()[
+        span(slot="header")["Custom Header"],
+        p()["Body content"],
+        div(slot="actions")[button()["OK"]],
+    ])
+    
+    shadow = result.get_shadow_root()
+    
+    # Check slot assignments
+    header_slot = shadow.query_selector('slot[name="header"]')
+    assert header_slot.assigned_elements()[0].text_content == "Custom Header"
+    
+    default_slot = shadow.query_selector("slot:not([name])")
+    assert "Body content" in default_slot.assigned_nodes()[0].text_content
+
+def test_scoped_styles_isolation():
+    """Test that styles don't leak out of shadow boundary."""
+    result = render(div()[
+        Card(title="Inside Card")[
+            p(class_="card")["This .card class shouldn't be styled by Card's scoped styles"],
+        ],
+    ])
+    
+    # The outer .card class should NOT have Card's padding
+    outer_card = result.query_selector(".card")
+    computed = window.getComputedStyle(outer_card)
+    # Default padding, not Card's scoped 16px
+    assert computed.padding != "16px"
+
+def test_theme_variable_inheritance():
+    """Test that theme variables cross shadow boundary."""
+    result = render(div(style="--primary: #ff0000")[
+        ThemeAwareButton()["Themed"],
+    ])
+    
+    shadow = result.get_shadow_root()
+    button = shadow.query_selector("button")
+    computed = window.getComputedStyle(button)
+    
+    # Should use the inherited --primary color
+    assert "rgb(255, 0, 0)" in computed.backgroundColor
+
+# =============================================================================
+# E2E Testing
+# =============================================================================
+
+@pytest.mark.e2e
+async def test_shadow_dom_in_browser(page):
+    """Test shadow DOM in real browser."""
+    await page.goto("/shadow-demo")
+    
+    # Pierce shadow DOM to query inside
+    button = await page.locator("my-counter").locator("button:has-text('+')").click()
+    
+    count = await page.locator("my-counter").locator(".count").text_content()
+    assert count == "1"
+
+@pytest.mark.e2e
+async def test_form_associated_element(page):
+    """Test custom element participates in form."""
+    await page.goto("/form-demo")
+    
+    # Fill custom input
+    await page.locator("fancy-input").locator("input").fill("test@example.com")
+    
+    # Submit form
+    await page.click("button[type='submit']")
+    
+    # Verify form data was submitted
+    request = await page.wait_for_request("/api/submit")
+    assert "test@example.com" in request.post_data
+
+# =============================================================================
+# Testing Utilities
+# =============================================================================
+
+from pynext.testing import ShadowQuery
+
+def test_with_shadow_query():
+    """Using ShadowQuery helper for cleaner shadow DOM testing."""
+    result = render(NestedShadowComponents())
+    
+    # Automatically pierces all shadow boundaries
+    sq = ShadowQuery(result)
+    
+    # Find element anywhere in shadow tree
+    button = sq.find("button.submit")
+    assert button is not None
+    
+    # Find all matching elements across shadow boundaries
+    all_cards = sq.find_all(".card")
+    assert len(all_cards) == 3
+    
+    # Query within specific shadow root
+    dialog = sq.find("my-dialog")
+    within_dialog = sq.within(dialog)
+    close_btn = within_dialog.find("button.close")
+```
+
+###### Transpilation Mechanism
+
+```python
+# =============================================================================
+# How @shadow Transpiles
+# =============================================================================
+
+# Python source:
+@shadow
+@client
+def Card(title: str):
+    return div(class_="card")[
+        scoped_styles({".card": {"padding": "16px"}}),
+        h2()[title],
+        slot(),
+    ]
+
+# Transpiled JavaScript:
+class CardElement extends HTMLElement {
+    static get observedAttributes() { return ['title']; }
+    
+    constructor() {
+        super();
+        this.attachShadow({ mode: 'open' });
+    }
+    
+    connectedCallback() {
+        this._render();
+    }
+    
+    _render() {
+        const title = this.getAttribute('title') || '';
+        this.shadowRoot.innerHTML = `
+            <style>.card { padding: 16px; }</style>
+            <div class="card">
+                <h2>${title}</h2>
+                <slot></slot>
+            </div>
+        `;
+    }
+    
+    attributeChangedCallback(name, oldValue, newValue) {
+        if (oldValue !== newValue) this._render();
+    }
+}
+customElements.define('pynext-card', CardElement);
+
+// With reactivity:
+class CardElement extends HTMLElement {
+    #title;
+    #effect;
+    
+    constructor() {
+        super();
+        this.attachShadow({ mode: 'open' });
+        this.#title = new Signal(this.getAttribute('title') || '');
+    }
+    
+    connectedCallback() {
+        this.#effect = createEffect(() => {
+            this.shadowRoot.innerHTML = `
+                <style>.card { padding: 16px; }</style>
+                <div class="card">
+                    <h2>${this.#title.get()}</h2>
+                    <slot></slot>
+                </div>
+            `;
+        });
+    }
+    
+    disconnectedCallback() {
+        this.#effect?.dispose();
+    }
+}
+
+# =============================================================================
+# scoped_styles() Transpilation
+# =============================================================================
+
+# Python:
+scoped_styles({
+    ".card": {"padding": "16px", "margin": "8px"},
+    ".card:hover": {"box-shadow": "0 4px 8px rgba(0,0,0,0.1)"},
+})
+
+# Transpiles to <style> element inside shadow root:
+`<style>
+.card { padding: 16px; margin: 8px; }
+.card:hover { box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+</style>`
+
+# =============================================================================
+# slot() Transpilation
+# =============================================================================
+
+# Python:
+slot()                           # → <slot></slot>
+slot(name="header")              # → <slot name="header"></slot>
+slot(name="footer")["Default"]   # → <slot name="footer">Default</slot>
+slot(on_slotchange=handler)      # → <slot onslotchange="handler"></slot>
+
+# =============================================================================
+# define_element() Transpilation
+# =============================================================================
+
+# Python:
+@define_element("my-counter")
+@shadow
+def Counter(): ...
+
+# Transpiles to:
+# 1. Class extending HTMLElement (or HTMLElement subclass)
+# 2. customElements.define('my-counter', CounterElement)
+# 3. For form_associated=True: static formAssociated = true
+```
+
+###### Phase 34.8 Checklist
+
+```
+Shadow DOM & Web Components (Phase 34.8)
+├── @shadow Decorator (30 tests)
+│   ├── [ ] attachShadow with mode="open"
+│   ├── [ ] attachShadow with mode="closed"
+│   ├── [ ] delegates_focus option
+│   ├── [ ] slot_assignment option
+│   ├── [ ] Shadow root creation on mount
+│   └── [ ] Shadow root reuse on re-render
+│
+├── scoped_styles() (25 tests)
+│   ├── [ ] CSS object to string conversion
+│   ├── [ ] Nested selectors
+│   ├── [ ] Pseudo-classes (:hover, :focus, etc.)
+│   ├── [ ] Pseudo-elements (::before, ::after)
+│   ├── [ ] Media queries
+│   ├── [ ] CSS variables (use_theme_var)
+│   └── [ ] Style deduplication
+│
+├── slot() Function (25 tests)
+│   ├── [ ] Default slot
+│   ├── [ ] Named slots
+│   ├── [ ] Fallback content
+│   ├── [ ] slot="" attribute on children
+│   ├── [ ] assignedElements()
+│   ├── [ ] assignedNodes()
+│   └── [ ] slotchange event
+│
+├── @define_element (25 tests)
+│   ├── [ ] Custom element registration
+│   ├── [ ] observedAttributes
+│   ├── [ ] Lifecycle: connectedCallback
+│   ├── [ ] Lifecycle: disconnectedCallback
+│   ├── [ ] Lifecycle: adoptedCallback
+│   ├── [ ] Lifecycle: attributeChangedCallback
+│   └── [ ] use_lifecycle() hook
+│
+├── Form-Associated Elements (20 tests)
+│   ├── [ ] form_associated=True option
+│   ├── [ ] ElementInternals API
+│   ├── [ ] setFormValue()
+│   ├── [ ] setValidity()
+│   ├── [ ] Form participation
+│   ├── [ ] Validation states
+│   └── [ ] Form reset handling
+│
+├── SSR / Declarative Shadow DOM (25 tests)
+│   ├── [ ] <template shadowrootmode="open">
+│   ├── [ ] <template shadowrootmode="closed">
+│   ├── [ ] Inline scoped styles in template
+│   ├── [ ] Slot serialization
+│   ├── [ ] Hydration detection
+│   ├── [ ] Hydration event attachment
+│   └── [ ] Streaming SSR support
+│
+├── Theme Bridging (15 tests)
+│   ├── [ ] use_theme_var() helper
+│   ├── [ ] CSS variable inheritance
+│   ├── [ ] Fallback values
+│   ├── [ ] Dynamic theme updates
+│   └── [ ] :host selector styling
+│
+├── Transpilation (20 tests)
+│   ├── [ ] @shadow → attachShadow()
+│   ├── [ ] scoped_styles → <style>
+│   ├── [ ] slot() → <slot>
+│   ├── [ ] define_element → customElements.define
+│   ├── [ ] Reactive state in shadow components
+│   ├── [ ] Event handlers in shadow DOM
+│   └── [ ] Signal integration
+│
+└── Mini-Application Tests (15 tests)
+    ├── [ ] Complete design system with shadow components
+    ├── [ ] Form with custom elements
+    ├── [ ] Modal dialog component
+    ├── [ ] Tooltip component
+    ├── [ ] Dropdown menu
+    └── [ ] Tab panel
+```
+
+###### Files to Create (Phase 34.8)
+
+**Core Implementation:**
+- `pynext/client/shadow.py` — @shadow decorator, ShadowRoot class
+- `pynext/client/slot.py` — slot() function, NamedSlot
+- `pynext/client/scoped_styles.py` — scoped_styles(), CSS object compiler
+- `pynext/client/custom_element.py` — @define_element, use_lifecycle, ElementInternals
+- `pynext/client/theme_bridge.py` — use_theme_var(), theme utilities
+
+**Transpiler Extensions:**
+- `pynext/transpiler/shadow_dom.py` — Shadow DOM transpilation rules
+- `pynext/transpiler/custom_elements.py` — Custom element class generation
+- `pynext/transpiler/scoped_css.py` — CSS-in-Python to <style> conversion
+
+**SSR Support:**
+- `pynext/ssr/declarative_shadow.py` — Declarative Shadow DOM serialization
+- `pynext/ssr/shadow_hydration.py` — Shadow DOM hydration logic
+
+**Testing:**
+- `tests/unit/client/test_348_shadow_decorator.py`
+- `tests/unit/client/test_348_scoped_styles.py`
+- `tests/unit/client/test_348_slot.py`
+- `tests/unit/client/test_348_custom_element.py`
+- `tests/unit/client/test_348_form_associated.py`
+- `tests/unit/client/test_348_theme_bridge.py`
+- `tests/unit/transpiler/test_348_shadow_transpile.py`
+- `tests/unit/ssr/test_348_declarative_shadow.py`
+- `tests/e2e/test_348_shadow_browser.py`
+- `tests/e2e/test_348_form_elements.py`
+- `tests/mini_apps/test_348_design_system.py`
+
+**Documentation:**
+- `docs/features/SHADOW_DOM.md` — Complete Shadow DOM guide
+- `docs/internals/TRANSPILATION_SHADOW.md` — Shadow transpilation mechanism
 
 ---
 
