@@ -95,14 +95,53 @@ DOM_GLOBALS: FrozenSet[str] = frozenset({
     "CSSStyleDeclaration",
     "DOMRect",
     
-    # Events
+    # Events (Phase 34.4)
     "Event",
+    "UIEvent",
     "MouseEvent",
     "KeyboardEvent",
     "TouchEvent",
     "FocusEvent",
     "InputEvent",
     "CustomEvent",
+    "DragEvent",
+    "WheelEvent",
+    "PointerEvent",
+    "AnimationEvent",
+    "TransitionEvent",
+    "SubmitEvent",
+    "FormDataEvent",
+    "ClipboardEvent",
+    "CompositionEvent",
+    "StorageEvent",
+    "MessageEvent",
+    "ErrorEvent",
+    "CloseEvent",
+    "HashChangeEvent",
+    "PopStateEvent",
+    "BeforeUnloadEvent",
+    
+    # WebSocket
+    "WebSocket",
+    
+    # Additional Events (Phase 34.4 Final)
+    "PromiseRejectionEvent",
+    "SecurityPolicyViolationEvent",
+    "PageTransitionEvent",
+    "ProgressEvent",
+    "DeviceMotionEvent",
+    "DeviceOrientationEvent",
+    
+    # XMLHttpRequest
+    "XMLHttpRequest",
+    
+    # Event Supporting Types (Phase 34.4)
+    "Touch",
+    "TouchList",
+    "DataTransfer",
+    "DataTransferItem",
+    "DataTransferItemList",
+    "FileList",
     
     # Others
     "MutationObserver",
@@ -293,7 +332,7 @@ DOM_METHODS: FrozenSet[str] = frozenset({
     "lookupNamespaceURI",
     
     # =========================================================================
-    # Event Methods (4)
+    # Event Methods (Phase 34.4)
     # =========================================================================
     "addEventListener",
     "removeEventListener",
@@ -301,6 +340,36 @@ DOM_METHODS: FrozenSet[str] = frozenset({
     "preventDefault",
     "stopPropagation",
     "stopImmediatePropagation",
+    "composedPath",
+    "getModifierState",
+    
+    # =========================================================================
+    # DataTransfer Methods (Phase 34.4)
+    # =========================================================================
+    "setData",
+    "getData",
+    "clearData",
+    "setDragImage",
+    
+    # =========================================================================
+    # Touch/Pointer Methods (Phase 34.4)
+    # =========================================================================
+    "getCoalescedEvents",
+    "getPredictedEvents",
+    "setPointerCapture",
+    "releasePointerCapture",
+    "hasPointerCapture",
+    
+    # =========================================================================
+    # AbortController Methods (Phase 34.4)
+    # =========================================================================
+    "abort",
+    
+    # =========================================================================
+    # DataTransferItem Methods (Phase 34.4)
+    # =========================================================================
+    "getAsString",
+    "getAsFile",
     
     # =========================================================================
     # Text Methods (1)
@@ -633,6 +702,208 @@ DOM_PROPERTIES: FrozenSet[str] = frozenset({
     # CSSTransformComponent properties
     "ax", "ay",           # CSSSkew
     "angle",              # CSSRotate
+    
+    # =========================================================================
+    # Event Properties (Phase 34.4)
+    # =========================================================================
+    
+    # Event base properties
+    "type",               # Event.type (event name)
+    "target",             # Event.target (origin element)
+    "currentTarget",      # Event.currentTarget (listener element)
+    "eventPhase",         # Event.eventPhase
+    "bubbles",            # Event.bubbles
+    "cancelable",         # Event.cancelable
+    "composed",           # Event.composed
+    "timeStamp",          # Event.timeStamp
+    "isTrusted",          # Event.isTrusted
+    "defaultPrevented",   # Event.defaultPrevented
+    
+    # UIEvent properties
+    "view",               # UIEvent.view
+    "detail",             # UIEvent.detail, CustomEvent.detail
+    
+    # MouseEvent position properties
+    "clientX",            # MouseEvent.clientX
+    "clientY",            # MouseEvent.clientY
+    "pageX",              # MouseEvent.pageX
+    "pageY",              # MouseEvent.pageY
+    "screenX",            # MouseEvent.screenX
+    "screenY",            # MouseEvent.screenY
+    "offsetX",            # MouseEvent.offsetX
+    "offsetY",            # MouseEvent.offsetY
+    "movementX",          # MouseEvent.movementX
+    "movementY",          # MouseEvent.movementY
+    
+    # MouseEvent button properties
+    "button",             # MouseEvent.button
+    "buttons",            # MouseEvent.buttons
+    
+    # Modifier key properties (shared)
+    "altKey",             # MouseEvent, KeyboardEvent, TouchEvent
+    "ctrlKey",
+    "shiftKey",
+    "metaKey",
+    
+    # MouseEvent other
+    "relatedTarget",      # MouseEvent, FocusEvent
+    
+    # WheelEvent properties
+    "deltaX",             # WheelEvent.deltaX
+    "deltaY",             # WheelEvent.deltaY
+    "deltaZ",             # WheelEvent.deltaZ
+    "deltaMode",          # WheelEvent.deltaMode
+    
+    # KeyboardEvent properties
+    "key",                # KeyboardEvent.key
+    "code",               # KeyboardEvent.code
+    "repeat",             # KeyboardEvent.repeat
+    "isComposing",        # KeyboardEvent.isComposing
+    "location",           # KeyboardEvent.location
+    
+    # Touch properties
+    "identifier",         # Touch.identifier
+    "radiusX",            # Touch.radiusX
+    "radiusY",            # Touch.radiusY
+    "rotationAngle",      # Touch.rotationAngle
+    "force",              # Touch.force
+    
+    # TouchEvent properties
+    "touches",            # TouchEvent.touches
+    "changedTouches",     # TouchEvent.changedTouches
+    "targetTouches",      # TouchEvent.targetTouches
+    
+    # DragEvent/DataTransfer properties
+    "dataTransfer",       # DragEvent.dataTransfer
+    "dropEffect",         # DataTransfer.dropEffect
+    "effectAllowed",      # DataTransfer.effectAllowed
+    "files",              # DataTransfer.files
+    "items",              # DataTransfer.items
+    "types",              # DataTransfer.types
+    
+    # DataTransferItem properties
+    "kind",               # DataTransferItem.kind
+    
+    # InputEvent properties
+    "inputType",          # InputEvent.inputType
+    
+    # PointerEvent properties
+    "pointerId",          # PointerEvent.pointerId
+    "pointerType",        # PointerEvent.pointerType
+    "pressure",           # PointerEvent.pressure
+    "tangentialPressure", # PointerEvent.tangentialPressure
+    "tiltX",              # PointerEvent.tiltX
+    "tiltY",              # PointerEvent.tiltY
+    "twist",              # PointerEvent.twist
+    "isPrimary",          # PointerEvent.isPrimary
+    
+    # AnimationEvent properties
+    "animationName",      # AnimationEvent.animationName
+    "elapsedTime",        # AnimationEvent.elapsedTime, TransitionEvent.elapsedTime
+    "pseudoElement",      # AnimationEvent.pseudoElement, TransitionEvent.pseudoElement
+    
+    # TransitionEvent properties
+    "propertyName",       # TransitionEvent.propertyName
+    
+    # SubmitEvent properties
+    "submitter",          # SubmitEvent.submitter
+    
+    # FormDataEvent properties
+    "formData",           # FormDataEvent.formData
+    
+    # ClipboardEvent properties
+    "clipboardData",      # ClipboardEvent.clipboardData
+    
+    # StorageEvent properties
+    "oldValue",           # StorageEvent.oldValue
+    "newValue",           # StorageEvent.newValue
+    "url",                # StorageEvent.url
+    "storageArea",        # StorageEvent.storageArea
+    
+    # Window/Document event properties
+    "innerWidth",         # window.innerWidth
+    "innerHeight",        # window.innerHeight
+    "scrollTop",          # document.documentElement.scrollTop
+    "scrollHeight",       # document.documentElement.scrollHeight
+    "visibilityState",    # document.visibilityState (already exists, just noting)
+    "returnValue",        # BeforeUnloadEvent.returnValue
+    "state",              # PopStateEvent.state
+    "hash",               # location.hash (for hashchange)
+    
+    # Media element properties
+    "currentTime",        # HTMLMediaElement.currentTime
+    "duration",           # HTMLMediaElement.duration
+    "paused",             # HTMLMediaElement.paused
+    "volume",             # HTMLMediaElement.volume
+    "muted",              # HTMLMediaElement.muted
+    "playbackRate",       # HTMLMediaElement.playbackRate
+    
+    # AbortController/Signal properties
+    "signal",             # AbortController.signal
+    "aborted",            # AbortSignal.aborted
+    "reason",             # AbortSignal.reason
+    
+    # MessageEvent properties
+    "origin",             # MessageEvent.origin
+    "source",             # MessageEvent.source
+    "ports",              # MessageEvent.ports
+    "lastEventId",        # MessageEvent.lastEventId
+    
+    # ErrorEvent properties
+    "message",            # ErrorEvent.message
+    "filename",           # ErrorEvent.filename
+    "lineno",             # ErrorEvent.lineno
+    "colno",              # ErrorEvent.colno
+    "error",              # ErrorEvent.error
+    
+    # HashChangeEvent properties
+    "oldURL",             # HashChangeEvent.oldURL
+    "newURL",             # HashChangeEvent.newURL
+    
+    # CloseEvent properties
+    "code",               # CloseEvent.code
+    "wasClean",           # CloseEvent.wasClean
+    
+    # WebSocket properties
+    "readyState",         # WebSocket.readyState
+    "bufferedAmount",     # WebSocket.bufferedAmount
+    "extensions",         # WebSocket.extensions
+    "protocol",           # WebSocket.protocol
+    "binaryType",         # WebSocket.binaryType
+    
+    # PromiseRejectionEvent properties
+    "promise",            # PromiseRejectionEvent.promise
+    
+    # SecurityPolicyViolationEvent properties
+    "violatedDirective",  # CSP directive violated
+    "effectiveDirective", # Effective directive
+    "blockedURI",         # Blocked resource URI
+    "documentURI",        # Document URI
+    "originalPolicy",     # Original CSP policy
+    "sourceFile",         # Source file
+    "lineNumber",         # Line number
+    "columnNumber",       # Column number
+    "statusCode",         # HTTP status code
+    
+    # PageTransitionEvent properties
+    "persisted",          # PageTransitionEvent.persisted
+    
+    # ProgressEvent properties
+    "lengthComputable",   # ProgressEvent.lengthComputable
+    "loaded",             # ProgressEvent.loaded
+    "total",              # ProgressEvent.total
+    
+    # DeviceMotionEvent properties
+    "acceleration",       # DeviceMotionEvent.acceleration
+    "accelerationIncludingGravity",  # With gravity
+    "rotationRate",       # Rotation rate
+    "interval",           # Event interval
+    
+    # DeviceOrientationEvent properties
+    "alpha",              # Compass heading
+    "beta",               # Front/back tilt
+    "gamma",              # Left/right tilt
+    "absolute",           # Absolute orientation
 })
 
 

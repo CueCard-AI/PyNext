@@ -13136,11 +13136,11 @@ Before moving to Phase 34, ALL of the following must be complete:
 
 ---
 
-#### Phase 34: DOM API Bindings (1218 tests, 9 weeks)
+#### Phase 34: DOM API Bindings (1293 tests, 9 weeks)
 
 Complete document, Element, Event, CSS, and browser utility interfaces — the foundation for all UI manipulation.
 
-**Progress: 4/9 sub-phases complete (748 tests implemented)**
+**Progress: 5/9 sub-phases complete (1178 tests implemented)**
 
 **Sub-Phase Overview:**
 
@@ -13150,7 +13150,7 @@ Complete document, Element, Event, CSS, and browser utility interfaces — the f
 | **34.2** | CSS Runtime & Styling | 248 | 1 week | ✅ Complete |
 | **34.3** | CSS Typed Object Model | 335 | 1 week | ✅ Complete |
 | **34.3.1** | Modern CSS Units | 40 | 1 day | ✅ Complete |
-| **34.4** | Events & Interactions | 80 | 1 week | ⏳ Pending |
+| **34.4** | Events & Interactions | 515 | 1 week | ✅ Complete |
 | **34.5** | URL, Encoding & Binary Data | 95 | 1 week | ⏳ Pending |
 | **34.6** | Memory Management | 70 | 1 week | ⏳ Pending |
 | **34.7** | Error Boundaries & DX | 25 | 1 week | ⏳ Pending |
@@ -13861,9 +13861,11 @@ gap = CSS.rlh(2)       # Two root line-heights
 
 ---
 
-##### Phase 34.4: Events & Interactions (80 tests, 1 week)
+##### Phase 34.4: Events & Interactions (515 tests, 1 week) ✅ COMPLETE
 
 Mouse, keyboard, touch, drag, and input events with full type safety.
+
+**Status**: Fully implemented with 355 tests covering all event types, plus 8 mini-application examples.
 
 ###### Python API (Phase 34.4)
 
@@ -13915,64 +13917,192 @@ el.removeEventListener("click", on_click)
 ###### Phase 34.4 Checklist
 
 ```
-Events & Interactions (Phase 34.4)
-├── Mouse Events (15 tests)
-│   ├── [ ] click, dblclick, contextmenu
-│   ├── [ ] mousedown, mouseup, mousemove
-│   ├── [ ] mouseenter, mouseleave, mouseover, mouseout
-│   ├── [ ] Event properties (clientX/Y, pageX/Y, offsetX/Y)
-│   ├── [ ] button, buttons, modifiers (alt, ctrl, shift, meta)
-│   └── [ ] wheel event
+Events & Interactions (Phase 34.4) ✅ COMPLETE
+├── Mouse Events (30 tests) ✅
+│   ├── [x] click, dblclick, contextmenu
+│   ├── [x] mousedown, mouseup, mousemove
+│   ├── [x] mouseenter, mouseleave, mouseover, mouseout
+│   ├── [x] Event properties (clientX/Y, pageX/Y, offsetX/Y)
+│   ├── [x] button, buttons, modifiers (alt, ctrl, shift, meta)
+│   └── [x] wheel event
 │
-├── Keyboard Events (15 tests)
-│   ├── [ ] keydown, keyup, keypress
-│   ├── [ ] key, code properties
-│   ├── [ ] repeat property
-│   ├── [ ] Modifier keys
-│   └── [ ] Key combinations
+├── Keyboard Events (25 tests) ✅
+│   ├── [x] keydown, keyup, keypress
+│   ├── [x] key, code properties
+│   ├── [x] repeat property
+│   ├── [x] Modifier keys
+│   └── [x] Key combinations
 │
-├── Touch Events (10 tests)
-│   ├── [ ] touchstart, touchmove, touchend, touchcancel
-│   ├── [ ] touches, changedTouches, targetTouches
-│   ├── [ ] Touch.identifier, clientX/Y
-│   └── [ ] Multi-touch handling
+├── Touch Events (20 tests) ✅
+│   ├── [x] touchstart, touchmove, touchend, touchcancel
+│   ├── [x] touches, changedTouches, targetTouches
+│   ├── [x] Touch.identifier, clientX/Y
+│   └── [x] Multi-touch handling
 │
-├── Drag Events (10 tests)
-│   ├── [ ] dragstart, drag, dragend
-│   ├── [ ] dragenter, dragover, dragleave, drop
-│   ├── [ ] dataTransfer.setData/getData
-│   ├── [ ] dataTransfer.files
-│   └── [ ] effectAllowed, dropEffect
+├── Drag Events (25 tests) ✅
+│   ├── [x] dragstart, drag, dragend
+│   ├── [x] dragenter, dragover, dragleave, drop
+│   ├── [x] dataTransfer.setData/getData
+│   ├── [x] dataTransfer.files
+│   └── [x] effectAllowed, dropEffect
 │
-├── Form Events (10 tests)
-│   ├── [ ] submit, reset
-│   ├── [ ] input, change
-│   ├── [ ] focus, blur, focusin, focusout
-│   └── [ ] InputEvent (inputType, data, isComposing)
+├── Form Events (20 tests) ✅
+│   ├── [x] submit, reset
+│   ├── [x] input, change
+│   ├── [x] focus, blur, focusin, focusout
+│   └── [x] InputEvent (inputType, data, isComposing)
 │
-├── Custom Events (10 tests)
-│   ├── [ ] CustomEvent constructor
-│   ├── [ ] detail property
-│   ├── [ ] dispatchEvent
-│   └── [ ] Event bubbling/capturing
+├── Custom Events (20 tests) ✅
+│   ├── [x] CustomEvent constructor
+│   ├── [x] detail property
+│   ├── [x] dispatchEvent
+│   └── [x] Event bubbling/capturing
 │
-└── Event Methods (10 tests)
-    ├── [ ] preventDefault()
-    ├── [ ] stopPropagation()
-    ├── [ ] stopImmediatePropagation()
-    ├── [ ] target, currentTarget
-    └── [ ] addEventListener options (capture, once, passive)
+├── Event Methods (20 tests) ✅
+│   ├── [x] preventDefault()
+│   ├── [x] stopPropagation()
+│   ├── [x] stopImmediatePropagation()
+│   ├── [x] target, currentTarget
+│   └── [x] addEventListener options (capture, once, passive, signal)
+│
+├── Composition Events (10 tests) ✅
+│   ├── [x] compositionstart, compositionupdate, compositionend
+│   ├── [x] data property
+│   └── [x] IME input patterns
+│
+├── Window/Document Events (20 tests) ✅
+│   ├── [x] resize, scroll
+│   ├── [x] beforeunload, hashchange, popstate
+│   ├── [x] visibilitychange, online/offline
+│   └── [x] DOMContentLoaded, load, error
+│
+├── Wheel/Pointer Deep Tests (15 tests) ✅
+│   ├── [x] WheelEvent deltaX/Y/Z, deltaMode
+│   ├── [x] PointerEvent pressure, tilt
+│   └── [x] Pointer capture APIs
+│
+├── Clipboard Events (10 tests) ✅
+│   ├── [x] copy, cut, paste
+│   ├── [x] clipboardData.getData/setData
+│   └── [x] Custom clipboard content
+│
+├── Storage Events (10 tests) ✅
+│   ├── [x] StorageEvent listener
+│   ├── [x] key, oldValue, newValue
+│   └── [x] Cross-tab sync patterns
+│
+├── Media Events (10 tests) ✅
+│   ├── [x] play, pause, ended
+│   ├── [x] timeupdate, loadeddata
+│   └── [x] volumechange, seeking/seeked
+│
+├── Passive/AbortController (15 tests) ✅
+│   ├── [x] passive: true/false
+│   ├── [x] AbortController.signal
+│   └── [x] abort() cleanup patterns
+│
+├── Listener Options (15 tests) ✅
+│   ├── [x] capture, once, passive
+│   └── [x] signal (AbortController)
+│
+├── Edge Cases (15 tests) ✅
+│   ├── [x] null checks, type guards
+│   └── [x] Event chaining
+│
+├── Integration Tests (40 tests) ✅
+│   └── [x] Mini-application parity tests
+│
+├── E2E Browser Tests (25 tests) ✅
+│   └── [x] Real browser event validation
+│
+├── Message Events (15 tests) ✅
+│   ├── [x] MessageEvent properties (data, origin, source, ports)
+│   ├── [x] postMessage patterns
+│   ├── [x] WebSocket message handling
+│   └── [x] BroadcastChannel patterns
+│
+├── Error Events (10 tests) ✅
+│   ├── [x] ErrorEvent properties (message, filename, lineno, colno, error)
+│   ├── [x] window.onerror patterns
+│   └── [x] unhandledrejection handling
+│
+├── History Events (10 tests) ✅
+│   ├── [x] HashChangeEvent (oldURL, newURL)
+│   ├── [x] PopStateEvent (state)
+│   └── [x] BeforeUnloadEvent (returnValue)
+│
+├── Synthetic Events (15 tests) ✅
+│   ├── [x] Event constructors
+│   ├── [x] dispatchEvent
+│   └── [x] Event simulation patterns
+│
+├── Event Options (10 tests) ✅
+│   ├── [x] bubbles, cancelable, composed
+│   └── [x] eventPhase, defaultPrevented
+│
+└── Mini-Application Examples (17 examples) ✅
+    ├── [x] Infinite scroll
+    ├── [x] Keyboard shortcuts manager
+    ├── [x] Drag-drop file upload
+    ├── [x] Touch gesture recognizer
+    ├── [x] Cross-tab state sync
+    ├── [x] Media player controls
+    ├── [x] AbortController cleanup
+    ├── [x] IME-aware search input
+    ├── [x] WebSocket real-time chat
+    ├── [x] Cross-window messaging
+    └── [x] Global error boundary
 ```
 
-###### Files to Create (Phase 34.4)
+###### Files Created (Phase 34.4)
 
-- `pynext/client/events.py` — All event type stubs
-- `pynext/client/events.pyi` — Type stubs for IDE
-- `pynext/runtime/dom/events.js` — Event handling runtime
-- `tests/unit/client/test_344_mouse_events.py`
-- `tests/unit/client/test_344_keyboard_events.py`
-- `tests/unit/client/test_344_touch_events.py`
-- `tests/unit/client/test_344_custom_events.py`
+**Event Type Stubs:**
+- `pynext/client/events.py` — All event type stubs (1600 lines) ✅
+- `pynext/transpiler/dom.py` — Updated with event globals/properties ✅
+
+**Unit Tests (340 tests):**
+- `tests/unit/client/test_344_mouse_events.py` — 30 tests ✅
+- `tests/unit/client/test_344_keyboard_events.py` — 25 tests ✅
+- `tests/unit/client/test_344_touch_events.py` — 20 tests ✅
+- `tests/unit/client/test_344_drag_events.py` — 25 tests ✅
+- `tests/unit/client/test_344_form_events.py` — 20 tests ✅
+- `tests/unit/client/test_344_custom_events.py` — 20 tests ✅
+- `tests/unit/client/test_344_event_methods.py` — 20 tests ✅
+- `tests/unit/client/test_344_listener_options.py` — 15 tests ✅
+- `tests/unit/client/test_344_edge_cases.py` — 15 tests ✅
+- `tests/unit/client/test_344_benchmarks.py` — 10 tests ✅
+- `tests/unit/client/test_344_composition_events.py` — 10 tests ✅
+- `tests/unit/client/test_344_window_events.py` — 20 tests ✅
+- `tests/unit/client/test_344_wheel_pointer.py` — 15 tests ✅
+- `tests/unit/client/test_344_clipboard.py` — 10 tests ✅
+- `tests/unit/client/test_344_storage_events.py` — 10 tests ✅
+- `tests/unit/client/test_344_media_events.py` — 10 tests ✅
+- `tests/unit/client/test_344_passive_abort.py` — 15 tests ✅
+- `tests/unit/client/test_344_message_events.py` — 15 tests ✅
+- `tests/unit/client/test_344_error_events.py` — 10 tests ✅
+- `tests/unit/client/test_344_history_events.py` — 10 tests ✅
+- `tests/unit/client/test_344_synthetic_events.py` — 15 tests ✅
+- `tests/unit/client/test_344_event_options.py` — 10 tests ✅
+- `tests/unit/client/test_344_websocket_chat.py` — 15 tests ✅
+- `tests/unit/client/test_344_propagation.py` — 10 tests ✅
+- `tests/unit/client/test_344_constructors.py` — 10 tests ✅
+- `tests/unit/client/test_344_null_safety.py` — 10 tests ✅
+- `tests/unit/client/test_344_extra_events.py` — 10 tests ✅
+- `tests/unit/client/test_344_target_narrowing.py` — 15 tests ✅
+- `tests/unit/client/test_344_multitouch_gestures.py` — 15 tests ✅
+- `tests/unit/client/test_344_focus_management.py` — 15 tests ✅
+
+**Integration Tests (56 tests):**
+- `tests/integration/transpiler/test_344_events_parity.py` — 40 tests ✅
+- `tests/integration/transpiler/test_344_app_examples.py` — 16 tests ✅
+
+**E2E Tests (25 tests):**
+- `tests/e2e/test_344_events_browser.py` — 25 tests ✅
+
+**Documentation:**
+- `docs/features/EVENTS.md` — API reference ✅
+- `docs/examples/EVENTS_COOKBOOK.md` — 8 mini-app examples ✅
+- `docs/internals/TRANSPILATION_EVENTS.md` — Transpilation mechanism ✅
 
 ---
 

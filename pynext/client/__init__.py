@@ -187,6 +187,89 @@ from pynext.client.css_color import (
     CSSColor,
 )
 
+# Events (Phase 34.4)
+from pynext.client.events import (
+    # Base events
+    Event,
+    UIEvent,
+    
+    # Mouse events
+    MouseEvent,
+    WheelEvent,
+    PointerEvent,
+    
+    # Keyboard events
+    KeyboardEvent,
+    
+    # Touch events
+    Touch,
+    TouchList,
+    TouchEvent,
+    
+    # Drag events
+    DataTransfer,
+    DataTransferItem,
+    DataTransferItemList,
+    FileList,
+    DragEvent,
+    
+    # Focus events
+    FocusEvent,
+    
+    # Input events
+    InputEvent,
+    
+    # Custom events
+    CustomEvent,
+    
+    # Animation events
+    AnimationEvent,
+    TransitionEvent,
+    
+    # Form events
+    SubmitEvent,
+    FormDataEvent,
+    
+    # Clipboard events
+    ClipboardEvent,
+    
+    # Composition events
+    CompositionEvent,
+    
+    # Storage events
+    StorageEvent,
+    
+    # Message events
+    MessageEvent,
+    
+    # Error events
+    ErrorEvent,
+    
+    # WebSocket close events
+    CloseEvent,
+    
+    # History events
+    HashChangeEvent,
+    PopStateEvent,
+    BeforeUnloadEvent,
+    
+    # Promise rejection events
+    PromiseRejectionEvent,
+    
+    # Security events
+    SecurityPolicyViolationEvent,
+    
+    # Page transition events
+    PageTransitionEvent,
+    
+    # Progress events
+    ProgressEvent,
+    
+    # Device motion events
+    DeviceMotionEvent,
+    DeviceOrientationEvent,
+)
+
 __all__ = [
     # Type checking
     "typed",
@@ -289,5 +372,43 @@ __all__ = [
     "StylePropertyMapReadOnly",
     "StylePropertyMap",
     "CSSColor",
+    
+    # Events (Phase 34.4)
+    "Event",
+    "UIEvent",
+    "MouseEvent",
+    "WheelEvent",
+    "PointerEvent",
+    "KeyboardEvent",
+    "Touch",
+    "TouchList",
+    "TouchEvent",
+    "DataTransfer",
+    "DataTransferItem",
+    "DataTransferItemList",
+    "FileList",
+    "DragEvent",
+    "FocusEvent",
+    "InputEvent",
+    "CustomEvent",
+    "AnimationEvent",
+    "TransitionEvent",
+    "SubmitEvent",
+    "FormDataEvent",
+    "ClipboardEvent",
+    "CompositionEvent",
+    "StorageEvent",
+    "MessageEvent",
+    "ErrorEvent",
+    "CloseEvent",
+    "HashChangeEvent",
+    "PopStateEvent",
+    "BeforeUnloadEvent",
+    "PromiseRejectionEvent",
+    "SecurityPolicyViolationEvent",
+    "PageTransitionEvent",
+    "ProgressEvent",
+    "DeviceMotionEvent",
+    "DeviceOrientationEvent",
 ]
 

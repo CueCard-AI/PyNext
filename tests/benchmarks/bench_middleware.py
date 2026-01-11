@@ -91,10 +91,12 @@ class TestPathLookupBenchmark:
     
     def test_lookup_scales_constant(self):
         """Verify lookup time is constant regardless of cache size."""
+        import gc
+        
         router = MiddlewareRouter()
         
         sizes = [100, 1000, 10000]
-        times = []
+        median_times = []
         
         for size in sizes:
             # Create cache of given size
@@ -102,20 +104,39 @@ class TestPathLookupBenchmark:
             for i in range(size):
                 router._path_cache[f"/page-{i}"] = ["middleware"]
             
-            # Measure lookup time
-            start = time.perf_counter()
-            for _ in range(10000):
-                router._path_cache.get("/page-50")
-            elapsed = time.perf_counter() - start
-            times.append(elapsed)
+            # Force GC before measurement to prevent GC during timing
+            gc.collect()
+            gc.disable()
+            
+            try:
+                # Warmup: prime CPU cache and JIT
+                for _ in range(1000):
+                    router._path_cache.get("/page-50")
+                
+                # Multiple runs for statistical robustness
+                run_times = []
+                for _ in range(5):  # 5 runs
+                    start = time.perf_counter()
+                    for _ in range(10000):
+                        router._path_cache.get("/page-50")
+                    elapsed = time.perf_counter() - start
+                    run_times.append(elapsed)
+                
+                # Use median (robust to outliers from system noise)
+                run_times.sort()
+                median = run_times[len(run_times) // 2]
+                median_times.append(median)
+            finally:
+                gc.enable()
         
-        print(f"\n📊 Lookup Scaling (10k lookups each):")
-        for size, t in zip(sizes, times):
+        print(f"\n📊 Lookup Scaling (10k lookups each, median of 5 runs):")
+        for size, t in zip(sizes, median_times):
             print(f"   {size} entries: {t*1000:.2f}ms")
         
         # Times should be roughly equal (O(1))
-        # Allow 50% variance for system noise
-        assert max(times) / min(times) < 2.0, "Lookup should be O(1)"
+        # Allow 2x variance for system noise
+        ratio = max(median_times) / min(median_times)
+        assert ratio < 2.0, f"Lookup should be O(1), got {ratio:.2f}x variance"
 
 
 class TestMiddlewareChainBenchmark:
