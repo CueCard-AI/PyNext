@@ -19,7 +19,7 @@ import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 import time
 
-from pynext.db.adapters.postgres_warmup import (
+from pynext.db.adapters.postgres.pool.warmup import (
     WarmupConfig,
     WarmupResult,
     WarmupStats,

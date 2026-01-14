@@ -17,7 +17,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from pynext.db.adapters.postgres_metrics import (
+from pynext.db.adapters.postgres.observability.metrics import (
     MetricsConfig,
     MetricType,
     BackendType,

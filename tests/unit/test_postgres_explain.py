@@ -13,7 +13,7 @@ Comprehensive tests for PyNext Query EXPLAIN/ANALYZE.
 import pytest
 import json
 
-from pynext.db.adapters.postgres_explain import (
+from pynext.db.adapters.postgres.queries.explain import (
     ExplainFormat,
     NodeType,
     SuggestionSeverity,

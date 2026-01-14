@@ -20,7 +20,7 @@ import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 import time
 
-from pynext.db.adapters.postgres_queue import (
+from pynext.db.adapters.postgres.pool.queue import (
     QueueConfig,
     QueueOverflowAction,
     QueuePriority,

@@ -12,7 +12,7 @@ from enum import Enum
 
 import pytest
 
-from pynext.db.adapters.postgres_types import (
+from pynext.db.adapters.postgres.core.types import (
     python_to_postgres,
     postgres_to_python,
     ensure_timezone_aware,

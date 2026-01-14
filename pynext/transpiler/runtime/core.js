@@ -55,147 +55,27 @@ import {
 } from './errors.js';
 
 // =============================================================================
-// INDEXING
+// CORE MINIMAL IMPORTS (deduplicated - single source of truth)
 // =============================================================================
+// These 8 essential functions are defined in core-minimal.js for tree-shaking.
+// We re-export them here for backward compatibility with code that imports from core.js.
+import {
+    at,
+    slice,
+    bool,
+    eq,
+    mod,
+    floordiv,
+    range,
+    len,
+} from './core-minimal.js';
 
-/**
- * Python negative indexing: items[-1] returns last element
- * 
- * @param {Array|string} arr - Array or string to index
- * @param {number} i - Index (can be negative)
- * @returns {*} Element at index
- * 
- * @example
- * at([1, 2, 3], -1)  // → 3
- * at("hello", -2)    // → "l"
- */
-export function at(arr, i) {
-    if (i < 0) return arr[arr.length + i];
-    return arr[i];
-}
-
-/**
- * Python slicing: items[start:stop:step]
- * 
- * Handles:
- * - Negative indices
- * - Omitted start/stop (null)
- * - Negative step (reverse)
- * 
- * @param {Array|string} arr - Array or string to slice
- * @param {number|null} start - Start index
- * @param {number|null} stop - Stop index (exclusive)
- * @param {number} step - Step value (default 1)
- * @returns {Array|string} Sliced result
- * 
- * @example
- * slice([0,1,2,3,4], 1, 3)      // → [1, 2]
- * slice([0,1,2,3,4], null, -1)  // → [0, 1, 2, 3]
- * slice([0,1,2,3,4], null, null, -1) // → [4, 3, 2, 1, 0]
- */
-export function slice(arr, start, stop, step = 1) {
-    const len = arr.length;
-    const isString = typeof arr === 'string';
-    
-    // Normalize indices
-    if (step === 0) throw new Error("slice step cannot be zero");
-    
-    if (step > 0) {
-        // Forward slice
-        start = start === null ? 0 : (start < 0 ? Math.max(0, len + start) : Math.min(len, start));
-        stop = stop === null ? len : (stop < 0 ? Math.max(0, len + stop) : Math.min(len, stop));
-        
-        const result = [];
-        for (let i = start; i < stop; i += step) {
-            result.push(arr[i]);
-        }
-        return isString ? result.join('') : result;
-    } else {
-        // Reverse slice
-        start = start === null ? len - 1 : (start < 0 ? Math.max(-1, len + start) : Math.min(len - 1, start));
-        stop = stop === null ? -1 : (stop < 0 ? Math.max(-1, len + stop) : Math.min(len - 1, stop));
-        
-        const result = [];
-        for (let i = start; i > stop; i += step) {
-            if (i >= 0 && i < len) result.push(arr[i]);
-        }
-        return isString ? result.join('') : result;
-    }
-}
+// Re-export for named imports
+export { at, slice, bool, eq, mod, floordiv, range, len };
 
 // =============================================================================
-// TRUTHINESS
+// ARITHMETIC (Additional)
 // =============================================================================
-
-/**
- * Python truthiness check
- * 
- * Python falsy: None, False, 0, 0.0, "", [], {}, set()
- * JS falsy:     null, undefined, false, 0, 0n, "", NaN
- * 
- * Key difference: [] and {} are truthy in JS but falsy in Python
- * 
- * @param {*} x - Value to check
- * @returns {boolean} Python truthiness
- * 
- * @example
- * bool([])    // → false (Python: [] is falsy)
- * bool({})    // → false (Python: {} is falsy)
- * bool([1])   // → true
- */
-export function bool(x) {
-    if (x === null || x === undefined) return false;
-    if (x === false || x === 0 || x === '') return false;
-    if (Array.isArray(x)) return x.length > 0;
-    if (typeof x === 'object') {
-        if (x.constructor === Object) return Object.keys(x).length > 0;
-        if (x instanceof Set || x instanceof Map) return x.size > 0;
-    }
-    return true;
-}
-
-// =============================================================================
-// ARITHMETIC
-// =============================================================================
-
-/**
- * Python modulo: always returns result with same sign as divisor
- * 
- * JS: -1 % 3 = -1
- * Py: -1 % 3 = 2
- * 
- * Throws ZeroDivisionError for modulo by zero (Python behavior).
- * 
- * @param {number} a - Dividend
- * @param {number} b - Divisor
- * @returns {number} Python-style modulo
- * @throws {Error} If b is zero
- */
-export function mod(a, b) {
-    if (b === 0) {
-        throw new ZeroDivisionError("integer division or modulo by zero");
-    }
-    const result = ((a % b) + b) % b;
-    // Normalize -0 to 0
-    return result === 0 ? 0 : result;
-}
-
-/**
- * Python floor division: rounds toward negative infinity
- * 
- * Throws ZeroDivisionError for division by zero (Python behavior).
- * 
- * @param {number} a - Dividend
- * @param {number} b - Divisor
- * @returns {number} Floor division result
- * @throws {Error} If b is zero
- */
-export function floordiv(a, b) {
-    if (b === 0) {
-        throw new ZeroDivisionError("integer division or modulo by zero");
-    }
-    return Math.floor(a / b);
-}
 
 /**
  * Python true division with zero-check
@@ -214,108 +94,6 @@ export function div(a, b, strict = false) {
         throw new ZeroDivisionError("division by zero");
     }
     return a / b;
-}
-
-// =============================================================================
-// EQUALITY
-// =============================================================================
-
-/**
- * Python equality: deep comparison for collections
- * 
- * JS: [1,2] === [1,2] is false (reference equality)
- * Py: [1,2] == [1,2] is True (value equality)
- * 
- * Includes cycle detection to prevent stack overflow on circular references.
- * 
- * @param {*} a - First value
- * @param {*} b - Second value
- * @param {WeakMap} seenA - Tracking map for a's visited objects (internal)
- * @param {WeakMap} seenB - Tracking map for b's visited objects (internal)
- * @returns {boolean} Python equality
- */
-export function eq(a, b, seenA = null, seenB = null) {
-    // Same reference or primitives
-    if (a === b) return true;
-    
-    // Null/undefined
-    if (a === null || b === null) return a === b;
-    if (a === undefined || b === undefined) return a === b;
-    
-    // Different types
-    if (typeof a !== typeof b) return false;
-    
-    // For objects, check for circular references
-    if (typeof a === 'object') {
-        // Initialize seen maps on first object comparison
-        if (seenA === null) {
-            seenA = new WeakMap();
-            seenB = new WeakMap();
-        }
-        
-        // Check for cycles: if we've seen this pair before with matching partners
-        if (seenA.has(a)) {
-            // If a was paired with b before, they're equal in this cycle
-            return seenA.get(a) === b && seenB.get(b) === a;
-        }
-        if (seenB.has(b)) {
-            return seenB.get(b) === a && seenA.get(a) === b;
-        }
-        
-        // Mark as seen before recursing
-        seenA.set(a, b);
-        seenB.set(b, a);
-    }
-    
-    // Arrays
-    if (Array.isArray(a) && Array.isArray(b)) {
-        if (a.length !== b.length) return false;
-        for (let i = 0; i < a.length; i++) {
-            if (!eq(a[i], b[i], seenA, seenB)) return false;
-        }
-        return true;
-    }
-    
-    // Sets
-    if (a instanceof Set && b instanceof Set) {
-        if (a.size !== b.size) return false;
-        for (const item of a) {
-            // For sets, we need to check if an equivalent item exists
-            let found = false;
-            for (const bItem of b) {
-                if (eq(item, bItem, seenA, seenB)) {
-                    found = true;
-                    break;
-                }
-            }
-            if (!found) return false;
-        }
-        return true;
-    }
-    
-    // Maps
-    if (a instanceof Map && b instanceof Map) {
-        if (a.size !== b.size) return false;
-        for (const [key, value] of a) {
-            if (!b.has(key)) return false;
-            if (!eq(value, b.get(key), seenA, seenB)) return false;
-        }
-        return true;
-    }
-    
-    // Plain objects (dicts)
-    if (typeof a === 'object' && a.constructor === Object && b.constructor === Object) {
-        const keysA = Object.keys(a);
-        const keysB = Object.keys(b);
-        if (keysA.length !== keysB.length) return false;
-        for (const key of keysA) {
-            if (!(key in b)) return false;
-            if (!eq(a[key], b[key], seenA, seenB)) return false;
-        }
-        return true;
-    }
-    
-    return false;
 }
 
 // =============================================================================
@@ -378,28 +156,6 @@ export function zip(...iterables) {
     const result = [];
     for (let i = 0; i < minLen; i++) {
         result.push(arrays.map(a => a[i]));
-    }
-    return result;
-}
-
-/**
- * Python range()
- * 
- * @param {number} start - Start value
- * @param {number} stop - Stop value
- * @param {number} step - Step value
- * @returns {Array} Array of numbers
- */
-export function range(start, stop, step = 1) {
-    if (stop === undefined) {
-        stop = start;
-        start = 0;
-    }
-    const result = [];
-    if (step > 0) {
-        for (let i = start; i < stop; i += step) result.push(i);
-    } else {
-        for (let i = start; i > stop; i += step) result.push(i);
     }
     return result;
 }
@@ -1286,7 +1042,7 @@ const __py = {
     reversed: builtins.reversed,
     round: builtins.round,
     abs: builtins.abs,
-    len: builtins.len,
+    len,  // From core-minimal.js (deduplicated)
     // Standard library (Phase 18.4)
     json,
     math,

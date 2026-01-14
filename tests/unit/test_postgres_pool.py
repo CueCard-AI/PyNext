@@ -8,7 +8,7 @@ import asyncio
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from pynext.db.adapters.postgres_pool import (
+from pynext.db.adapters.postgres.pool.pool import (
     AutoScalingPool,
     PooledConnection,
     PoolState,
@@ -17,7 +17,7 @@ from pynext.db.adapters.postgres_pool import (
     PoolExhaustedError,
     PoolClosedError,
 )
-from pynext.db.adapters.postgres_url import PostgresConfig
+from pynext.db.adapters.postgres.core.url import PostgresConfig
 
 
 # =============================================================================

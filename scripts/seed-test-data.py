@@ -1,39 +1,52 @@
 #!/usr/bin/env python3
 """
-Seed test database with sample data.
+Seed Test Data for Go Bridge Benchmarks
 
-Usage:
-    python scripts/seed-test-data.py                    # Default: 1000 users, 5000 orders
-    python scripts/seed-test-data.py --users 10000     # Custom counts
-    python scripts/seed-test-data.py --clean           # Clean tables first
+This script populates the test database with data needed for benchmark tests.
+Run with: python scripts/seed-test-data.py
+
+Creates:
+- users table (10 rows)
+- orders table (5,000 rows)
+- logs table (100,000 rows for bulk read tests)
 """
 
-import argparse
 import os
-import random
+import sys
 import time
-from datetime import datetime, timedelta
 
-# Database URL
+# Add project to path
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 DB_URL = os.environ.get(
     "PYNEXT_TEST_DB_URL",
     "postgresql://pynext:pynext@localhost:5433/pynext_test"
 )
 
-# Sample data
-FIRST_NAMES = ["Alice", "Bob", "Charlie", "Diana", "Eve", "Frank", "Grace", "Henry", "Ivy", "Jack",
-               "Kate", "Liam", "Mia", "Noah", "Olivia", "Paul", "Quinn", "Ruby", "Sam", "Tina"]
-LAST_NAMES = ["Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis", "Rodriguez", "Martinez"]
-PRODUCT_NAMES = ["Widget", "Gadget", "Gizmo", "Doohickey", "Thingamajig", "Whatchamacallit", "Contraption"]
-PRODUCT_ADJECTIVES = ["Super", "Ultra", "Mega", "Pro", "Plus", "Elite", "Premium", "Basic", "Advanced", "Deluxe"]
-ORDER_STATUSES = ["pending", "processing", "shipped", "delivered", "cancelled"]
 
-
-def create_tables(conn):
-    """Create test tables if they don't exist."""
-    print("Creating tables...")
+def seed_with_go_bridge():
+    """Seed data using Go bridge."""
+    import pynext_go
     
-    conn.execute("""
+    print("🔌 Connecting via Go Bridge...")
+    
+    # Close any existing connection
+    try:
+        pynext_go.close()
+    except Exception:
+        pass
+    
+    # Initialize
+    pynext_go.init(primary=DB_URL, pool_min_size=5, pool_max_size=20)
+    pynext_go.warmup()
+    
+    print("✅ Connected to database")
+    
+    # Create tables
+    print("\n📋 Creating tables...")
+    
+    # Users table
+    pynext_go.execute("""
         CREATE TABLE IF NOT EXISTS users (
             id SERIAL PRIMARY KEY,
             name VARCHAR(255) NOT NULL,
@@ -42,19 +55,11 @@ def create_tables(conn):
             active BOOLEAN DEFAULT true,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
-    """)
+    """, [])
+    print("  - users table ready")
     
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS products (
-            id SERIAL PRIMARY KEY,
-            name VARCHAR(255) NOT NULL,
-            price DECIMAL(10, 2) NOT NULL,
-            stock INTEGER DEFAULT 0,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-    
-    conn.execute("""
+    # Orders table
+    pynext_go.execute("""
         CREATE TABLE IF NOT EXISTS orders (
             id SERIAL PRIMARY KEY,
             user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -62,176 +67,257 @@ def create_tables(conn):
             status VARCHAR(50) DEFAULT 'pending',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
-    """)
+    """, [])
+    print("  - orders table ready")
     
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS order_items (
+    # Logs table (for large bulk read tests)
+    pynext_go.execute("""
+        CREATE TABLE IF NOT EXISTS logs (
             id SERIAL PRIMARY KEY,
-            order_id INTEGER REFERENCES orders(id) ON DELETE CASCADE,
-            product_id INTEGER REFERENCES products(id) ON DELETE CASCADE,
-            quantity INTEGER NOT NULL,
-            price DECIMAL(10, 2) NOT NULL
+            level VARCHAR(20) NOT NULL,
+            message TEXT NOT NULL,
+            metadata JSONB,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
-    """)
+    """, [])
+    print("  - logs table ready")
     
-    conn.commit()
-    print("Tables created.")
+    # Check current data
+    result = pynext_go.execute("SELECT COUNT(*) as count FROM users", [])
+    user_count = result.rows[0][0] if result.rows else 0
+    
+    result = pynext_go.execute("SELECT COUNT(*) as count FROM orders", [])
+    order_count = result.rows[0][0] if result.rows else 0
+    
+    result = pynext_go.execute("SELECT COUNT(*) as count FROM logs", [])
+    log_count = result.rows[0][0] if result.rows else 0
+    
+    print(f"\n📊 Current data: {user_count} users, {order_count} orders, {log_count} logs")
+    
+    # Seed users if needed
+    if user_count < 10:
+        print("\n👥 Seeding users...")
+        # Clear existing
+        pynext_go.execute("TRUNCATE users CASCADE", [])
+        
+        for i in range(10):
+            pynext_go.execute(
+                "INSERT INTO users (name, email, age, active) VALUES ($1, $2, $3, $4)",
+                [f"User {i}", f"user{i}@test.com", 20 + i, i % 2 == 0]
+            )
+        print("  ✓ Created 10 users")
+    else:
+        print("  → Users already seeded")
+    
+    # Seed orders if needed
+    if order_count < 5000:
+        print("\n📦 Seeding orders (5,000 rows)...")
+        # Clear existing
+        pynext_go.execute("TRUNCATE orders", [])
+        
+        start = time.time()
+        batch_size = 500
+        statuses = ['pending', 'processing', 'completed', 'cancelled']
+        
+        for batch in range(0, 5000, batch_size):
+            # Use batch insert for speed
+            values = []
+            placeholders = []
+            param_idx = 1
+            
+            for i in range(batch, min(batch + batch_size, 5000)):
+                placeholders.append(f"(${param_idx}, ${param_idx+1}, ${param_idx+2})")
+                values.extend([
+                    (i % 10) + 1,  # user_id
+                    round(10.0 * (i + 1), 2),  # total
+                    statuses[i % 4]  # status
+                ])
+                param_idx += 3
+            
+            sql = f"INSERT INTO orders (user_id, total, status) VALUES {', '.join(placeholders)}"
+            pynext_go.execute(sql, values)
+            
+            if (batch + batch_size) % 1000 == 0:
+                print(f"    {batch + batch_size} / 5000 orders inserted...")
+        
+        elapsed = time.time() - start
+        print(f"  ✓ Created 5,000 orders in {elapsed:.2f}s")
+    else:
+        print("  → Orders already seeded")
+    
+    # Seed logs if needed (for large bulk read tests)
+    if log_count < 100000:
+        print("\n📝 Seeding logs (100,000 rows)...")
+        # Clear existing
+        pynext_go.execute("TRUNCATE logs", [])
+        
+        start = time.time()
+        batch_size = 1000
+        levels = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
+        
+        for batch in range(0, 100000, batch_size):
+            values = []
+            placeholders = []
+            param_idx = 1
+            
+            for i in range(batch, min(batch + batch_size, 100000)):
+                placeholders.append(f"(${param_idx}, ${param_idx+1}, ${param_idx+2})")
+                values.extend([
+                    levels[i % 5],
+                    f"Log message {i}: This is a test log entry for benchmarking purposes.",
+                    f'{{"request_id": "{i}", "user_id": {i % 10 + 1}}}'
+                ])
+                param_idx += 3
+            
+            sql = f"INSERT INTO logs (level, message, metadata) VALUES {', '.join(placeholders)}"
+            pynext_go.execute(sql, values)
+            
+            if (batch + batch_size) % 10000 == 0:
+                print(f"    {batch + batch_size} / 100,000 logs inserted...")
+        
+        elapsed = time.time() - start
+        print(f"  ✓ Created 100,000 logs in {elapsed:.2f}s")
+    else:
+        print("  → Logs already seeded")
+    
+    # Final verification
+    print("\n✅ Final verification:")
+    user_count = pynext_go.execute("SELECT COUNT(*) as count FROM users", []).rows[0][0]
+    order_count = pynext_go.execute("SELECT COUNT(*) as count FROM orders", []).rows[0][0]
+    log_count = pynext_go.execute("SELECT COUNT(*) as count FROM logs", []).rows[0][0]
+    
+    print(f"  - Users: {user_count}")
+    print(f"  - Orders: {order_count}")
+    print(f"  - Logs: {log_count}")
+    
+    pynext_go.close()
+    print("\n🎉 Database seeding complete!")
 
 
-def clean_tables(conn):
-    """Truncate all tables."""
-    print("Cleaning tables...")
-    conn.execute("TRUNCATE TABLE order_items, orders, products, users RESTART IDENTITY CASCADE")
-    conn.commit()
-    print("Tables cleaned.")
-
-
-def seed_users(conn, count: int):
-    """Seed users table."""
-    print(f"Seeding {count:,} users...")
-    start = time.time()
+def seed_with_psycopg():
+    """Fallback: seed using psycopg (sync)."""
+    import psycopg
     
-    # Build data
-    data = []
-    for i in range(count):
-        name = f"{random.choice(FIRST_NAMES)} {random.choice(LAST_NAMES)}"
-        email = f"user{i}@test.com"
-        age = random.randint(18, 80)
-        active = random.random() > 0.1  # 90% active
-        created = datetime.now() - timedelta(days=random.randint(0, 365))
-        data.append((name, email, age, active, created))
+    print("🔌 Connecting via psycopg (fallback)...")
     
-    # Use psycopg3's copy for speed
-    with conn.cursor() as cur:
-        with cur.copy("COPY users (name, email, age, active, created_at) FROM STDIN") as copy:
-            for row in data:
-                copy.write_row(row)
-    conn.commit()
+    with psycopg.connect(DB_URL) as conn:
+        with conn.cursor() as cur:
+            # Create tables
+            print("\n📋 Creating tables...")
+            
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS users (
+                    id SERIAL PRIMARY KEY,
+                    name VARCHAR(255) NOT NULL,
+                    email VARCHAR(255) UNIQUE,
+                    age INTEGER,
+                    active BOOLEAN DEFAULT true,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS orders (
+                    id SERIAL PRIMARY KEY,
+                    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                    total DECIMAL(10, 2) NOT NULL,
+                    status VARCHAR(50) DEFAULT 'pending',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS logs (
+                    id SERIAL PRIMARY KEY,
+                    level VARCHAR(20) NOT NULL,
+                    message TEXT NOT NULL,
+                    metadata JSONB,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            
+            conn.commit()
+            print("  ✓ Tables created")
+            
+            # Check counts
+            cur.execute("SELECT COUNT(*) FROM users")
+            user_count = cur.fetchone()[0]
+            
+            cur.execute("SELECT COUNT(*) FROM orders")
+            order_count = cur.fetchone()[0]
+            
+            cur.execute("SELECT COUNT(*) FROM logs")
+            log_count = cur.fetchone()[0]
+            
+            print(f"\n📊 Current data: {user_count} users, {order_count} orders, {log_count} logs")
+            
+            # Seed users
+            if user_count < 10:
+                print("\n👥 Seeding users...")
+                cur.execute("TRUNCATE users CASCADE")
+                for i in range(10):
+                    cur.execute(
+                        "INSERT INTO users (name, email, age, active) VALUES (%s, %s, %s, %s)",
+                        (f"User {i}", f"user{i}@test.com", 20 + i, i % 2 == 0)
+                    )
+                conn.commit()
+                print("  ✓ Created 10 users")
+            
+            # Seed orders
+            if order_count < 5000:
+                print("\n📦 Seeding orders...")
+                cur.execute("TRUNCATE orders")
+                statuses = ['pending', 'processing', 'completed', 'cancelled']
+                for i in range(5000):
+                    cur.execute(
+                        "INSERT INTO orders (user_id, total, status) VALUES (%s, %s, %s)",
+                        ((i % 10) + 1, round(10.0 * (i + 1), 2), statuses[i % 4])
+                    )
+                    if (i + 1) % 1000 == 0:
+                        conn.commit()
+                        print(f"    {i + 1} / 5000...")
+                conn.commit()
+                print("  ✓ Created 5,000 orders")
+            
+            # Seed logs  
+            if log_count < 100000:
+                print("\n📝 Seeding logs...")
+                cur.execute("TRUNCATE logs")
+                levels = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
+                for i in range(100000):
+                    cur.execute(
+                        "INSERT INTO logs (level, message, metadata) VALUES (%s, %s, %s)",
+                        (
+                            levels[i % 5],
+                            f"Log message {i}",
+                            f'{{"request_id": "{i}"}}'
+                        )
+                    )
+                    if (i + 1) % 10000 == 0:
+                        conn.commit()
+                        print(f"    {i + 1} / 100,000...")
+                conn.commit()
+                print("  ✓ Created 100,000 logs")
     
-    print(f"  Seeded {count:,} users in {time.time() - start:.2f}s")
-
-
-def seed_products(conn, count: int = 100):
-    """Seed products table."""
-    print(f"Seeding {count} products...")
-    
-    for i in range(count):
-        name = f"{random.choice(PRODUCT_ADJECTIVES)} {random.choice(PRODUCT_NAMES)} {i}"
-        price = round(random.uniform(9.99, 999.99), 2)
-        stock = random.randint(0, 1000)
-        conn.execute(
-            "INSERT INTO products (name, price, stock) VALUES (%s, %s, %s)",
-            (name, price, stock)
-        )
-    conn.commit()
-    print(f"  Seeded {count} products.")
-
-
-def seed_orders(conn, count: int, user_count: int):
-    """Seed orders table."""
-    print(f"Seeding {count:,} orders...")
-    start = time.time()
-    
-    data = []
-    for i in range(count):
-        user_id = random.randint(1, user_count)
-        total = round(random.uniform(10.00, 500.00), 2)
-        status = random.choice(ORDER_STATUSES)
-        created = datetime.now() - timedelta(days=random.randint(0, 180))
-        data.append((user_id, total, status, created))
-    
-    with conn.cursor() as cur:
-        with cur.copy("COPY orders (user_id, total, status, created_at) FROM STDIN") as copy:
-            for row in data:
-                copy.write_row(row)
-    conn.commit()
-    
-    print(f"  Seeded {count:,} orders in {time.time() - start:.2f}s")
-
-
-def seed_order_items(conn, order_count: int, product_count: int):
-    """Seed order_items table."""
-    item_count = order_count * 2  # ~2 items per order
-    print(f"Seeding ~{item_count:,} order items...")
-    start = time.time()
-    
-    data = []
-    for order_id in range(1, order_count + 1):
-        num_items = random.randint(1, 5)
-        for _ in range(num_items):
-            product_id = random.randint(1, product_count)
-            quantity = random.randint(1, 10)
-            price = round(random.uniform(9.99, 199.99), 2)
-            data.append((order_id, product_id, quantity, price))
-    
-    with conn.cursor() as cur:
-        with cur.copy("COPY order_items (order_id, product_id, quantity, price) FROM STDIN") as copy:
-            for row in data:
-                copy.write_row(row)
-    conn.commit()
-    
-    actual_count = conn.execute("SELECT COUNT(*) FROM order_items").fetchone()[0]
-    print(f"  Seeded {actual_count:,} order items in {time.time() - start:.2f}s")
-
-
-def show_stats(conn):
-    """Show table statistics."""
-    print("\n=== Database Statistics ===")
-    
-    tables = ['users', 'products', 'orders', 'order_items']
-    for table in tables:
-        count = conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
-        print(f"  {table}: {count:,} rows")
+    print("\n🎉 Database seeding complete!")
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Seed test database")
-    parser.add_argument("--users", type=int, default=1000, help="Number of users")
-    parser.add_argument("--orders", type=int, default=5000, help="Number of orders")
-    parser.add_argument("--products", type=int, default=100, help="Number of products")
-    parser.add_argument("--clean", action="store_true", help="Clean tables first")
-    parser.add_argument("--url", type=str, default=DB_URL, help="Database URL")
-    args = parser.parse_args()
-    
-    print(f"Connecting to {args.url}...")
+    print("=" * 60)
+    print("PyNext Go Bridge - Test Data Seeder")
+    print("=" * 60)
+    print(f"\nDatabase: {DB_URL}")
     
     try:
-        import psycopg
+        import pynext_go
+        if pynext_go.GO_AVAILABLE:
+            seed_with_go_bridge()
+        else:
+            raise ImportError("Go bridge not available")
     except ImportError:
-        print("Error: psycopg not installed. Run: pip install psycopg[binary]")
-        return 1
-    
-    try:
-        conn = psycopg.connect(args.url)
-    except Exception as e:
-        print(f"Error: Cannot connect to database: {e}")
-        print("Make sure PostgreSQL is running: docker-compose up -d postgres")
-        return 1
-    
-    try:
-        create_tables(conn)
-        
-        if args.clean:
-            clean_tables(conn)
-        
-        print(f"\nSeeding data...")
-        total_start = time.time()
-        
-        seed_users(conn, args.users)
-        seed_products(conn, args.products)
-        seed_orders(conn, args.orders, args.users)
-        seed_order_items(conn, args.orders, args.products)
-        
-        print(f"\n✅ Total seeding time: {time.time() - total_start:.2f}s")
-        
-        show_stats(conn)
-        
-    finally:
-        conn.close()
-    
-    return 0
+        print("⚠️  Go bridge not available, using psycopg fallback...")
+        seed_with_psycopg()
 
 
 if __name__ == "__main__":
-    exit(main())
-
+    main()

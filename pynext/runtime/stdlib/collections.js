@@ -521,7 +521,7 @@ export function namedtuple(typename, field_names, rename = false, defaults = nul
             return result;
         }
         
-        _replace(**kwargs) {
+        _replace(kwargs = {}) {
             const values = fields.map(f => kwargs.hasOwnProperty(f) ? kwargs[f] : this[f]);
             return new NamedTuple(...values);
         }

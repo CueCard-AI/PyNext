@@ -310,8 +310,181 @@ To add support for a new DOM API:
        assert 'el.newMethod("value")' in result
    ```
 
+## Type-Aware Method Dispatch (Phase 34.5+)
+
+A more advanced passthrough mechanism tracks variable types from constructor assignments:
+
+### The Problem
+
+Some DOM methods have the same name as Python methods:
+
+| Method | Python Usage | DOM Usage |
+|--------|--------------|-----------|
+| `encode()` | `"text".encode("utf-8")` | `encoder.encode("text")` |
+| `get()` | `dict.get("key")` | `params.get("key")` |
+| `sort()` | `list.sort()` | `params.sort()` |
+| `keys()` | `dict.keys()` | `params.keys()` |
+
+Without type information, the transpiler couldn't distinguish between:
+```python
+encoder.encode("Hello")  # Should be: encoder.encode("Hello")
+s.encode("utf-8")        # Should be: __py.str.encode(s, "utf-8")
+```
+
+### The Solution
+
+Track variable types from constructor assignments:
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  Python Source                                                    │
+│  encoder = TextEncoder()   ─────────────────────────────────────┐│
+│  bytes = encoder.encode("Hello")                                ││
+└─────────────────────────────────────────────────────────────────┘│
+                                                                   │
+                  ┌────────────────────────────────────────────────┘
+                  │
+                  ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  ScopeTracker records:                                           │
+│  _dom_types = { "encoder": "TextEncoder" }                       │
+└───────────────────────────┬─────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  DOM_TYPE_METHODS registry:                                      │
+│  {                                                               │
+│    "TextEncoder": {"encode", "encodeInto"},                      │
+│    "URLSearchParams": {"get", "set", "sort", "keys", ...},       │
+│    "Blob": {"text", "arrayBuffer", "slice", "stream"},           │
+│    ...                                                           │
+│  }                                                               │
+└───────────────────────────┬─────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  Method Dispatch Decision:                                       │
+│  1. encoder is known type "TextEncoder"                          │
+│  2. "encode" is in DOM_TYPE_METHODS["TextEncoder"]               │
+│  3. Result: passthrough → encoder.encode("Hello")                │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Components
+
+#### 1. DOM Type Registry (`pynext/transpiler/dom.py`)
+
+Maps constructor names to their method sets:
+
+```python
+DOM_TYPE_METHODS: dict[str, FrozenSet[str]] = {
+    "TextEncoder": frozenset({"encode", "encodeInto"}),
+    "TextDecoder": frozenset({"decode"}),
+    "URLSearchParams": frozenset({
+        "get", "getAll", "set", "append", "delete", "has",
+        "sort", "keys", "values", "entries", "forEach", "toString"
+    }),
+    "Blob": frozenset({"slice", "text", "arrayBuffer", "stream"}),
+    "DataView": frozenset({
+        "getInt8", "setInt8", "getUint8", "setUint8", ...
+    }),
+    # TypedArrays, FormData, Headers, WebSocket, etc.
+}
+```
+
+#### 2. Scope Tracking (`pynext/transpiler/_internal/scope.py`)
+
+Tracks variable→constructor mappings:
+
+```python
+class ScopeTracker:
+    def __init__(self):
+        self._dom_types: dict[str, str] = {}
+    
+    def declare_dom_type(self, var_name: str, constructor: str) -> None:
+        """Record that var_name was constructed from constructor."""
+        self._dom_types[var_name] = constructor
+    
+    def get_dom_type(self, var_name: str) -> Optional[str]:
+        """Get the DOM constructor type for a variable."""
+        return self._dom_types.get(var_name)
+```
+
+#### 3. Assignment Recording (`pynext/transpiler/emitter.py`)
+
+When emitting assignments, record DOM types:
+
+```python
+def _emit_assignment(node: Assignment, indent: int) -> str:
+    if isinstance(node.value, Call):
+        if isinstance(node.value.func, Name):
+            class_name = node.value.func.id
+            if class_name in DOM_TYPE_METHODS:
+                scope.declare_dom_type(target, class_name)
+```
+
+#### 4. Type-Aware Method Dispatch (`pynext/transpiler/emitter.py`)
+
+Check type before Python method mappings:
+
+```python
+def _emit_method_call(node: Call) -> Optional[str]:
+    # Check if object is a known DOM type
+    if isinstance(node.func.value, Name):
+        obj_name = node.func.value.id
+        dom_type = scope.get_dom_type(obj_name)
+        
+        if dom_type and is_dom_type_method(dom_type, method):
+            # Passthrough - emit direct method call
+            return f"{obj_js}.{method}({args_str})"
+    
+    # ... fall through to Python method mappings
+```
+
+### Example Transformations
+
+| Python Code | Without Type Tracking | With Type Tracking |
+|-------------|----------------------|-------------------|
+| `encoder.encode("Hi")` | `__py.str.encode(encoder, "Hi")` | `encoder.encode("Hi")` |
+| `params.get("key")` | `__py.dict.get(params, "key", null)` | `params.get("key")` |
+| `params.sort()` | `__py.list.sort(params)` | `params.sort()` |
+| `params.keys()` | `Object.keys(params)` | `params.keys()` |
+| `d.get("key")` (dict) | `__py.dict.get(d, "key", null)` | `__py.dict.get(d, "key", null)` |
+
+### Benefits
+
+1. **Zero runtime overhead** - Direct method calls, no wrappers
+2. **Smaller bundle size** - No `__py.*` helpers for DOM code
+3. **Correct semantics** - DOM and Python methods behave correctly
+4. **Scalable** - Add new types to registry only
+
+### Adding New DOM Types
+
+To add type-aware passthrough for a new constructor:
+
+1. **Add to DOM_TYPE_METHODS** (`pynext/transpiler/dom.py`):
+   ```python
+   DOM_TYPE_METHODS["MyConstructor"] = frozenset({
+       "method1", "method2", "method3"
+   })
+   ```
+
+2. **Add tests** (`tests/unit/transpiler/test_dom_type_tracking.py`):
+   ```python
+   def test_myconstructor_method1_passthrough(self):
+       code = '''
+   obj = MyConstructor()
+   result = obj.method1("arg")
+   '''
+       result = transpile(code)
+       assert 'obj.method1("arg")' in result
+   ```
+
+No changes needed to scope tracking or emitter logic.
+
 ## See Also
 
 - [DOM API Reference](../features/DOM_API.md) - User-facing documentation
 - [Phase 34.1 Test Overview](../test-case-tracking/phase-34/phase-34-1/TEST_OVERVIEW.md) - Test coverage details
+- [URL Encoding API](../features/URL_ENCODING.md) - URL, Encoding & Binary Data APIs
 

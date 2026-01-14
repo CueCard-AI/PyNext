@@ -5,7 +5,7 @@ PostgreSQL URL Parsing Tests.
 """
 
 import pytest
-from pynext.db.adapters.postgres_url import (
+from pynext.db.adapters.postgres.core.url import (
     PostgresConfig,
     PostgresConfigError,
     parse_postgres_url,

@@ -12,7 +12,7 @@ Tests for PyNext Prometheus Backend Module.
 import threading
 import pytest
 
-from pynext.db.adapters.postgres_prometheus import (
+from pynext.db.adapters.postgres.observability.prometheus import (
     PrometheusCounter,
     PrometheusGauge,
     PrometheusHistogram,
@@ -20,7 +20,7 @@ from pynext.db.adapters.postgres_prometheus import (
     PrometheusBackend,
     create_prometheus_backend,
 )
-from pynext.db.adapters.postgres_metrics import MetricsConfig, DEFAULT_BUCKETS
+from pynext.db.adapters.postgres.observability.metrics import MetricsConfig, DEFAULT_BUCKETS
 
 
 # ============================================================================
@@ -717,7 +717,7 @@ class TestPrometheusBackend:
     
     def test_metrics_interface(self):
         """Test backend implements MetricsBackend interface."""
-        from pynext.db.adapters.postgres_metrics import MetricsBackend
+        from pynext.db.adapters.postgres.observability.metrics import MetricsBackend
         
         backend = PrometheusBackend()
         assert isinstance(backend, MetricsBackend)

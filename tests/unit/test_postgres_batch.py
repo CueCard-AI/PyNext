@@ -17,7 +17,7 @@ import asyncio
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from pynext.db.adapters.postgres_batch import (
+from pynext.db.adapters.postgres.performance.batch import (
     BatchConfig,
     BatchResult,
     BatchStats,

@@ -12,6 +12,10 @@
 
 function at(arr, i) {
     if (arr === null || arr === undefined) return undefined;
+    // Handle Map-like objects (Counter, defaultdict, OrderedDict)
+    if (arr instanceof Map || (arr && typeof arr.get === 'function' && typeof arr.has === 'function')) {
+        return arr.get(i);
+    }
     if (i < 0) return arr[arr.length + i];
     return arr[i];
 }
@@ -2050,11 +2054,11 @@ const __py = {
     list_remove,
     dict_pop,
     dict_setdefault,
-    dict: {
+    dict: Object.assign(dict, {
         items: dict_items,
         pop: dict_pop,
         setdefault: dict_setdefault,
-    },
+    }),
     isinstance,
     type,
     star_import,
@@ -2065,7 +2069,6 @@ const __py = {
     ascii,
     // Type methods (Phase 18.3)
     list,
-    dict,
     set,
     // Enhanced builtins (Phase 18.4)
     sorted,

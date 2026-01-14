@@ -21,7 +21,7 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 import time
 
-from pynext.db.adapters.postgres_retry import (
+from pynext.db.adapters.postgres.reliability.retry import (
     RetryConfig,
     RetryManager,
     RetryError,

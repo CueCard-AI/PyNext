@@ -16,7 +16,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from pynext.db.adapters.postgres_monitor import (
+from pynext.db.adapters.postgres.observability.monitor import (
     MonitorConfig,
     PoolEventType,
     ConnectionState,

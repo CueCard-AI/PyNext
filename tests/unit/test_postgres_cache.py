@@ -8,7 +8,7 @@ import asyncio
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from pynext.db.adapters.postgres_cache import (
+from pynext.db.adapters.postgres.core.cache import (
     StatementCache,
     CachedStatement,
     PerConnectionCache,

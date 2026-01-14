@@ -16,7 +16,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from pynext.db.adapters.postgres_analyzer import (
+from pynext.db.adapters.postgres.observability.analyzer import (
     AnalyzerConfig,
     SuggestionType,
     ScanType,

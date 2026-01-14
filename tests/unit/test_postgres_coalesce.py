@@ -15,7 +15,7 @@ import asyncio
 import pytest
 from unittest.mock import AsyncMock, MagicMock
 
-from pynext.db.adapters.postgres_coalesce import (
+from pynext.db.adapters.postgres.performance.coalesce import (
     CoalescingConfig,
     PendingQuery,
     CoalescingStats,

@@ -127,9 +127,17 @@ except ImportError:
 
 # PostgreSQL adapter (optional - requires asyncpg)
 try:
-    from pynext.db.adapters.postgres import PostgresAdapter
-    from pynext.db.adapters.postgres_url import PostgresConfig, PostgresConfigError
-    from pynext.db.adapters.postgres_pool import (
+    # Core adapter and configuration
+    from pynext.db.adapters.postgres.core import (
+        PostgresAdapter,
+        PostgresConfig,
+        PostgresConfigError,
+        StatementCache,
+        PerConnectionCache,
+    )
+    
+    # Pool management (Phase 5.2)
+    from pynext.db.adapters.postgres.pool import (
         AutoScalingPool,
         PoolStats,
         PoolState,
@@ -137,11 +145,6 @@ try:
         ConnectionState,
         PoolExhaustedError,
         PoolClosedError,
-    )
-    from pynext.db.adapters.postgres_cache import StatementCache, PerConnectionCache
-    
-    # Phase 5.2: Queue management
-    from pynext.db.adapters.postgres_queue import (
         ConnectionQueue,
         QueueConfig,
         QueueStats,
@@ -150,10 +153,6 @@ try:
         QueueOverflowAction,
         QueueFullError,
         QueueTimeoutError,
-    )
-    
-    # Phase 5.2: Lifecycle management
-    from pynext.db.adapters.postgres_lifecycle import (
         LifecycleManager,
         LifecycleConfig,
         LifecycleStats,
@@ -161,18 +160,10 @@ try:
         ConnectionHealth,
         RetirementReason,
         ReplacementStrategy,
-    )
-    
-    # Phase 5.2: Connection warmup
-    from pynext.db.adapters.postgres_warmup import (
         ConnectionWarmer,
         WarmupConfig,
         WarmupResult,
         WarmupStats,
-    )
-    
-    # Phase 5.2: External pooler support
-    from pynext.db.adapters.postgres_external import (
         ExternalPoolerManager,
         ExternalPoolerConfig,
         PoolerType,
@@ -185,8 +176,8 @@ try:
         create_pooler_config_for_neon,
     )
     
-    # Phase 5.3: Retry logic
-    from pynext.db.adapters.postgres_retry import (
+    # Reliability features (Phase 5.3)
+    from pynext.db.adapters.postgres.reliability import (
         RetryConfig,
         RetryManager,
         RetryError,
@@ -197,10 +188,6 @@ try:
         standard_retry,
         aggressive_retry,
         no_retry,
-    )
-    
-    # Phase 5.3: Circuit breaker
-    from pynext.db.adapters.postgres_circuit import (
         CircuitBreaker,
         CircuitBreakerConfig,
         CircuitBreakerRegistry,
@@ -211,10 +198,6 @@ try:
         create_global_breaker,
         create_sensitive_breaker,
         create_tolerant_breaker,
-    )
-    
-    # Phase 5.3: Read replica routing
-    from pynext.db.adapters.postgres_replica import (
         Replica,
         ReplicaConfig,
         ReplicaHealth,
@@ -225,10 +208,6 @@ try:
         RoutingStrategy,
         simple_replicas,
         weighted_replicas,
-    )
-    
-    # Phase 5.3: Graceful degradation
-    from pynext.db.adapters.postgres_degradation import (
         DegradationAction,
         DegradationConfig,
         DegradationError,
@@ -244,8 +223,8 @@ try:
         strict_config,
     )
     
-    # Phase 5.4: Per-query timeouts
-    from pynext.db.adapters.postgres_timeout import (
+    # Performance optimization (Phase 5.4)
+    from pynext.db.adapters.postgres.performance import (
         QueryType,
         QueryTimeoutConfig,
         QueryWithTimeout,
@@ -256,10 +235,6 @@ try:
         standard_timeout_config,
         batch_timeout_config,
         no_timeout_config,
-    )
-    
-    # Phase 5.4: Query cache with smart invalidation
-    from pynext.db.adapters.postgres_query_cache import (
         InvalidationStrategy,
         QueryCacheConfig,
         CacheEntry,
@@ -269,10 +244,6 @@ try:
         smart_cache_config,
         aggressive_cache_config,
         no_cache_config,
-    )
-    
-    # Phase 5.4: Query coalescing
-    from pynext.db.adapters.postgres_coalesce import (
         CoalescingConfig,
         PendingQuery,
         CoalescingStats,
@@ -281,10 +252,6 @@ try:
         aggressive_coalescing_config,
         conservative_coalescing_config,
         disabled_coalescing_config,
-    )
-    
-    # Phase 5.4: Query pipelining
-    from pynext.db.adapters.postgres_pipeline import (
         PipelineConfig,
         PipelinedQuery,
         PipelineStats,
@@ -292,10 +259,6 @@ try:
         high_throughput_config,
         low_latency_config,
         disabled_pipeline_config,
-    )
-    
-    # Phase 5.4: Batch optimization
-    from pynext.db.adapters.postgres_batch import (
         BatchConfig,
         BatchResult,
         BatchStats,
@@ -303,10 +266,6 @@ try:
         bulk_load_config,
         transactional_config,
         disabled_batch_config,
-    )
-    
-    # Phase 5.4: Adaptive scaling
-    from pynext.db.adapters.postgres_scaling import (
         AdaptiveScalingConfig,
         LoadSample,
         ScaleEvent,
@@ -318,57 +277,49 @@ try:
         disabled_scaling_config,
     )
     
-    # Phase 5.5: Structured logging
-    from pynext.db.adapters.postgres_logging import (
+    # Observability features (Phase 5.5)
+    from pynext.db.adapters.postgres.observability import (
         LogConfig,
         QueryContext,
         DBLogger,
-        query_id_var,
-        trace_id_var,
-        client_ip_var,
-    )
-    
-    # Phase 5.5: Metrics collection
-    from pynext.db.adapters.postgres_metrics import (
+        LogLevel,
+        LogFormat,
+        LogEvent,
+        LogRecord,
+        set_trace_id,
+        get_trace_id,
+        set_client_ip,
+        get_client_ip,
         MetricsConfig,
         MetricsCollector,
         MetricsBackend,
-    )
-    
-    # Phase 5.5: Prometheus backend
-    from pynext.db.adapters.postgres_prometheus import (
         PrometheusBackend,
-    )
-    
-    # Phase 5.5: OpenTelemetry backend
-    from pynext.db.adapters.postgres_opentelemetry import (
         OpenTelemetryBackend,
         OTLPConfig,
-    )
-    
-    # Phase 5.5: Query analyzer
-    from pynext.db.adapters.postgres_analyzer import (
         QueryAnalyzer,
         AnalyzerConfig,
         ExplainResult,
-        IndexSuggestion,
-        QueryHint,
-    )
-    
-    # Phase 5.5: Pool monitor
-    from pynext.db.adapters.postgres_monitor import (
+        SuggestionType,
+        ScanType,
+        ExplainNode,
+        QuerySuggestion,
+        AnalysisResult,
         PoolMonitor,
         MonitorConfig,
         LeakDetector,
         HealthChecker,
+        PoolEventType,
+        ConnectionInfo,
+        LeakInfo,
+        PoolEvent,
     )
     
-    # Phase 5.7: Per-query timeout (chain + context manager)
-    from pynext.db.adapters.postgres_query_timeout import (
-        QueryTimeoutError as ChainQueryTimeoutError,
+    # Advanced query features (Phase 5.7)
+    from pynext.db.adapters.postgres.queries import (
+        ChainQueryTimeoutError,
         QueryTimeout,
         TimeoutConfig,
-        TimeoutStats as ChainTimeoutStats,
+        ChainTimeoutStats,
         TimeoutContext,
         timeout_context,
         TimeoutExecutor,
@@ -379,10 +330,6 @@ try:
         set_current_timeout,
         create_timeout,
         create_timeout_executor,
-    )
-    
-    # Phase 5.7: EXPLAIN/ANALYZE with parsing
-    from pynext.db.adapters.postgres_explain import (
         ExplainFormat,
         NodeType,
         SuggestionSeverity,
@@ -395,10 +342,6 @@ try:
         PlanAnalyzer,
         ExplainMixin,
         ExplainExecutor,
-    )
-    
-    # Phase 5.7: Cursor-based pagination
-    from pynext.db.adapters.postgres_pagination import (
         PaginationMethod,
         CursorDirection,
         PaginationConfig,
@@ -412,10 +355,6 @@ try:
         PaginationMixin,
         get_pagination_config,
         set_pagination_config,
-    )
-    
-    # Phase 5.7: Prepared statements
-    from pynext.db.adapters.postgres_prepared import (
         StatementState,
         PreparedStats,
         PreparedStatement,
@@ -425,10 +364,6 @@ try:
         SchemaWatcher,
         get_prepared_executor,
         set_prepared_executor,
-    )
-    
-    # Phase 5.7: Query cancellation
-    from pynext.db.adapters.postgres_cancel import (
         QueryState,
         CancelReason,
         CancellationConfig,
@@ -447,6 +382,13 @@ try:
         cancel,
         get_running_queries,
     )
+    
+    # Backward compatibility aliases
+    query_id_var = None  # Removed - use set_trace_id/get_trace_id instead
+    trace_id_var = None  # Removed - use set_trace_id/get_trace_id instead
+    client_ip_var = None  # Removed - use set_client_ip/get_client_ip instead
+    IndexSuggestion = None  # Removed
+    QueryHint = None  # Removed
     
     _HAS_POSTGRES = True
 except ImportError:
@@ -592,6 +534,14 @@ except ImportError:
     LogConfig = None  # type: ignore
     QueryContext = None  # type: ignore
     DBLogger = None  # type: ignore
+    LogLevel = None  # type: ignore
+    LogFormat = None  # type: ignore
+    LogEvent = None  # type: ignore
+    LogRecord = None  # type: ignore
+    set_trace_id = None  # type: ignore
+    get_trace_id = None  # type: ignore
+    set_client_ip = None  # type: ignore
+    get_client_ip = None  # type: ignore
     query_id_var = None  # type: ignore
     trace_id_var = None  # type: ignore
     client_ip_var = None  # type: ignore
@@ -604,12 +554,21 @@ except ImportError:
     QueryAnalyzer = None  # type: ignore
     AnalyzerConfig = None  # type: ignore
     ExplainResult = None  # type: ignore
+    SuggestionType = None  # type: ignore
+    ScanType = None  # type: ignore
+    ExplainNode = None  # type: ignore
+    QuerySuggestion = None  # type: ignore
+    AnalysisResult = None  # type: ignore
     IndexSuggestion = None  # type: ignore
     QueryHint = None  # type: ignore
     PoolMonitor = None  # type: ignore
     MonitorConfig = None  # type: ignore
     LeakDetector = None  # type: ignore
     HealthChecker = None  # type: ignore
+    PoolEventType = None  # type: ignore
+    ConnectionInfo = None  # type: ignore
+    LeakInfo = None  # type: ignore
+    PoolEvent = None  # type: ignore
     # Phase 5.7 fallbacks
     ChainQueryTimeoutError = None  # type: ignore
     QueryTimeout = None  # type: ignore

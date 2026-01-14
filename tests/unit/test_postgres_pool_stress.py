@@ -18,7 +18,7 @@ import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 import time
 
-from pynext.db.adapters.postgres_pool import (
+from pynext.db.adapters.postgres.pool.pool import (
     AutoScalingPool,
     PoolStats,
     PoolState,
@@ -26,17 +26,17 @@ from pynext.db.adapters.postgres_pool import (
     ConnectionState,
     PoolExhaustedError,
 )
-from pynext.db.adapters.postgres_url import PostgresConfig
-from pynext.db.adapters.postgres_queue import (
+from pynext.db.adapters.postgres.core.url import PostgresConfig
+from pynext.db.adapters.postgres.pool.queue import (
     QueueConfig,
     ConnectionQueue,
     QueueFullError,
 )
-from pynext.db.adapters.postgres_lifecycle import (
+from pynext.db.adapters.postgres.pool.lifecycle import (
     LifecycleConfig,
     LifecycleManager,
 )
-from pynext.db.adapters.postgres_warmup import (
+from pynext.db.adapters.postgres.pool.warmup import (
     WarmupConfig,
     ConnectionWarmer,
 )
@@ -312,7 +312,7 @@ class TestResourceExhaustion:
     @pytest.mark.asyncio
     async def test_queue_timeout_under_load(self):
         """Test queue timeout when under load."""
-        from pynext.db.adapters.postgres_queue import QueueTimeoutError
+        from pynext.db.adapters.postgres.pool.queue import QueueTimeoutError
         
         # Use larger max_size so requests queue (don't reject)
         queue = ConnectionQueue(QueueConfig(max_size=20))
@@ -415,7 +415,7 @@ class TestResourceExhaustion:
         """Test rapid enqueue with short timeout."""
         queue = ConnectionQueue()
         
-        from pynext.db.adapters.postgres_queue import QueueTimeoutError
+        from pynext.db.adapters.postgres.pool.queue import QueueTimeoutError
         
         timeout_count = 0
         for _ in range(20):
@@ -542,7 +542,7 @@ class TestTimingPerformance:
         
     def test_lifecycle_age_accuracy(self):
         """Test lifecycle age is measured accurately."""
-        from pynext.db.adapters.postgres_lifecycle import ConnectionLifecycle
+        from pynext.db.adapters.postgres.pool.lifecycle import ConnectionLifecycle
         
         lifecycle = ConnectionLifecycle(
             connection_id="conn_1",
@@ -553,7 +553,7 @@ class TestTimingPerformance:
         
     def test_lifecycle_idle_time_accuracy(self):
         """Test lifecycle idle time is measured accurately."""
-        from pynext.db.adapters.postgres_lifecycle import ConnectionLifecycle
+        from pynext.db.adapters.postgres.pool.lifecycle import ConnectionLifecycle
         
         lifecycle = ConnectionLifecycle(
             connection_id="conn_1",
@@ -579,7 +579,7 @@ class TestTimingPerformance:
         
     def test_queue_percentile_calculation(self):
         """Test queue percentile calculation performance."""
-        from pynext.db.adapters.postgres_queue import QueueStats
+        from pynext.db.adapters.postgres.pool.queue import QueueStats
         
         stats = QueueStats()
         stats.wait_times_recent = list(range(1000))
@@ -606,7 +606,7 @@ class TestTimingPerformance:
         
     def test_queue_stats_to_dict_performance(self):
         """Test queue stats to_dict is efficient."""
-        from pynext.db.adapters.postgres_queue import QueueStats
+        from pynext.db.adapters.postgres.pool.queue import QueueStats
         
         stats = QueueStats()
         stats.wait_times_recent = list(range(1000))
@@ -620,7 +620,7 @@ class TestTimingPerformance:
         
     def test_lifecycle_stats_to_dict_performance(self):
         """Test lifecycle stats to_dict is efficient."""
-        from pynext.db.adapters.postgres_lifecycle import LifecycleStats
+        from pynext.db.adapters.postgres.pool.lifecycle import LifecycleStats
         
         stats = LifecycleStats()
         stats.connection_lifetimes_ms = list(range(1000))
@@ -803,7 +803,7 @@ class TestEdgeCasesRaceConditions:
         
     def test_queue_stats_empty_percentiles(self):
         """Test queue stats percentiles with no data."""
-        from pynext.db.adapters.postgres_queue import QueueStats
+        from pynext.db.adapters.postgres.pool.queue import QueueStats
         
         stats = QueueStats()
         assert stats.wait_time_p50_ms == 0
@@ -812,7 +812,7 @@ class TestEdgeCasesRaceConditions:
         
     def test_lifecycle_stats_empty_averages(self):
         """Test lifecycle stats averages with no data."""
-        from pynext.db.adapters.postgres_lifecycle import LifecycleStats
+        from pynext.db.adapters.postgres.pool.lifecycle import LifecycleStats
         
         stats = LifecycleStats()
         assert stats.avg_connection_lifetime_ms == 0
@@ -823,13 +823,13 @@ class TestEdgeCasesRaceConditions:
         """Test queue with zero timeout."""
         queue = ConnectionQueue()
         
-        from pynext.db.adapters.postgres_queue import QueueTimeoutError
+        from pynext.db.adapters.postgres.pool.queue import QueueTimeoutError
         with pytest.raises(QueueTimeoutError):
             await queue.enqueue(timeout=0.001)  # Very short timeout
             
     def test_warmup_stats_empty_rate(self):
         """Test warmup stats success rate with no warmups."""
-        from pynext.db.adapters.postgres_warmup import WarmupStats
+        from pynext.db.adapters.postgres.pool.warmup import WarmupStats
         
         stats = WarmupStats()
         assert stats.success_rate == 1.0  # Default to 100% when no data

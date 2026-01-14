@@ -190,6 +190,8 @@ def transpile(
     indent: int = 0,
     minify: bool = False,
     optimize: bool = False,
+    generate_imports: bool = False,
+    runtime_path: str = "@pynext/runtime",
 ) -> str:
     """
     Transpile Python source code to JavaScript.
@@ -202,6 +204,8 @@ def transpile(
         indent: Base indentation level (number of 4-space indents)
         minify: If True, produce minified output (future)
         optimize: If True, run optimization passes (wrapper elision, etc.)
+        generate_imports: If True, prepend optimal runtime imports based on usage
+        runtime_path: Base path for runtime imports (default: "@pynext/runtime")
     
     Returns:
         JavaScript source code
@@ -226,6 +230,10 @@ def transpile(
         
         >>> transpile("x = 5 + 3", optimize=True)
         'let x = 8;'  # Constant folding
+        
+        >>> transpile("items[-1]", generate_imports=True)
+        'import { at } from "@pynext/runtime/core-minimal";
+        at(items, -1)'
     
     Notes:
         - Type annotations are preserved but ignored
@@ -233,13 +241,36 @@ def transpile(
         - Unsupported constructs raise UnsupportedSyntax errors
     """
     from .optimizer import optimize as run_optimizer
+    from ._internal.usage_tracker import get_usage_tracker, reset_usage_tracker
+    
+    # Reset usage tracker for clean tracking
+    if generate_imports:
+        reset_usage_tracker()
     
     ir = parse(source, filename=filename)
     
     if optimize:
         ir = run_optimizer(ir)
     
-    return emit(ir, indent=indent)
+    js_code = emit(ir, indent=indent)
+    
+    # Generate and prepend optimal imports if requested
+    if generate_imports:
+        tracker = get_usage_tracker()
+        
+        # Check if we should use minimal imports or full runtime
+        if tracker.needs_full_runtime():
+            # Full runtime - single import
+            imports = [f"import __py from '{runtime_path}';"]
+        else:
+            # Minimal imports based on usage
+            imports = tracker.generate_imports(runtime_path)
+        
+        if imports:
+            imports_code = "\n".join(imports)
+            js_code = f"{imports_code}\n\n{js_code}"
+    
+    return js_code
 
 
 def transpile_handler(

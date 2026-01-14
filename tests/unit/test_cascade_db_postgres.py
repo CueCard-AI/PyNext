@@ -38,7 +38,7 @@ class TestPostgresAdapterCreateTable:
     def mock_adapter(self):
         """Create a mock adapter for testing."""
         # We'll test the SQL generation logic directly
-        from pynext.db.adapters.postgres_types import get_postgres_type
+        from pynext.db.adapters.postgres.core.types import get_postgres_type
         
         class TestableAdapter:
             def __init__(self):

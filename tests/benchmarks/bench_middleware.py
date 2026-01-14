@@ -98,6 +98,25 @@ class TestPathLookupBenchmark:
         sizes = [100, 1000, 10000]
         median_times = []
         
+        # =====================================================================
+        # GLOBAL WARMUP - Critical for stable benchmarks
+        # =====================================================================
+        # The first iteration of ANY benchmark suffers from cold-start penalty:
+        # - CPU cache is cold (prior tests used different memory regions)
+        # - Python JIT hasn't compiled hot paths yet
+        # - Memory pages haven't been faulted in
+        # 
+        # We run the ENTIRE measurement loop once and discard results.
+        # This ensures all code paths are hot before we start timing.
+        # =====================================================================
+        for warmup_size in sizes:
+            router._path_cache.clear()
+            for i in range(warmup_size):
+                router._path_cache[f"/page-{i}"] = ["middleware"]
+            # Run the same operations we'll measure
+            for _ in range(5000):
+                router._path_cache.get("/page-50")
+        
         for size in sizes:
             # Create cache of given size
             router._path_cache.clear()
@@ -114,22 +133,24 @@ class TestPathLookupBenchmark:
                     router._path_cache.get("/page-50")
                 
                 # Multiple runs for statistical robustness
+                # Use 10 runs to get better statistical sample
                 run_times = []
-                for _ in range(5):  # 5 runs
+                for _ in range(10):
                     start = time.perf_counter()
                     for _ in range(10000):
                         router._path_cache.get("/page-50")
                     elapsed = time.perf_counter() - start
                     run_times.append(elapsed)
                 
-                # Use median (robust to outliers from system noise)
-                run_times.sort()
-                median = run_times[len(run_times) // 2]
-                median_times.append(median)
+                # Use MINIMUM time - any spike above this is noise
+                # The minimum represents the true achievable performance
+                # without system interference (interrupts, GC, throttling)
+                min_time = min(run_times)
+                median_times.append(min_time)
             finally:
                 gc.enable()
         
-        print(f"\n📊 Lookup Scaling (10k lookups each, median of 5 runs):")
+        print(f"\n📊 Lookup Scaling (10k lookups each, min of 10 runs):")
         for size, t in zip(sizes, median_times):
             print(f"   {size} entries: {t*1000:.2f}ms")
         

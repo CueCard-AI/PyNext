@@ -29,7 +29,7 @@ import time
 from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
 from dataclasses import dataclass
 
-from pynext.db.adapters.postgres_replica import (
+from pynext.db.adapters.postgres.reliability.replica import (
     Replica,
     ReplicaConfig,
     ReplicaHealth,

@@ -20,7 +20,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from pynext.db.adapters.postgres_logging import (
+from pynext.db.adapters.postgres.observability.logging import (
     LogConfig,
     LogLevel,
     LogFormat,

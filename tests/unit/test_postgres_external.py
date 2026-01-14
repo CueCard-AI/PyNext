@@ -17,7 +17,7 @@ import pytest
 import asyncio
 from unittest.mock import AsyncMock, MagicMock
 
-from pynext.db.adapters.postgres_external import (
+from pynext.db.adapters.postgres.pool.external import (
     ExternalPoolerConfig,
     ExternalPoolerManager,
     PoolerType,

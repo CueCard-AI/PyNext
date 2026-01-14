@@ -13,27 +13,27 @@ import asyncio
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from pynext.db.adapters.postgres_timeout import (
+from pynext.db.adapters.postgres.performance.timeout import (
     QueryTimeoutConfig,
     TimeoutManager,
 )
-from pynext.db.adapters.postgres_query_cache import (
+from pynext.db.adapters.postgres.performance.query_cache import (
     QueryCacheConfig,
     QueryCache,
 )
-from pynext.db.adapters.postgres_coalesce import (
+from pynext.db.adapters.postgres.performance.coalesce import (
     CoalescingConfig,
     QueryCoalescer,
 )
-from pynext.db.adapters.postgres_pipeline import (
+from pynext.db.adapters.postgres.performance.pipeline import (
     PipelineConfig,
     QueryPipeline,
 )
-from pynext.db.adapters.postgres_batch import (
+from pynext.db.adapters.postgres.performance.batch import (
     BatchConfig,
     BatchOptimizer,
 )
-from pynext.db.adapters.postgres_scaling import (
+from pynext.db.adapters.postgres.performance.scaling import (
     AdaptiveScalingConfig,
     AdaptiveScaler,
 )

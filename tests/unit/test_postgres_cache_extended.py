@@ -18,7 +18,7 @@ import pytest
 import time
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from pynext.db.adapters.postgres_query_cache import (
+from pynext.db.adapters.postgres.performance.query_cache import (
     InvalidationStrategy,
     QueryCacheConfig,
     CacheEntry,

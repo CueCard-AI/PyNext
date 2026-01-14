@@ -270,6 +270,40 @@ from pynext.client.events import (
     DeviceOrientationEvent,
 )
 
+# URL API (Phase 34.5)
+from pynext.client.url import (
+    URL,
+    URLSearchParams,
+)
+
+# Encoding API (Phase 34.5)
+from pynext.client.encoding import (
+    TextEncoder,
+    TextDecoder,
+    btoa,
+    atob,
+)
+
+# Binary Data API (Phase 34.5)
+from pynext.client.binary import (
+    ArrayBuffer,
+    Uint8Array,
+    Int8Array,
+    Uint8ClampedArray,
+    Int16Array,
+    Uint16Array,
+    Int32Array,
+    Uint32Array,
+    Float32Array,
+    Float64Array,
+    BigInt64Array,
+    BigUint64Array,
+    DataView,
+    Blob,
+    File,
+    FileReader,
+)
+
 __all__ = [
     # Type checking
     "typed",
@@ -410,5 +444,33 @@ __all__ = [
     "ProgressEvent",
     "DeviceMotionEvent",
     "DeviceOrientationEvent",
+    
+    # URL API (Phase 34.5)
+    "URL",
+    "URLSearchParams",
+    
+    # Encoding API (Phase 34.5)
+    "TextEncoder",
+    "TextDecoder",
+    "btoa",
+    "atob",
+    
+    # Binary Data API (Phase 34.5)
+    "ArrayBuffer",
+    "Uint8Array",
+    "Int8Array",
+    "Uint8ClampedArray",
+    "Int16Array",
+    "Uint16Array",
+    "Int32Array",
+    "Uint32Array",
+    "Float32Array",
+    "Float64Array",
+    "BigInt64Array",
+    "BigUint64Array",
+    "DataView",
+    "Blob",
+    "File",
+    "FileReader",
 ]
 

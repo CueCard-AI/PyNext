@@ -15,7 +15,7 @@ import asyncio
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from pynext.db.adapters.postgres_pipeline import (
+from pynext.db.adapters.postgres.performance.pipeline import (
     PipelineConfig,
     PipelinedQuery,
     PipelineStats,

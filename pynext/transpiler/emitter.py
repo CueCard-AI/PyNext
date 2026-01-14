@@ -158,6 +158,32 @@ from .async_support import (
     _emit_async_for,
 )
 
+# Usage tracking for bundle optimization
+from ._internal.usage_tracker import record_usage
+
+
+def _py_call(feature: str, *args: str) -> str:
+    """
+    Generate a __py.feature() call and record usage for bundle optimization.
+    
+    This helper ensures that every runtime call is tracked, enabling
+    minimal bundle generation based on actual usage.
+    
+    Args:
+        feature: Runtime feature name (e.g., "at", "bool", "eq")
+        *args: Arguments to pass to the runtime function
+    
+    Returns:
+        JavaScript call string like "__py.at(items, -1)"
+    
+    Example:
+        _py_call("at", "items", "-1")  # Returns "__py.at(items, -1)"
+        # Also records "at" in UsageTracker
+    """
+    record_usage(feature)
+    args_str = ", ".join(args)
+    return f"__py.{feature}({args_str})"
+
 
 # =============================================================================
 # PUBLIC API
@@ -315,6 +341,7 @@ def _emit_assignment(node: Assignment, indent: int) -> str:
     # If so, mark the variable as a callable object
     scope = get_scope()
     is_callable = False
+    dom_constructor = None  # Phase 34.5+: Track DOM constructor type
     
     if isinstance(node.value, Call):
         # Check if this is a class instantiation
@@ -323,6 +350,26 @@ def _emit_assignment(node: Assignment, indent: int) -> str:
             if scope.is_class_name(class_name) and scope.class_has_call(class_name):
                 # This is an instantiation of a class with __call__ method
                 is_callable = True
+            
+            # Phase 34.5+: Check if this is a DOM constructor
+            # Import DOM registry for type-aware method dispatch
+            from pynext.transpiler.dom import DOM_TYPE_METHODS, DOM_CONSTRUCTORS
+            if class_name in DOM_TYPE_METHODS or class_name in DOM_CONSTRUCTORS:
+                dom_constructor = class_name
+    
+    # =========================================================================
+    # DOM Type Propagation (Transpiler Core Fix)
+    # =========================================================================
+    # When assigning from one variable to another, propagate the DOM type.
+    # This ensures method dispatch continues to work after reassignment.
+    #
+    # Example:
+    #   params = URLSearchParams("a=1")  # params has DOM type
+    #   x = params                       # x should inherit DOM type
+    #   x.get("a")                       # Should be x.get("a"), not __py.dict.get(x, "a")
+    propagate_from = None
+    if isinstance(node.value, Name):
+        propagate_from = node.value.id
     
     # Emit the assignment
     value_js = _emit_expr(node.value)
@@ -344,6 +391,19 @@ def _emit_assignment(node: Assignment, indent: int) -> str:
     # Phase 33.2: Mark as callable if it's an instance of a class with __call__
     if is_callable:
         scope.declare_callable_object(target)
+    
+    # Phase 34.5+: Record DOM type for type-aware method dispatch
+    if dom_constructor:
+        scope.declare_dom_type(target, dom_constructor)
+    elif propagate_from:
+        # Propagate DOM type from source variable to target variable
+        scope.propagate_dom_type(target, propagate_from)
+    elif isinstance(node.value, Call):
+        # If reassigning to a non-DOM call, clear any previous DOM type
+        scope.clear_dom_type(target)
+    else:
+        # For other assignments (dicts, lists, etc.), clear DOM type
+        scope.clear_dom_type(target)
     
     return result
 
@@ -654,7 +714,7 @@ def _emit_truthiness(node: JSNode) -> str:
     expr_js = _emit_expr(node)
     
     if _needs_bool_wrapper(node):
-        return f"__py.bool({expr_js})"
+        return _py_call("bool", expr_js)
     else:
         return expr_js
 
@@ -1167,12 +1227,16 @@ def _emit_compare(node: Compare) -> str:
     
     For simple cases (single comparison), no IIFE is needed.
     For simple variable comparisons, we also skip the IIFE.
+    
+    Transpiler Core Fix: For eq/ne operators, if both operands are known
+    primitives, use direct === instead of __py.eq for better performance.
     """
     # Single comparison - no chaining, no caching needed
     if len(node.ops) == 1:
         left_js = _emit_expr(node.left)
         right_js = _emit_expr(node.comparators[0])
-        return _emit_single_compare(left_js, node.ops[0], right_js)
+        # Pass AST nodes for primitive type checking
+        return _emit_single_compare(left_js, node.ops[0], right_js, node.left, node.comparators[0])
     
     # Chained comparison - need to cache middle operands
     # Check if middle operands are simple (Name nodes) - no caching needed
@@ -1183,10 +1247,12 @@ def _emit_compare(node: Compare) -> str:
         # All middle operands are simple variables - no caching needed
         parts = []
         left_js = _emit_expr(node.left)
+        left_node = node.left
         for i, (op, right) in enumerate(zip(node.ops, node.comparators)):
             right_js = _emit_expr(right)
-            parts.append(_emit_single_compare(left_js, op, right_js))
+            parts.append(_emit_single_compare(left_js, op, right_js, left_node, right))
             left_js = right_js
+            left_node = right
         return " && ".join(parts)
     
     # Complex case: middle operands may have side effects
@@ -1208,6 +1274,7 @@ def _emit_compare(node: Compare) -> str:
     # Build comparison chain
     parts = []
     left_js = _emit_expr(node.left)
+    left_node = node.left
     
     for i, (op, right) in enumerate(zip(node.ops, node.comparators)):
         if i < len(temp_vars):
@@ -1215,8 +1282,12 @@ def _emit_compare(node: Compare) -> str:
         else:
             right_js = _emit_expr(right)
         
-        parts.append(_emit_single_compare(left_js, op, right_js))
+        # Note: In complex chained comparisons with cached values, we can't 
+        # reliably infer primitive types for cached temps, so pass None for those
+        right_node = right if i >= len(temp_values) else None
+        parts.append(_emit_single_compare(left_js, op, right_js, left_node, right_node))
         left_js = right_js if i < len(temp_vars) else _emit_expr(right)
+        left_node = right if i >= len(temp_values) else None
     
     comparison = " && ".join(parts)
     
@@ -1230,10 +1301,42 @@ def _emit_compare(node: Compare) -> str:
     return f"(({params}) => {comparison})({args})"
 
 
-def _emit_single_compare(left_js: str, op: str, right_js: str) -> str:
-    """Emit a single comparison operation."""
+def _emit_single_compare(left_js: str, op: str, right_js: str, left_node=None, right_node=None) -> str:
+    """
+    Emit a single comparison operation.
+    
+    Transpiler Core Fix: For eq/ne operators, if both operands are known
+    primitives, use direct === instead of __py.eq for better performance.
+    
+    Args:
+        left_js: Left operand as JavaScript string
+        op: Operator string (eq, ne, lt, etc.)
+        right_js: Right operand as JavaScript string
+        left_node: Left AST node (optional, for primitive type checking)
+        right_node: Right AST node (optional, for primitive type checking)
+    """
+    # =========================================================================
+    # Primitive Comparison Optimization (Transpiler Core Fix)
+    # =========================================================================
+    # If both operands are primitives, we can use direct === instead of __py.eq.
+    # This produces cleaner, faster JavaScript:
+    #   url.port !== ""  instead of  !__py.eq(url.port, "")
+    
+    if op in ("eq", "ne") and left_node is not None and right_node is not None:
+        scope = get_scope()
+        left_primitive = scope.is_primitive_expression(left_node)
+        right_primitive = scope.is_primitive_expression(right_node)
+        
+        if left_primitive and right_primitive:
+            # Safe to use direct JavaScript comparison
+            if op == "eq":
+                return f"({left_js} === {right_js})"
+            else:  # ne
+                return f"({left_js} !== {right_js})"
+    
+    # Standard comparison handling
     if op == "eq":
-        return f"__py.eq({left_js}, {right_js})"
+        return _py_call("eq", left_js, right_js)
     elif op == "ne":
         return f"!__py.eq({left_js}, {right_js})"
     elif op == "is":
@@ -1241,7 +1344,7 @@ def _emit_single_compare(left_js: str, op: str, right_js: str) -> str:
     elif op == "isnot":
         return f"({left_js} !== {right_js})"
     elif op == "in":
-        return f"__py.in({left_js}, {right_js})"
+        return _py_call("in", left_js, right_js)
     elif op == "notin":
         return f"!__py.in({left_js}, {right_js})"
     else:
@@ -1536,6 +1639,42 @@ def _emit_call(node: Call) -> str:
         method = _emit_method_call(node)
         if method is not None:
             return method
+    
+    # =========================================================================
+    # DOM Constructor Handling (Transpiler Core Fix)
+    # =========================================================================
+    # Browser APIs like URL, Blob, TextEncoder require 'new' keyword in JS.
+    # Python: url = URL("https://example.com")
+    # JS:     let url = new URL("https://example.com");
+    #
+    # This check must come BEFORE user-defined class check because DOM
+    # constructors are NOT registered in scope._class_names.
+    from .dom import DOM_CONSTRUCTORS
+    
+    if isinstance(node.func, Name) and node.func.id in DOM_CONSTRUCTORS:
+        # Emit DOM constructor with 'new' keyword
+        args_js = ", ".join(_emit_expr(arg) for arg in node.args)
+        
+        # Handle keyword arguments (for options objects)
+        if node.keywords:
+            kw_parts = []
+            for kw in node.keywords:
+                if kw.arg is None:
+                    # **kwargs spread
+                    kw_parts.append(f"...{_emit_expr(kw.value)}")
+                else:
+                    kw_parts.append(f'"{kw.arg}": {_emit_expr(kw.value)}')
+            if kw_parts:
+                options_obj = "{" + ", ".join(kw_parts) + "}"
+                if args_js:
+                    args_js = f"{args_js}, {options_obj}"
+                else:
+                    args_js = options_obj
+        
+        # Track DOM type for this variable (for type-aware method dispatch)
+        # This is handled in the assignment emitter
+        
+        return f"new {node.func.id}({args_js})"
     
     # Phase 33.1: Detect class instantiations - need 'new' keyword
     # Check if this is a class instantiation (not a function call)
@@ -1965,6 +2104,30 @@ def _emit_method_call(node: Call) -> Optional[str]:
     
     # Get keyword arguments
     kwargs = {kw[0]: _emit_expr(kw[1]) for kw in node.keywords}
+    
+    # =========================================================================
+    # DOM TYPE-AWARE PASSTHROUGH (Phase 34.5+)
+    # =========================================================================
+    # Check if the object is a known DOM type (from constructor assignment).
+    # If so, and the method is in that type's method set, emit passthrough.
+    # This eliminates __py.* wrappers for DOM API methods.
+    #
+    # Example: encoder = TextEncoder(); encoder.encode("Hello")
+    #   - scope knows encoder → "TextEncoder"
+    #   - "encode" is in DOM_TYPE_METHODS["TextEncoder"]
+    #   - Emit: encoder.encode("Hello") instead of __py.str.encode(encoder, "Hello")
+    
+    from pynext.transpiler.dom import is_dom_type_method
+    scope = get_scope()
+    
+    if isinstance(node.func.value, Name):
+        obj_name = node.func.value.id
+        dom_type = scope.get_dom_type(obj_name)
+        
+        if dom_type and is_dom_type_method(dom_type, method):
+            # This is a DOM method on a known DOM object - passthrough
+            args_str = ", ".join(args_js)
+            return f"{obj_js}.{method}({args_str})"
     
     # =========================================================================
     # DOM API PASSTHROUGH (Phase 34.1)
@@ -2523,7 +2686,7 @@ def _emit_subscript(node: Subscript) -> str:
     # Use runtime for potential negative indexing
     # Always use __py.at() when is_negative is True to handle Python negative indexing semantics
     if node.is_negative:
-        return f"__py.at({value_js}, {idx_js})"
+        return _py_call("at", value_js, idx_js)
     
     # Phase 33.2: Use runtime helper to check for __getitem__ dunder method
     # This handles objects with custom subscript access

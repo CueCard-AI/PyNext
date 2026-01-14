@@ -9,8 +9,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from datetime import datetime, timezone
 
 from pynext.db.adapters.postgres import PostgresAdapter
-from pynext.db.adapters.postgres_url import PostgresConfig, PostgresConfigError
-from pynext.db.adapters.postgres_pool import PoolState
+from pynext.db.adapters.postgres.core.url import PostgresConfig, PostgresConfigError
+from pynext.db.adapters.postgres.pool.pool import PoolState
 
 
 # =============================================================================

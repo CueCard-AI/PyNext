@@ -13,7 +13,7 @@ import pytest
 import asyncio
 from datetime import datetime
 
-from pynext.db.adapters.postgres_cancel import (
+from pynext.db.adapters.postgres.queries.cancel import (
     QueryState,
     CancelReason,
     CancellationConfig,

@@ -26,7 +26,7 @@ import pytest
 import time
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from pynext.db.adapters.postgres_degradation import (
+from pynext.db.adapters.postgres.reliability.degradation import (
     DegradationAction,
     DegradationConfig,
     DegradationError,

@@ -51,6 +51,9 @@ Thumbs.db
 .coverage
 htmlcov/
 
+# Bundle Analysis
+.bundle-analysis/
+
 # Environment
 .env
 .env.local

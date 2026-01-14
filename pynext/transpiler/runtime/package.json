@@ -1,0 +1,123 @@
+{
+  "name": "@pynext/runtime",
+  "version": "1.0.0",
+  "description": "PyNext transpiler runtime - Python semantics for JavaScript",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "import": "./index.js",
+      "default": "./index.js"
+    },
+    "./core": {
+      "import": "./core.js",
+      "default": "./core.js"
+    },
+    "./core-minimal": {
+      "import": "./core-minimal.js",
+      "default": "./core-minimal.js"
+    },
+    "./errors": {
+      "import": "./errors.js",
+      "default": "./errors.js"
+    },
+    "./errors-factory": {
+      "import": "./errors-factory.js",
+      "default": "./errors-factory.js"
+    },
+    "./dunders": {
+      "import": "./dunders.js",
+      "default": "./dunders.js"
+    },
+    "./generators": {
+      "import": "./generators.js",
+      "default": "./generators.js"
+    },
+    "./builtins": {
+      "import": "./builtins.js",
+      "default": "./builtins.js"
+    },
+    "./async": {
+      "import": "./async.js",
+      "default": "./async.js"
+    },
+    "./classes": {
+      "import": "./classes.js",
+      "default": "./classes.js"
+    },
+    "./decorators": {
+      "import": "./decorators.js",
+      "default": "./decorators.js"
+    },
+    "./proxy": {
+      "import": "./proxy.js",
+      "default": "./proxy.js"
+    },
+    "./types": {
+      "import": "./types/index.js",
+      "default": "./types/index.js"
+    },
+    "./types/string": {
+      "import": "./types/string.js",
+      "default": "./types/string.js"
+    },
+    "./types/string-core": {
+      "import": "./types/string-core.js",
+      "default": "./types/string-core.js"
+    },
+    "./types/string-extended": {
+      "import": "./types/string-extended.js",
+      "default": "./types/string-extended.js"
+    },
+    "./types/list": {
+      "import": "./types/list.js",
+      "default": "./types/list.js"
+    },
+    "./types/dict": {
+      "import": "./types/dict.js",
+      "default": "./types/dict.js"
+    },
+    "./types/set": {
+      "import": "./types/set.js",
+      "default": "./types/set.js"
+    },
+    "./stdlib/*": {
+      "import": "./stdlib/*.js",
+      "default": "./stdlib/*.js"
+    },
+    "./stdlib": {
+      "import": "./stdlib/index.js",
+      "default": "./stdlib/index.js"
+    },
+    "./stdlib/json": {
+      "import": "./stdlib/json.js",
+      "default": "./stdlib/json.js"
+    },
+    "./stdlib/math": {
+      "import": "./stdlib/math.js",
+      "default": "./stdlib/math.js"
+    },
+    "./stdlib/re": {
+      "import": "./stdlib/re.js",
+      "default": "./stdlib/re.js"
+    },
+    "./stdlib/random": {
+      "import": "./stdlib/random.js",
+      "default": "./stdlib/random.js"
+    }
+  },
+  "files": [
+    "*.js",
+    "types/*.js",
+    "stdlib/*.js"
+  ],
+  "keywords": [
+    "pynext",
+    "python",
+    "transpiler",
+    "runtime",
+    "python-to-javascript"
+  ],
+  "license": "MIT"
+}
+

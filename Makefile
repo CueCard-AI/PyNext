@@ -11,7 +11,7 @@
 #   make db-down      # Stop PostgreSQL container
 #   make clean        # Clean build artifacts
 
-.PHONY: install test test-quick test-unit test-integration test-e2e db-up db-down clean lint format help
+.PHONY: install test test-quick test-unit test-integration test-e2e db-up db-down clean lint format help bundle bundle-check bundle-real-apps bundle-verbose bundle-json bundle-analyze
 
 # Default target
 help:
@@ -28,6 +28,13 @@ help:
 	@echo "  make lint             Run linters"
 	@echo "  make format           Format code"
 	@echo "  make clean            Clean build artifacts"
+	@echo ""
+	@echo "Bundle Analysis:"
+	@echo "  make bundle           Quick bundle size check (alias for bundle-check)"
+	@echo "  make bundle-check     Check bundle sizes against limits"
+	@echo "  make bundle-real-apps Check real app bundle sizes (transpile + bundle)"
+	@echo "  make bundle-verbose   Full analysis with module breakdown + real apps"
+	@echo "  make bundle-json      Output bundle analysis as JSON"
 
 # =============================================================================
 # Installation
@@ -157,4 +164,29 @@ ci-test-full: install db-up
 	TEST_DATABASE_URL=postgresql://pynext:pynext@localhost:5433/pynext_test \
 	PYNEXT_TEST_DB_URL=postgresql://pynext:pynext@localhost:5433/pynext_test \
 	pytest tests/ -v --tb=short --strict-markers
+
+# =============================================================================
+# Bundle Size Analysis
+# =============================================================================
+# These commands analyze the size of PyNext runtime bundles.
+# Use these to ensure bundle sizes stay within limits before committing.
+
+bundle: bundle-check  ## Alias for bundle-check
+
+bundle-check:  ## Check bundle sizes against limits
+	@echo "📦 Analyzing bundle sizes..."
+	@node scripts/analyze-bundle.js
+
+bundle-real-apps:  ## Check real app bundle sizes (transpile + bundle)
+	@echo "📦 Analyzing real app bundle sizes..."
+	@node scripts/analyze-bundle.js --real-apps
+
+bundle-verbose:  ## Full analysis with module breakdown + real apps
+	@echo "📦 Full bundle analysis..."
+	@node scripts/analyze-bundle.js --verbose --real-apps
+
+bundle-json:  ## Output bundle analysis as JSON
+	@node scripts/analyze-bundle.js --json
+
+bundle-analyze: bundle-verbose  ## Alias for bundle-verbose (legacy)
 

@@ -14,7 +14,7 @@ import pytest
 import asyncio
 from datetime import datetime
 
-from pynext.db.adapters.postgres_prepared import (
+from pynext.db.adapters.postgres.queries.prepared import (
     StatementState,
     PreparedStats,
     PreparedStatement,

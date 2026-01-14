@@ -19,7 +19,7 @@ import pytest
 import re
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from pynext.db.adapters.postgres_timeout import (
+from pynext.db.adapters.postgres.performance.timeout import (
     QueryType,
     QueryTimeoutConfig,
     QueryWithTimeout,

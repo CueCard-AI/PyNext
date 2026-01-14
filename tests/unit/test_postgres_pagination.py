@@ -15,7 +15,7 @@ import base64
 import json
 import asyncio
 
-from pynext.db.adapters.postgres_pagination import (
+from pynext.db.adapters.postgres.queries.pagination import (
     PaginationMethod,
     CursorDirection,
     PaginationConfig,

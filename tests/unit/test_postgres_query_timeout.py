@@ -14,7 +14,7 @@ import pytest
 import asyncio
 from datetime import datetime
 
-from pynext.db.adapters.postgres_query_timeout import (
+from pynext.db.adapters.postgres.queries.query_timeout import (
     QueryTimeoutError,
     QueryTimeout,
     TimeoutConfig,

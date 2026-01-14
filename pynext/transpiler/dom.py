@@ -124,6 +124,27 @@ DOM_GLOBALS: FrozenSet[str] = frozenset({
     # WebSocket
     "WebSocket",
     
+    # URL & Encoding (Phase 34.5)
+    "TextEncoder",
+    "TextDecoder",
+    "ArrayBuffer",
+    "Uint8Array",
+    "Int8Array",
+    "Uint8ClampedArray",
+    "Int16Array",
+    "Uint16Array",
+    "Int32Array",
+    "Uint32Array",
+    "Float32Array",
+    "Float64Array",
+    "BigInt64Array",
+    "BigUint64Array",
+    "DataView",
+    "btoa",
+    "atob",
+    "File",
+    "FileReader",
+    
     # Additional Events (Phase 34.4 Final)
     "PromiseRejectionEvent",
     "SecurityPolicyViolationEvent",
@@ -185,6 +206,253 @@ DOM_GLOBALS: FrozenSet[str] = frozenset({
     "CSSMatrixComponent",     # matrix()
     "StylePropertyMap",       # Typed style map
     "DOMMatrix",              # Transform matrix
+})
+
+
+# =============================================================================
+# DOM Constructors (require 'new' keyword in JavaScript)
+# =============================================================================
+# These are browser APIs that must be called with 'new' in JavaScript.
+# The transpiler checks this set and emits 'new Constructor(...)' instead of
+# just 'Constructor(...)'.
+#
+# WHO: Called by emitter.py when transpiling Call nodes
+# WHAT: Distinguishes constructor calls from regular function calls
+# WHY: JavaScript requires 'new' for constructors; Python doesn't have this
+
+DOM_CONSTRUCTORS: FrozenSet[str] = frozenset({
+    # =========================================================================
+    # URL & Encoding APIs (Phase 34.5)
+    # =========================================================================
+    "URL",
+    "URLSearchParams",
+    "TextEncoder",
+    "TextDecoder",
+    
+    # =========================================================================
+    # Binary Data APIs (Phase 34.5)
+    # =========================================================================
+    "ArrayBuffer",
+    "SharedArrayBuffer",
+    "DataView",
+    "Blob",
+    "File",
+    "FileReader",
+    
+    # TypedArrays
+    "Uint8Array",
+    "Int8Array",
+    "Uint8ClampedArray",
+    "Int16Array",
+    "Uint16Array",
+    "Int32Array",
+    "Uint32Array",
+    "Float32Array",
+    "Float64Array",
+    "BigInt64Array",
+    "BigUint64Array",
+    
+    # =========================================================================
+    # Fetch/Network APIs
+    # =========================================================================
+    "Headers",
+    "Request",
+    "Response",
+    "FormData",
+    "WebSocket",
+    "XMLHttpRequest",
+    
+    # =========================================================================
+    # Event Constructors (Phase 34.4)
+    # =========================================================================
+    "Event",
+    "CustomEvent",
+    "MouseEvent",
+    "KeyboardEvent",
+    "FocusEvent",
+    "TouchEvent",
+    "WheelEvent",
+    "PointerEvent",
+    "DragEvent",
+    "ClipboardEvent",
+    "InputEvent",
+    "CompositionEvent",
+    "AnimationEvent",
+    "TransitionEvent",
+    "MessageEvent",
+    "ErrorEvent",
+    "StorageEvent",
+    "PopStateEvent",
+    "HashChangeEvent",
+    "CloseEvent",
+    "UIEvent",
+    "SubmitEvent",
+    "FormDataEvent",
+    "BeforeUnloadEvent",
+    "ProgressEvent",
+    "PromiseRejectionEvent",
+    "SecurityPolicyViolationEvent",
+    "PageTransitionEvent",
+    "DeviceMotionEvent",
+    "DeviceOrientationEvent",
+    
+    # =========================================================================
+    # Observer APIs
+    # =========================================================================
+    "MutationObserver",
+    "IntersectionObserver",
+    "ResizeObserver",
+    "PerformanceObserver",
+    
+    # =========================================================================
+    # Other Constructors
+    # =========================================================================
+    "AbortController",
+    "Image",
+    "Audio",
+    "Worker",
+    "SharedWorker",
+    "BroadcastChannel",
+    "MessageChannel",
+    "EventSource",
+    
+    # CSS Typed OM (Phase 34.3)
+    "CSSUnitValue",
+    "CSSKeywordValue",
+    "CSSMathSum",
+    "CSSMathProduct",
+    "CSSMathMin",
+    "CSSMathMax",
+    "CSSMathClamp",
+    "CSSTransformValue",
+    "CSSTranslate",
+    "CSSRotate",
+    "CSSScale",
+    "CSSSkew",
+    "CSSPerspective",
+    "DOMMatrix",
+})
+
+
+# =============================================================================
+# DOM Primitive Properties (always return JS primitives, safe for === comparison)
+# =============================================================================
+# These properties are guaranteed to return JavaScript primitives (string, number,
+# boolean, null). The transpiler uses this to optimize comparisons:
+# - url.port !== "" instead of !__py.eq(url.port, "")
+#
+# WHO: Called by emitter.py when optimizing comparison operators
+# WHAT: Identifies properties that return primitives
+# WHY: Allows using direct === instead of __py.eq for better performance
+
+DOM_PRIMITIVE_PROPERTIES: FrozenSet[str] = frozenset({
+    # =========================================================================
+    # URL Properties (all strings)
+    # =========================================================================
+    "href",
+    "protocol",
+    "username",
+    "password",
+    "host",
+    "hostname",
+    "port",
+    "pathname",
+    "search",
+    "hash",
+    "origin",
+    
+    # =========================================================================
+    # Blob/File Properties
+    # =========================================================================
+    "size",           # number
+    "type",           # string (MIME type)
+    "name",           # string (File.name)
+    "lastModified",   # number (timestamp)
+    
+    # =========================================================================
+    # Element Properties (strings/numbers)
+    # =========================================================================
+    "id",
+    "className",
+    "tagName",
+    "nodeName",
+    "nodeType",       # number
+    "innerHTML",
+    "outerHTML",
+    "textContent",
+    "innerText",
+    "outerText",
+    
+    # Dimensions (numbers)
+    "offsetWidth",
+    "offsetHeight",
+    "offsetTop",
+    "offsetLeft",
+    "clientWidth",
+    "clientHeight",
+    "clientTop",
+    "clientLeft",
+    "scrollWidth",
+    "scrollHeight",
+    "scrollTop",
+    "scrollLeft",
+    
+    # =========================================================================
+    # Form Element Properties
+    # =========================================================================
+    "value",          # string
+    "checked",        # boolean
+    "disabled",       # boolean
+    "readOnly",       # boolean
+    "required",       # boolean
+    "selected",       # boolean
+    "defaultValue",   # string
+    "placeholder",    # string
+    "maxLength",      # number
+    "minLength",      # number
+    
+    # =========================================================================
+    # Common Primitive Properties
+    # =========================================================================
+    "length",         # number (arrays, strings, collections)
+    "byteLength",     # number (ArrayBuffer, TypedArray)
+    "byteOffset",     # number (TypedArray, DataView)
+    "nodeValue",      # string | null
+    "data",           # string (Text, Comment nodes)
+    
+    # =========================================================================
+    # Encoding Properties
+    # =========================================================================
+    "encoding",       # string (TextEncoder/Decoder)
+    "fatal",          # boolean (TextDecoder)
+    "ignoreBOM",      # boolean (TextDecoder)
+    
+    # =========================================================================
+    # Event Properties (primitives)
+    # =========================================================================
+    "bubbles",        # boolean
+    "cancelable",     # boolean
+    "defaultPrevented",  # boolean
+    "isTrusted",      # boolean
+    "eventPhase",     # number
+    "timeStamp",      # number
+    "key",            # string (KeyboardEvent)
+    "code",           # string (KeyboardEvent)
+    "button",         # number (MouseEvent)
+    "buttons",        # number (MouseEvent)
+    "clientX",        # number
+    "clientY",        # number
+    "pageX",          # number
+    "pageY",          # number
+    "screenX",        # number
+    "screenY",        # number
+    "offsetX",        # number
+    "offsetY",        # number
+    "altKey",         # boolean
+    "ctrlKey",        # boolean
+    "metaKey",        # boolean
+    "shiftKey",       # boolean
+    "repeat",         # boolean (KeyboardEvent)
 })
 
 
@@ -493,15 +761,97 @@ DOM_METHODS: FrozenSet[str] = frozenset({
     
     # =========================================================================
     # StylePropertyMap Methods (Phase 34.3)
-    # el.attributeStyleMap.set(), etc.
+    # el.attributeStyleMap.set(), el.attributeStyleMap.get(), etc.
+    # get/set/delete/has/clear are now in URLSearchParams section
     # =========================================================================
-    # "set" - already in DOM methods (setAttribute context)
-    # "get" - common pattern
-    # "delete" - already common
-    # "has" - already common
-    # "clear" - already common
     "getAll",
     "computedStyleMap",
+    
+    # =========================================================================
+    # URL & URLSearchParams Methods (Phase 34.5)
+    # Note: get/set/delete/has may conflict with dict methods but DOM is primary
+    # use case in @client code. Dict operations use __py helpers in practice.
+    # =========================================================================
+    "toString",
+    "toJSON",
+    "createObjectURL",
+    "revokeObjectURL",
+    "append",
+    "sort",
+    "keys",
+    "values",
+    "entries",
+    "forEach",
+    "get",       # URLSearchParams.get(), StylePropertyMap.get()
+    "set",       # URLSearchParams.set(), StylePropertyMap.set()
+    "delete",    # URLSearchParams.delete(), StylePropertyMap.delete()
+    "has",       # URLSearchParams.has(), StylePropertyMap.has()
+    "clear",     # StylePropertyMap.clear()
+    
+    # =========================================================================
+    # TextEncoder/Decoder Methods (Phase 34.5)
+    # =========================================================================
+    "encode",
+    "encodeInto",
+    "decode",
+    
+    # =========================================================================
+    # TypedArray Methods (Phase 34.5)
+    # =========================================================================
+    "subarray",
+    "fill",
+    "copyWithin",
+    "reverse",
+    "indexOf",
+    "lastIndexOf",
+    "includes",
+    "find",
+    "findIndex",
+    "every",
+    "some",
+    "filter",
+    "map",
+    "reduce",
+    "reduceRight",
+    "join",
+    
+    # =========================================================================
+    # DataView Methods (Phase 34.5)
+    # =========================================================================
+    "getInt8",
+    "setInt8",
+    "getUint8",
+    "setUint8",
+    "getInt16",
+    "setInt16",
+    "getUint16",
+    "setUint16",
+    "getInt32",
+    "setInt32",
+    "getUint32",
+    "setUint32",
+    "getFloat32",
+    "setFloat32",
+    "getFloat64",
+    "setFloat64",
+    "getBigInt64",
+    "setBigInt64",
+    "getBigUint64",
+    "setBigUint64",
+    
+    # =========================================================================
+    # Blob Methods (Phase 34.5)
+    # =========================================================================
+    "text",
+    "arrayBuffer",
+    "stream",
+    
+    # =========================================================================
+    # FileReader Methods (Phase 34.5)
+    # =========================================================================
+    "readAsText",
+    "readAsDataURL",
+    "readAsArrayBuffer",
 })
 
 
@@ -904,6 +1254,46 @@ DOM_PROPERTIES: FrozenSet[str] = frozenset({
     "beta",               # Front/back tilt
     "gamma",              # Left/right tilt
     "absolute",           # Absolute orientation
+    
+    # URL properties (Phase 34.5)
+    "href",               # URL.href
+    "protocol",           # URL.protocol
+    "username",           # URL.username
+    "password",           # URL.password
+    "host",               # URL.host
+    "hostname",           # URL.hostname
+    "port",               # URL.port
+    "pathname",           # URL.pathname
+    "search",             # URL.search
+    "searchParams",       # URL.searchParams
+    "hash",               # URL.hash
+    "origin",             # URL.origin
+    
+    # TextEncoder/Decoder properties (Phase 34.5)
+    "encoding",           # TextEncoder.encoding, TextDecoder.encoding
+    "fatal",              # TextDecoder.fatal
+    "ignoreBOM",          # TextDecoder.ignoreBOM
+    
+    # ArrayBuffer/TypedArray properties (Phase 34.5)
+    "byteLength",         # ArrayBuffer.byteLength
+    "byteOffset",         # TypedArray.byteOffset
+    "buffer",             # TypedArray.buffer
+    "BYTES_PER_ELEMENT",  # TypedArray.BYTES_PER_ELEMENT
+    
+    # Blob/File properties (Phase 34.5)
+    "size",               # Blob.size
+    "name",               # File.name
+    "lastModified",       # File.lastModified
+    
+    # FileReader properties (Phase 34.5)
+    "result",             # FileReader.result
+    "readyState",         # FileReader.readyState
+    "onload",             # FileReader.onload
+    "onerror",            # FileReader.onerror
+    "onabort",            # FileReader.onabort
+    "onloadstart",        # FileReader.onloadstart
+    "onloadend",          # FileReader.onloadend
+    "onprogress",         # FileReader.onprogress
 })
 
 
@@ -952,6 +1342,136 @@ DOM_TYPE_ONLY_IMPORTS: FrozenSet[str] = frozenset({
     "DOMMatrix",
     "CSSColor",
 })
+
+
+# =============================================================================
+# DOM Type Methods Registry (Phase 34.5+)
+# =============================================================================
+#
+# Maps DOM constructor types to their methods that should passthrough.
+# This enables type-aware method dispatch: when we know a variable was
+# constructed from a DOM type, we emit direct method calls instead of
+# wrapping with __py.* helpers.
+#
+# Example:
+#   encoder = TextEncoder()      # scope tracks: encoder -> "TextEncoder"
+#   encoder.encode("Hello")      # checks DOM_TYPE_METHODS["TextEncoder"]
+#                                # "encode" is there -> emit: encoder.encode("Hello")
+#
+# Without this, encode() would become __py.str.encode(encoder, "Hello")
+#
+# =============================================================================
+
+# Shared methods for all TypedArray types
+_TYPED_ARRAY_METHODS: FrozenSet[str] = frozenset({
+    "subarray", "slice", "set", "copyWithin", "fill", "reverse",
+    "sort", "indexOf", "lastIndexOf", "includes", "find", "findIndex",
+    "every", "some", "filter", "map", "reduce", "reduceRight", 
+    "join", "forEach", "entries", "keys", "values", "at", "toReversed",
+    "toSorted", "with_", "findLast", "findLastIndex",
+})
+
+DOM_TYPE_METHODS: dict[str, FrozenSet[str]] = {
+    # =========================================================================
+    # Encoding APIs (Phase 34.5)
+    # =========================================================================
+    "TextEncoder": frozenset({"encode", "encodeInto"}),
+    "TextDecoder": frozenset({"decode"}),
+    
+    # =========================================================================
+    # URL APIs (Phase 34.5)
+    # =========================================================================
+    "URL": frozenset({"toString", "toJSON"}),
+    "URLSearchParams": frozenset({
+        "get", "getAll", "set", "append", "delete", "has",
+        "sort", "keys", "values", "entries", "forEach", "toString",
+    }),
+    
+    # =========================================================================
+    # Binary Data APIs (Phase 34.5)
+    # =========================================================================
+    "Blob": frozenset({"slice", "text", "arrayBuffer", "stream"}),
+    "File": frozenset({"slice", "text", "arrayBuffer", "stream"}),
+    "FileReader": frozenset({
+        "readAsText", "readAsDataURL", "readAsArrayBuffer", "readAsBinaryString", "abort",
+    }),
+    "ArrayBuffer": frozenset({"slice", "transfer", "resize"}),
+    "DataView": frozenset({
+        "getInt8", "setInt8", "getUint8", "setUint8",
+        "getInt16", "setInt16", "getUint16", "setUint16",
+        "getInt32", "setInt32", "getUint32", "setUint32",
+        "getFloat32", "setFloat32", "getFloat64", "setFloat64",
+        "getBigInt64", "setBigInt64", "getBigUint64", "setBigUint64",
+    }),
+    
+    # =========================================================================
+    # TypedArrays (Phase 34.5) - All share same methods
+    # =========================================================================
+    "Uint8Array": _TYPED_ARRAY_METHODS,
+    "Int8Array": _TYPED_ARRAY_METHODS,
+    "Uint8ClampedArray": _TYPED_ARRAY_METHODS,
+    "Int16Array": _TYPED_ARRAY_METHODS,
+    "Uint16Array": _TYPED_ARRAY_METHODS,
+    "Int32Array": _TYPED_ARRAY_METHODS,
+    "Uint32Array": _TYPED_ARRAY_METHODS,
+    "Float32Array": _TYPED_ARRAY_METHODS,
+    "Float64Array": _TYPED_ARRAY_METHODS,
+    "BigInt64Array": _TYPED_ARRAY_METHODS,
+    "BigUint64Array": _TYPED_ARRAY_METHODS,
+    
+    # =========================================================================
+    # WebSocket (Phase 34.4)
+    # =========================================================================
+    "WebSocket": frozenset({"send", "close"}),
+    
+    # =========================================================================
+    # AbortController (Phase 34.4)
+    # =========================================================================
+    "AbortController": frozenset({"abort"}),
+    
+    # =========================================================================
+    # FormData (Phase 34.5)
+    # =========================================================================
+    "FormData": frozenset({
+        "get", "getAll", "set", "append", "delete", "has",
+        "keys", "values", "entries", "forEach",
+    }),
+    
+    # =========================================================================
+    # Headers (Fetch API)
+    # =========================================================================
+    "Headers": frozenset({
+        "get", "set", "append", "delete", "has",
+        "keys", "values", "entries", "forEach",
+    }),
+}
+
+
+def is_dom_type_method(constructor: str, method: str) -> bool:
+    """
+    Check if a method should passthrough for a given DOM constructor type.
+    
+    This enables type-aware method dispatch. When we know a variable's type
+    from its constructor, we can emit direct method calls instead of
+    wrapping with __py.* helpers.
+    
+    Args:
+        constructor: The DOM constructor name (e.g., "TextEncoder", "URLSearchParams")
+        method: The method name being called
+    
+    Returns:
+        True if this method should passthrough for this type
+    
+    Example:
+        is_dom_type_method("TextEncoder", "encode")      # True
+        is_dom_type_method("TextEncoder", "toString")    # False (not in set)
+        is_dom_type_method("URLSearchParams", "get")     # True
+        is_dom_type_method("dict", "get")                # False (not a DOM type)
+    """
+    type_methods = DOM_TYPE_METHODS.get(constructor)
+    if type_methods is None:
+        return False
+    return method in type_methods
 
 
 # =============================================================================
@@ -1009,6 +1529,44 @@ def is_dom_property(name: str) -> bool:
         is_dom_property("myProperty")    # False
     """
     return name in DOM_PROPERTIES
+
+
+def is_dom_constructor(name: str) -> bool:
+    """
+    Check if a name is a DOM constructor that requires 'new' keyword.
+    
+    Args:
+        name: The constructor name
+    
+    Returns:
+        True if this is a DOM constructor that should be called with 'new'
+    
+    Example:
+        is_dom_constructor("URL")           # True
+        is_dom_constructor("Blob")          # True
+        is_dom_constructor("document")      # False (not a constructor)
+        is_dom_constructor("MyClass")       # False (user-defined)
+    """
+    return name in DOM_CONSTRUCTORS
+
+
+def is_dom_primitive_property(name: str) -> bool:
+    """
+    Check if a property name returns a JavaScript primitive.
+    
+    Args:
+        name: The property name
+    
+    Returns:
+        True if this property always returns a primitive (string, number, boolean)
+    
+    Example:
+        is_dom_primitive_property("port")       # True (string)
+        is_dom_primitive_property("length")     # True (number)
+        is_dom_primitive_property("checked")    # True (boolean)
+        is_dom_primitive_property("children")   # False (returns NodeList)
+    """
+    return name in DOM_PRIMITIVE_PROPERTIES
 
 
 def is_dom_passthrough(name: str) -> bool:
@@ -1077,9 +1635,12 @@ def should_skip_import(name: str) -> bool:
 __all__ = [
     # Registries
     "DOM_GLOBALS",
+    "DOM_CONSTRUCTORS",
+    "DOM_PRIMITIVE_PROPERTIES",
     "DOM_METHODS",
     "DOM_PROPERTIES",
     "DOM_TYPE_ONLY_IMPORTS",
+    "DOM_TYPE_METHODS",
     
     # Helper functions
     "is_dom_global",
@@ -1087,6 +1648,9 @@ __all__ = [
     "is_dom_property",
     "is_dom_passthrough",
     "is_dom_type_import",
+    "is_dom_type_method",
     "should_skip_import",
+    "is_dom_constructor",
+    "is_dom_primitive_property",
 ]
 

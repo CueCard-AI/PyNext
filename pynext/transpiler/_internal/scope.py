@@ -139,6 +139,10 @@ class ScopeTracker:
         self._asyncio_imports: set[str] = set()
         # Phase 33.5: Track classes that need Proxy wrapping (__getattr__/__setattr__/__delattr__)
         self._classes_with_attribute_proxy: set[str] = set()
+        # Phase 34.5+: Track variables assigned from DOM constructors for type-aware dispatch
+        # This maps variable names to their constructor types (e.g., "encoder" -> "TextEncoder")
+        # Used to emit direct method calls instead of __py.* wrappers for DOM types
+        self._dom_types: dict[str, str] = {}
     
     def enter_scope(self) -> None:
         """Enter a new block scope (if, for, while)."""
@@ -340,6 +344,7 @@ class ScopeTracker:
         self._await_context_depth = 0
         self._context_stack = []
         self._asyncio_imports = set()
+        self._dom_types = {}
     
     def declare_asyncio_import(self, name: str) -> None:
         """
@@ -392,6 +397,158 @@ class ScopeTracker:
             True if this class has __getattr__/__setattr__/__delattr__
         """
         return class_name in self._classes_with_attribute_proxy
+    
+    # =============================================================================
+    # DOM TYPE TRACKING (Phase 34.5+)
+    # =============================================================================
+    #
+    # Track variables assigned from DOM constructors to enable type-aware
+    # method dispatch. When we know a variable's type, we can emit direct
+    # method calls instead of wrapping with __py.* helpers.
+    #
+    # Example:
+    #   encoder = TextEncoder()     # records: encoder -> "TextEncoder"
+    #   encoder.encode("Hello")     # knows encoder is TextEncoder -> passthrough
+    #
+    # Without this, .encode() would become __py.str.encode(encoder, "Hello")
+    # With this, .encode() becomes encoder.encode("Hello")
+    # =============================================================================
+    
+    def declare_dom_type(self, var_name: str, constructor: str) -> None:
+        """
+        Record that a variable was assigned from a DOM constructor.
+        
+        Phase 34.5+: Enables type-aware method dispatch for DOM APIs.
+        When we see `encoder = TextEncoder()`, we record encoder → TextEncoder.
+        Later, when we see `encoder.encode()`, we know to emit passthrough.
+        
+        Args:
+            var_name: The variable name being assigned
+            constructor: The DOM constructor name (e.g., "TextEncoder", "URLSearchParams")
+        
+        Example:
+            scope.declare_dom_type("encoder", "TextEncoder")
+            scope.declare_dom_type("params", "URLSearchParams")
+        """
+        self._dom_types[var_name] = constructor
+    
+    def get_dom_type(self, var_name: str) -> Optional[str]:
+        """
+        Get the DOM constructor type for a variable.
+        
+        Phase 34.5+: Used during method dispatch to determine if a method
+        call should passthrough or use __py.* helpers.
+        
+        Args:
+            var_name: The variable name to look up
+        
+        Returns:
+            The constructor name if this is a known DOM type, None otherwise
+        
+        Example:
+            scope.get_dom_type("encoder")  # Returns "TextEncoder" if declared
+            scope.get_dom_type("myDict")   # Returns None (not a DOM type)
+        """
+        return self._dom_types.get(var_name)
+    
+    def clear_dom_type(self, var_name: str) -> None:
+        """
+        Clear the DOM type for a variable (when reassigned to non-DOM value).
+        
+        Phase 34.5+: If a variable is reassigned to a non-DOM value,
+        we need to clear its type so we don't incorrectly passthrough.
+        
+        Args:
+            var_name: The variable name to clear
+        
+        Example:
+            encoder = TextEncoder()  # declares DOM type
+            encoder = {}             # clears DOM type (now a dict)
+        """
+        self._dom_types.pop(var_name, None)
+    
+    def propagate_dom_type(self, target: str, source: str) -> None:
+        """
+        Propagate DOM type from source variable to target variable.
+        
+        Transpiler Core Fix: When assigning from one variable to another,
+        preserve the DOM type information so method dispatch works correctly.
+        
+        Args:
+            target: The variable being assigned to
+            source: The variable being assigned from
+        
+        Example:
+            params = URLSearchParams("a=1")  # params has DOM type
+            x = params                       # x should inherit DOM type
+            x.get("a")                       # Should use direct passthrough
+        
+        WHO: Called by emitter.py when processing Name-to-Name assignments
+        WHAT: Copies DOM type from source variable to target variable  
+        WHY: Without this, type info is lost and methods fall back to __py.* helpers
+        """
+        source_type = self.get_dom_type(source)
+        if source_type:
+            self.declare_dom_type(target, source_type)
+        else:
+            # If source has no DOM type, clear target's DOM type
+            self.clear_dom_type(target)
+    
+    # =============================================================================
+    # PRIMITIVE TYPE INFERENCE (Transpiler Core Fix)
+    # =============================================================================
+    
+    def is_primitive_expression(self, node) -> bool:
+        """
+        Check if an AST expression is guaranteed to return a JavaScript primitive.
+        
+        Transpiler Core Fix: When both sides of a comparison are primitives,
+        we can use direct === instead of __py.eq for better performance.
+        
+        Args:
+            node: An AST node (Constant, Name, Attribute, etc.) - uses PyNext's nodes
+        
+        Returns:
+            True if the expression always returns a primitive (str, int, float, bool, None)
+        
+        Examples:
+            is_primitive_expression(Constant(5))        # True (int literal)
+            is_primitive_expression(Constant("hi"))     # True (str literal)  
+            is_primitive_expression(Attribute: url.port) # True (port is string)
+            is_primitive_expression(Name: my_list)       # False (unknown type)
+        
+        WHO: Called by emitter.py when optimizing comparison operators
+        WHAT: Determines if an expression is safe for direct JS comparison
+        WHY: Primitives can use === for equality; objects need deep comparison
+        """
+        # Import PyNext's AST node types (not Python's ast module)
+        from pynext.transpiler.nodes import Constant, Attribute, Name, UnaryOp
+        
+        # Import DOM registry
+        try:
+            from pynext.transpiler.dom import DOM_PRIMITIVE_PROPERTIES
+        except ImportError:
+            return False
+        
+        # Constant literals are always primitive
+        if isinstance(node, Constant):
+            return isinstance(node.value, (str, int, float, bool, type(None)))
+        
+        # Unary operations on primitives produce primitives
+        if isinstance(node, UnaryOp):
+            if node.op in ("not", "neg", "pos"):
+                return self.is_primitive_expression(node.operand)
+        
+        # Attribute access to known primitive properties
+        if isinstance(node, Attribute):
+            if node.attr in DOM_PRIMITIVE_PROPERTIES:
+                return True
+        
+        # For Name nodes, we could check if the variable was assigned a primitive,
+        # but that requires more complex tracking. For now, be conservative.
+        # Future enhancement: track primitive assignments
+        
+        return False
     
     # =============================================================================
     # SEMANTIC CONTEXT TRACKING (Unified Context System)

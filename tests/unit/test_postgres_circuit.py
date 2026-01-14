@@ -24,7 +24,7 @@ import threading
 import time
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from pynext.db.adapters.postgres_circuit import (
+from pynext.db.adapters.postgres.reliability.circuit import (
     CircuitBreaker,
     CircuitBreakerConfig,
     CircuitBreakerRegistry,

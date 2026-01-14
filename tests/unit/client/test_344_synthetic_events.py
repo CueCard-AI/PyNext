@@ -112,7 +112,8 @@ def try_action(element):
 el.dispatchEvent(Event("refresh"))
 '''
         result = transpile(code)
-        assert 'dispatchEvent(Event("refresh"))' in result
+        # Event constructor now emits with 'new' keyword (Transpiler Core Fix)
+        assert 'dispatchEvent(new Event("refresh"))' in result
 
 
 class TestEventSimulation:

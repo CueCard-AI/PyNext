@@ -21,26 +21,26 @@ import pytest
 import time
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from pynext.db.adapters.postgres_retry import (
+from pynext.db.adapters.postgres.reliability.retry import (
     RetryConfig,
     RetryManager,
     RetryError,
 )
-from pynext.db.adapters.postgres_circuit import (
+from pynext.db.adapters.postgres.reliability.circuit import (
     CircuitBreaker,
     CircuitBreakerConfig,
     CircuitBreakerRegistry,
     CircuitOpenError,
     CircuitState,
 )
-from pynext.db.adapters.postgres_replica import (
+from pynext.db.adapters.postgres.reliability.replica import (
     Replica,
     ReplicaConfig,
     ReplicaManager,
     ReplicaHealth,
     ReplicaUnavailableError,
 )
-from pynext.db.adapters.postgres_degradation import (
+from pynext.db.adapters.postgres.reliability.degradation import (
     DegradationConfig,
     DegradationError,
     DegradationLevel,

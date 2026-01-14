@@ -18,7 +18,7 @@ import asyncio
 from unittest.mock import AsyncMock, MagicMock
 import time
 
-from pynext.db.adapters.postgres_lifecycle import (
+from pynext.db.adapters.postgres.pool.lifecycle import (
     LifecycleConfig,
     ConnectionHealth,
     RetirementReason,

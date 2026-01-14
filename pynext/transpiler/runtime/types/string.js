@@ -33,80 +33,26 @@
  */
 
 // =============================================================================
-// SPLIT - Critical: no-arg splits on whitespace
+// CORE STRING METHODS (deduplicated - imported from string-core.js)
 // =============================================================================
+import {
+    split,
+    replace,
+    count,
+    index,
+    rindex,
+    strip,
+    lstrip,
+    rstrip,
+    startswith,
+    endswith,
+    find,
+    rfind,
+    join,
+} from './string-core.js';
 
-/**
- * Python split() with whitespace handling
- * 
- * @param {string} s - String to split
- * @param {string|null} sep - Separator (null = any whitespace)
- * @param {number} maxsplit - Max splits (-1 = no limit)
- * @returns {string[]} Array of parts
- * 
- * @example
- * split("a  b   c")        // → ["a", "b", "c"]
- * split("a,b,c", ",")      // → ["a", "b", "c"]
- * split("a b c", null, 1)  // → ["a", "b c"]
- */
-export function split(s, sep = null, maxsplit = -1) {
-    if (s === '') {
-        // Python: "".split() → []
-        // Python: "".split(",") → [""]
-        return sep === null ? [] : [''];
-    }
-    
-    if (sep === null) {
-        // Python splits on any whitespace, removes empty strings
-        // CRITICAL: maxsplit must preserve original whitespace in remainder
-        const trimmed = s.trim();
-        if (trimmed === '') return [];
-        
-        if (maxsplit < 0) {
-            return trimmed.split(/\s+/);
-        }
-        
-        // With maxsplit, we need to preserve original whitespace
-        const result = [];
-        let remaining = s.trimStart();  // Only trim start
-        let count = 0;
-        
-        while (count < maxsplit && remaining.length > 0) {
-            // Find first whitespace
-            const match = remaining.match(/^\S+/);
-            if (!match) break;
-            
-            result.push(match[0]);
-            remaining = remaining.slice(match[0].length);
-            
-            // Skip whitespace for next word, but preserve for remainder
-            const wsMatch = remaining.match(/^\s+/);
-            if (wsMatch) {
-                remaining = remaining.slice(wsMatch[0].length);
-            }
-            count++;
-        }
-        
-        // Add remainder (with original whitespace)
-        if (remaining.length > 0) {
-            result.push(remaining);
-        }
-        
-        return result;
-    }
-    
-    // With explicit separator
-    if (maxsplit < 0) {
-        return s.split(sep);
-    }
-    
-    // Apply maxsplit with separator
-    const parts = s.split(sep);
-    if (maxsplit >= parts.length - 1) return parts;
-    const result = parts.slice(0, maxsplit);
-    result.push(parts.slice(maxsplit).join(sep));
-    return result;
-}
+// Re-export core methods for backward compatibility
+export { split, replace, count, index, rindex, strip, lstrip, rstrip, startswith, endswith, find, rfind, join };
 
 // =============================================================================
 // RSPLIT - Split from right
@@ -140,67 +86,6 @@ export function rsplit(s, sep = null, maxsplit = -1) {
     const result = [parts.slice(0, splitPoint).join(sep)];
     result.push(...parts.slice(splitPoint));
     return result;
-}
-
-// =============================================================================
-// INDEX / RINDEX - Throws on not found
-// =============================================================================
-
-/**
- * Python index() - throws ValueError if not found
- * 
- * @param {string} s - String to search in
- * @param {string} sub - Substring to find
- * @param {number} start - Start index
- * @param {number|null} end - End index
- * @returns {number} Index of substring
- * @throws {Error} If substring not found
- */
-export function index(s, sub, start = 0, end = null) {
-    const searchIn = end === null ? s.slice(start) : s.slice(start, end);
-    const idx = searchIn.indexOf(sub);
-    if (idx === -1) {
-        throw new Error('substring not found');
-    }
-    return idx + start;
-}
-
-/**
- * Python rindex() - search from right, throws if not found
- */
-export function rindex(s, sub, start = 0, end = null) {
-    const searchIn = end === null ? s.slice(start) : s.slice(start, end);
-    const idx = searchIn.lastIndexOf(sub);
-    if (idx === -1) {
-        throw new Error('substring not found');
-    }
-    return idx + start;
-}
-
-// =============================================================================
-// COUNT - Count non-overlapping occurrences
-// =============================================================================
-
-/**
- * Python count() - count non-overlapping occurrences
- * 
- * @param {string} s - String to search in
- * @param {string} sub - Substring to count
- * @param {number} start - Start index
- * @param {number|null} end - End index
- * @returns {number} Count of occurrences
- */
-export function count(s, sub, start = 0, end = null) {
-    const searchIn = end === null ? s.slice(start) : s.slice(start, end);
-    if (sub === '') return searchIn.length + 1;
-    
-    let count = 0;
-    let pos = 0;
-    while ((pos = searchIn.indexOf(sub, pos)) !== -1) {
-        count++;
-        pos += sub.length;
-    }
-    return count;
 }
 
 // =============================================================================
@@ -312,77 +197,6 @@ export function zfill(s, width) {
     const sign = (s[0] === '+' || s[0] === '-') ? s[0] : '';
     const rest = sign ? s.slice(1) : s;
     return sign + rest.padStart(width - sign.length, '0');
-}
-
-// =============================================================================
-// STRIP VARIANTS - With custom characters
-// =============================================================================
-
-/**
- * Python strip() with custom characters
- * 
- * @param {string} s - String to strip
- * @param {string|null} chars - Characters to strip (null = whitespace)
- * @returns {string} Stripped string
- */
-export function strip(s, chars = null) {
-    if (chars === null) return s.trim();
-    const regex = new RegExp(`^[${escapeRegex(chars)}]+|[${escapeRegex(chars)}]+$`, 'g');
-    return s.replace(regex, '');
-}
-
-/**
- * Python lstrip() with custom characters
- */
-export function lstrip(s, chars = null) {
-    if (chars === null) return s.trimStart();
-    const regex = new RegExp(`^[${escapeRegex(chars)}]+`);
-    return s.replace(regex, '');
-}
-
-/**
- * Python rstrip() with custom characters
- */
-export function rstrip(s, chars = null) {
-    if (chars === null) return s.trimEnd();
-    const regex = new RegExp(`[${escapeRegex(chars)}]+$`);
-    return s.replace(regex, '');
-}
-
-// Helper to escape regex special characters
-function escapeRegex(str) {
-    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-// =============================================================================
-// REPLACE - With count limit
-// =============================================================================
-
-/**
- * Python replace() with count limit
- * 
- * @param {string} s - String to modify
- * @param {string} old - Substring to replace
- * @param {string} new_ - Replacement string
- * @param {number} count - Max replacements (-1 = all)
- * @returns {string} Modified string
- */
-export function replace(s, old, new_, count = -1) {
-    if (count < 0) {
-        return s.replaceAll(old, new_);
-    }
-    
-    let result = s;
-    let replaced = 0;
-    let pos = 0;
-    
-    while (replaced < count && (pos = result.indexOf(old, pos)) !== -1) {
-        result = result.slice(0, pos) + new_ + result.slice(pos + old.length);
-        pos += new_.length;
-        replaced++;
-    }
-    
-    return result;
 }
 
 // =============================================================================

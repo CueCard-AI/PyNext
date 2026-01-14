@@ -13,7 +13,7 @@ Tests for PyNext OpenTelemetry Backend Module.
 import asyncio
 import pytest
 
-from pynext.db.adapters.postgres_opentelemetry import (
+from pynext.db.adapters.postgres.observability.opentelemetry import (
     TraceContext,
     Span,
     SpanKind,
@@ -27,7 +27,7 @@ from pynext.db.adapters.postgres_opentelemetry import (
     create_otel_backend,
     get_current_trace_id,
 )
-from pynext.db.adapters.postgres_metrics import MetricsConfig
+from pynext.db.adapters.postgres.observability.metrics import MetricsConfig
 
 
 # ============================================================================
@@ -652,7 +652,7 @@ class TestOpenTelemetryBackend:
     
     def test_metrics_interface(self):
         """Test backend implements MetricsBackend interface."""
-        from pynext.db.adapters.postgres_metrics import MetricsBackend
+        from pynext.db.adapters.postgres.observability.metrics import MetricsBackend
         
         backend = OpenTelemetryBackend()
         assert isinstance(backend, MetricsBackend)
@@ -668,7 +668,7 @@ class TestTracingIntegration:
     @pytest.fixture(autouse=True)
     def reset_trace_context(self):
         """Reset trace context before each test to ensure isolation."""
-        from pynext.db.adapters.postgres_opentelemetry import _current_span, _trace_context
+        from pynext.db.adapters.postgres.observability.opentelemetry import _current_span, _trace_context
         # Reset both ContextVars
         _current_span.set(None)
         _trace_context.set(None)
